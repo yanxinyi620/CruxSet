@@ -17,9 +17,7 @@ exports.main = async event => {
   if (!holds.start.length || !holds.finish.length || (draft.footRule === 'specified' && !holds.foot.length)) throw new Error('INVALID_ROUTE_HOLDS')
   const ids = Object.values(holds).flat(); const known = new Set(layout.holds.map(hold => hold.id))
   if (new Set(ids).size !== ids.length || ids.some(id => !known.has(id))) throw new Error('INVALID_HOLD_ID')
-  const counter = await db.collection('counters').doc('problem_number').get()
-  const next = (counter.data?.value || 0) + 1; const number = `CS-${String(next).padStart(6, '0')}`
-  const id = `problem_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`; const now = Date.now()
-  await db.runTransaction(async transaction => { await transaction.collection('counters').doc('problem_number').set({ data: { value: next } }); await transaction.collection('problems').doc(id).set({ data: { ...draft, id, number, wallId, layoutId, layoutVersion: layout.version, footRule: draft.footRule || 'feet_follow', holds, createdBy: actor.id, createdAt: now, updatedAt: now } }) })
+  const id = `problem_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`; const now = Date.now(); let number
+  await db.runTransaction(async transaction => { const counter = await transaction.collection('counters').doc('problem_number').get(); const next = (counter.data?.value || 0) + 1; number = `CS-${String(next).padStart(6, '0')}`; await transaction.collection('counters').doc('problem_number').set({ data: { value: next } }); await transaction.collection('problems').doc(id).set({ data: { ...draft, id, number, wallId, layoutId, layoutVersion: layout.version, footRule: draft.footRule || 'feet_follow', holds, createdBy: actor.id, createdAt: now, updatedAt: now } }) })
   return { id, number }
 }
