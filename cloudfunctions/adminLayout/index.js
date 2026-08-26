@@ -13,7 +13,7 @@ const validateHolds = holds => {
   })
 }
 const validateLayoutData = data => {
-  if (!data || typeof data !== 'object' || !data.wallId || !data.name || !data.imageFileId) throw new Error('INVALID_LAYOUT_DATA')
+  if (!data || typeof data !== 'object' || !data.wallId || !data.name || !data.imageFileId || !Number.isFinite(data.imageWidth) || data.imageWidth <= 0 || !Number.isFinite(data.imageHeight) || data.imageHeight <= 0 || !['circle', 'polygon'].includes(data.geometryType)) throw new Error('INVALID_LAYOUT_DATA')
   validateHolds(data.holds)
 }
 
