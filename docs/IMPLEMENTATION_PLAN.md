@@ -73,14 +73,14 @@ Phase 1 完成前不得提前开发 Phase 2。每个任务均遵循：先测试�
 
 - [x] 定义五种线路角色与三个 Foot Rule，默认 `feet_follow`。
 - [x] 实现 Start、Finish、角度、难度、Hold ID 和 `specified` Foot 校验基础。
-- [ ] 实现角色工具栏、点击切换、再次点击取消和单 Hold 单角色迁移。
-- [ ] 实现至少覆盖 Add、Remove、Change Role 的 Undo。
+- [-] 实现角色工具栏、点击切换、再次点击取消和单 Hold 单角色迁移（领域状态已完成，待页面接线）。
+- [-] 实现至少覆盖 Add、Remove、Change Role 的 Undo（领域状态已完成，待页面接线）。
 - [ ] 实现 Clear 的二次确认。
 - [ ] 实现名称与不超过 500 字的说明输入。
 
 ### C2. 草稿与保存
 
-- [ ] 使用 `problemDraft:{layoutId}` 自动保存编辑草稿。
+- [-] 使用 `problemDraft:{layoutId}` 自动保存编辑草稿（领域序列化已完成，待页面接线）。
 - [ ] 页面恢复时提示继续或丢弃草稿。
 - [ ] 网络失败保留草稿，服务端保存成功后删除草稿。
 - [ ] 在 UI 中解释三种 Foot Rule 的手脚权限。
