@@ -166,7 +166,7 @@ Phase 1 Freeze 后才开始。
 - [ ] 完成 Mask 候选预览、Retry、审核和异常标记。
 - [ ] 使用 OpenCV 将 Mask 转换为简化 Polygon，并保持 Hold ID 不变。
 - [ ] 实现 500ms debounce 自动保存和 CloudBase Layout 兼容 JSON 导出。
-- [-] 小程序增加 BBox + Point-in-Polygon 两阶段命中（Point-in-Polygon 已兼容，Phase 2 BBox 优化待实现）。
+- [-] 小程序增加 BBox + Point-in-Polygon 两阶段命中（已实现 BBox 预过滤与 Point-in-Polygon，真实 Polygon 性能待验证）。
 - [ ] 迁移真实 Layout 并完成手机性能验证。
 
 最终门槛：完整规格第 90 节的 19 项 Definition of Done 全部通过，历史 Problem 无需迁移。

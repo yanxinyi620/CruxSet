@@ -1,7 +1,7 @@
 // 微信原生 Component 的动态 this 类型由开发者工具注入；领域模块保持严格类型。
 // @ts-nocheck
 import type { Hold, Layout } from '../../../src/domain/types.js'
-import { circleHitTest, nearestHold, pointInPolygon } from '../../../src/domain/geometry.js'
+import { circleHitTest, nearestHold, polygonHitTest } from '../../../src/domain/geometry.js'
 import { imageToScreen, screenToImage } from '../../../src/domain/transform.js'
 import { GestureController } from '../../../src/domain/gesture.js'
 
@@ -11,5 +11,5 @@ Component({ properties: { layout: { type: Object, value: null }, activeHolds: { 
   onTouchStart(e: WechatMiniprogram.TouchEvent) { this.gesture = new GestureController(this.data.transform); this.gesture.start(e.touches.map(t => ({ x: t.x, y: t.y })), Date.now()) },
   onTouchMove(e: WechatMiniprogram.TouchEvent) { if (!this.gesture) return; const result = this.gesture.move(e.touches.map(t => ({ x: t.x, y: t.y })), Date.now()); if (result.kind !== 'tap') { this.setData({ transform: result.transform }); this.render() } },
   onTouchEnd(e: WechatMiniprogram.TouchEvent) { if (this.gesture && e.changedTouches.length === 1) { const touch = e.changedTouches[0]; const result = this.gesture.move([{ x: touch.x, y: touch.y }], Date.now()); if (result.kind === 'tap') { const hold = this.hitTest(touch.x, touch.y); if (hold) this.triggerEvent('holdtap', { holdId: hold.id }) } } this.gesture?.end() },
-  hitTest(x: number, y: number): Hold | undefined { const layout = this.properties.layout as Layout; const image = screenToImage([x, y], this.data.transform); const point = [image[0] / layout.imageWidth, image[1] / layout.imageHeight] as const; const direct = layout.holds.find(h => h.polygon?.length ? pointInPolygon(point, h.polygon as [number,number][]) : circleHitTest(point, h)); return direct ?? nearestHold(point, layout.holds, 24 / this.data.transform.scale / layout.imageWidth) }
+  hitTest(x: number, y: number): Hold | undefined { const layout = this.properties.layout as Layout; const image = screenToImage([x, y], this.data.transform); const point = [image[0] / layout.imageWidth, image[1] / layout.imageHeight] as const; const direct = layout.holds.find(h => h.polygon?.length ? polygonHitTest(point, h) : circleHitTest(point, h)); return direct ?? nearestHold(point, layout.holds, 24 / this.data.transform.scale / layout.imageWidth) }
 } })
