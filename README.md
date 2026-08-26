@@ -20,6 +20,7 @@ Canvas 手势和线路编辑基础已完成；CloudBase 云函数、管理员标
 - [完整产品与技术规格](docs/CruxSet-微信小程序完整开发实施方案-v1.0.md)：权威需求来源
 - [开发实施计划](docs/IMPLEMENTATION_PLAN.md)：阶段、任务、当前状态和验收门槛
 - [架构说明](docs/architecture.md)：代码边界与运行方式
+- [CloudBase 配置清单](docs/cloudbase-setup.md)：环境、集合、索引与权限
 
 如文档存在冲突，以完整产品与技术规格为准。
 
