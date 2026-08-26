@@ -134,9 +134,9 @@ Phase 1 完成前不得提前开发 Phase 2。每个任务均遵循：先测试�
 ## Phase 1F — Admin Layout Editor
 
 - [ ] 实现管理员创建 Wall、上传图片与创建 Layout 流程。
-- [ ] 实现 Continuous Add Mode，连续创建 H001、H002……。
-- [ ] 默认 `kind = hold` 与默认 radius；支持 Hold/Volume 切换。
-- [ ] 实现移动中心、调整 radius、删除与至少 50 步 Undo。
+- [-] 实现 Continuous Add Mode，连续创建 H001、H002……（领域编辑器已完成，待页面接线）。
+- [-] 默认 `kind = hold` 与默认 radius；支持 Hold/Volume 切换（领域编辑器已完成，待页面接线）。
+- [-] 实现移动中心、调整 radius、删除与至少 50 步 Undo（领域编辑器已完成，待页面接线）。
 - [ ] 保证所有坐标以 0–1 保存，禁止保存屏幕像素。
 - [ ] 使用真实墙图人工标注至少 300 个 Hold 并验证性能。
 
