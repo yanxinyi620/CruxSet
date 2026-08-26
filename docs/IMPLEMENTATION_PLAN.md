@@ -118,13 +118,13 @@ Phase 1 完成前不得提前开发 Phase 2。每个任务均遵循：先测试�
 ## Phase 1E — Browse & Share
 
 - [-] 墙面列表和 Wall Detail 已有静态页面骨架。
-- [ ] 接入 Wall、历史/Active Layout 数据。
+- [-] 接入 Wall、历史/Active Layout 数据（Layout/Problem 服务已接入，Wall 查询与真实环境待完成）。
 - [-] 实现角度、难度筛选和当前上下文持久化（Demo 页面已接入筛选，云端上下文待完成）。
 - [x] 领域层支持编号/名称子串搜索及编号升序。
 - [-] 将搜索、上一条/下一条接入当前 Filtered Problems（领域层完成，Demo 页面已接入基础导航）。
 - [x] 领域层支持 Fisher–Yates 单轮不重复随机队列。
 - [-] 将随机训练会话接入页面，结果耗尽后重新洗牌（已接入 Demo 页面，待持久化会话与云端数据）。
-- [ ] 完成 Problem Detail 的墙图、图例、说明和 Foot Rule 中文显示。
+- [-] 完成 Problem Detail 的墙图、图例、说明和 Foot Rule 中文显示（说明、规则和分享已接入，详情 Canvas 待完成）。
 - [-] 分享入口已有骨架；已接入 Demo Problem ID，待 CloudBase 数据落地加载。
 
 验证：搜索、顺序和随机均不越过当前 Wall + Layout + Angle + Grade；分享链接可直达对应线路。
