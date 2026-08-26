@@ -31,6 +31,7 @@ Canvas 手势和线路编辑基础已完成；CloudBase 云函数、管理员标
 npm install
 npm test
 npm run build
+npm run verify:phase1
 ```
 
 使用微信开发者工具导入仓库根目录；工具会读取 `project.config.json`，小程序源码位于 `miniprogram/`。
