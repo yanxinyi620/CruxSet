@@ -1,51 +1,182 @@
-# CruxSet Phase 1 Implementation Plan
+# CruxSet 开发实施计划
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task.
+> 权威需求：[CruxSet 微信小程序完整开发实施方案 v1.0](./CruxSet-微信小程序完整开发实施方案-v1.0.md)。本文件只记录开发顺序、当前进度与验证门槛；如有冲突，以权威需求为准。
 
-**Goal:** Build a tested Phase 1 climbing-wall route management core that can later power a WeChat Mini Program.
+## 状态说明
 
-**Architecture:** Keep domain logic framework-independent and expose it through typed repository and selector APIs. Start with an in-memory adapter so the MVP is runnable without CloudBase; replace the adapter later without changing route rules.
+- `[x]` 已实现并通过自动检查。
+- `[-]` 已有基础实现，但尚未达到完整验收标准。
+- `[ ]` 尚未实现。
 
-**Tech Stack:** TypeScript, Vitest, npm.
+Phase 1 完成前不得提前开发 Phase 2。每个任务均遵循：先测试、再实现、运行 `npm test` 与 `npm run build`、更新进度。
+
+## 当前基线
+
+- [x] 微信原生小程序项目骨架与 TypeScript 检查
+- [x] Wall、Layout、Hold、Problem、User 领域类型
+- [x] Problem ID 与可见编号分离
+- [x] 默认 `feet_follow` 与三种 Foot Rule 基础校验
+- [x] 当前筛选结果的搜索、排序和不重复随机队列
+- [x] Circle/Polygon 基础命中和坐标变换纯函数
+- [-] 墙面列表、线路列表、详情、编辑和管理页面仅有页面骨架
+- [ ] CloudBase 环境、集合和云函数尚未接入
+- [ ] Canvas、手势、真实数据读写和真机验收尚未完成
 
 ---
 
-### Task 1: Bootstrap the TypeScript project
+## Phase 1A — Foundation
 
-**Files:** `package.json`, `tsconfig.json`, `vitest.config.ts`, `src/index.ts`
+### A1. 项目与共享类型
 
-- [ ] Create npm scripts `test`, `test:watch`, and `build`.
-- [ ] Configure strict TypeScript and Vitest.
-- [ ] Export the public domain API from `src/index.ts`.
-- [ ] Run `npm test` and `npm run build`.
+- [x] 初始化原生微信小程序、npm、Vitest 和严格 TypeScript。
+- [x] 定义独立的 `users.id`，业务模型不以 OpenID 作为外键。
+- [x] 定义 Wall、Layout、Hold、Problem 与 normalized coordinate 数据结构。
+- [ ] 将共享领域模块接入小程序构建流程，避免小程序页面复制类型和规则。
+- [ ] 增加稳定的 ID 生成器与 ID 前缀测试：`usr_`、`wall_`、`layout_`、`problem_`。
 
-### Task 2: Implement route domain rules
+### A2. CloudBase 基础
 
-**Files:** `src/domain/types.ts`, `src/domain/routes.ts`, `tests/routes.test.ts`
+- [ ] 配置真实小程序 AppID 与 CloudBase 环境 ID。
+- [ ] 建立 `users`、`walls`、`layouts`、`problems`、`admins`、`counters` 集合。
+- [ ] 编写最小开发种子数据：一面 Wall、一个 Layout、多个 Hold。
+- [ ] 记录集合索引、权限规则和环境初始化步骤。
 
-- [ ] Write failing tests for default `feet_follow`, validation, filtering, search, and number ordering.
-- [ ] Implement typed route creation and pure selectors.
-- [ ] Run the focused tests, then the full suite.
+验证：小程序可启动；类型检查通过；种子 Wall/Layout 可读取；业务记录中不存在 OpenID 外键。
 
-### Task 3: Implement non-repeating random sessions
+---
 
-**Files:** `src/domain/random.ts`, `tests/random.test.ts`
+## Phase 1B — Wall Canvas
 
-- [ ] Write a failing test proving one session emits each candidate once.
-- [ ] Implement Fisher-Yates with injectable RNG for deterministic tests.
-- [ ] Verify focused and full tests.
+### B1. Canvas 渲染
 
-### Task 4: Add in-memory persistence boundary
+- [ ] 创建 `wall-canvas` 组件，以 Canvas 2D 绘制墙图和 300–600 个 Hold。
+- [ ] 根据图片和画布尺寸计算 fit-width `minScale`，限制 `maxScale = minScale × 5`。
+- [ ] 使用统一角色色：Start 绿、Foot 黄、Hand 蓝、Assist 橙、Finish 紫。
+- [ ] 处理图片加载失败、空 Layout 和画布尺寸变化。
 
-**Files:** `src/repository/problem-repository.ts`, `src/repository/memory-repository.ts`, `tests/memory-repository.test.ts`
+### B2. 坐标与手势
 
-- [ ] Test create/list/get behavior and duplicate-number rejection.
-- [ ] Implement the adapter behind an interface.
-- [ ] Verify build and tests.
+- [x] 实现 `imageToScreen`、`screenToImage`、normalize、denormalize 和 anchor zoom 纯函数。
+- [x] 实现 Circle 命中、Polygon 基础命中与最近岩点选择。
+- [ ] 实现单指 Pan、双指 Pinch Zoom、短按 Tap 的手势状态机。
+- [ ] 使用移动不超过 8px、持续不超过 300ms 判断 Tap。
+- [ ] 将 15–25px 屏幕吸附半径按 scale 转换到图片坐标。
+- [ ] 完成重叠优先级：普通 Hold 优先于 Volume，其次最近中心、较小半径。
 
-### Task 5: Add MVP usage documentation
+验证：坐标往返误差接近 0；缩放锚点不漂移；缩放后仍能准确选择密集岩点；完成 Android 与 iPhone Canvas 真机检查。
 
-**Files:** `README.md`
+---
 
-- [ ] Document setup, test/build commands, domain rules, and the planned WeChat/CloudBase adapter boundary.
-- [ ] Run the final verification commands.
+## Phase 1C — Problem Editor
+
+### C1. 编辑状态
+
+- [x] 定义五种线路角色与三个 Foot Rule，默认 `feet_follow`。
+- [x] 实现 Start、Finish、角度、难度、Hold ID 和 `specified` Foot 校验基础。
+- [ ] 实现角色工具栏、点击切换、再次点击取消和单 Hold 单角色迁移。
+- [ ] 实现至少覆盖 Add、Remove、Change Role 的 Undo。
+- [ ] 实现 Clear 的二次确认。
+- [ ] 实现名称与不超过 500 字的说明输入。
+
+### C2. 草稿与保存
+
+- [ ] 使用 `problemDraft:{layoutId}` 自动保存编辑草稿。
+- [ ] 页面恢复时提示继续或丢弃草稿。
+- [ ] 网络失败保留草稿，服务端保存成功后删除草稿。
+- [ ] 在 UI 中解释三种 Foot Rule 的手脚权限。
+
+验证：五种角色颜色一致；角色冲突不会产生重复 Hold ID；退出或网络失败不丢线路；所有校验组合有自动测试。
+
+---
+
+## Phase 1D — Cloud Functions
+
+### D1. 用户与权限
+
+- [ ] 实现 `login`：OPENID 只用于查找/创建 User，返回 `users.id`。
+- [ ] 实现 `admins` 的 userId 鉴权，前端隐藏入口但不承担安全判断。
+- [ ] 增加身份测试，证明业务表不保存 OpenID 外键。
+
+### D2. Problem 写操作
+
+- [ ] 实现 `saveProblem` 服务端完整校验。
+- [ ] 使用事务更新 `counters/problem_number`，生成唯一 `CS-000001` 编号。
+- [ ] 创建时生成不可变 `problem_xxx` ID，确保 ID 不等于编号。
+- [ ] 实现 `deleteProblem`，仅创建者或管理员可删除。
+- [ ] 对云函数返回统一的用户可读错误码。
+
+### D3. Layout 管理
+
+- [ ] 实现 `adminLayout` 的 createWall、createLayout、updateLayout、publishLayout。
+- [ ] 重新装点必须新建 Layout；小修订只增加 version。
+- [ ] 保存原图与 1600–2048px 日常展示图的文件 ID。
+
+验证：并发创建线路编号不重复；伪造 userId、Hold ID、Wall/Layout、角度或难度均被服务端拒绝。
+
+---
+
+## Phase 1E — Browse & Share
+
+- [-] 墙面列表和 Wall Detail 已有静态页面骨架。
+- [ ] 接入 Wall、历史/Active Layout 数据。
+- [ ] 实现角度、难度筛选和当前上下文持久化。
+- [x] 领域层支持编号/名称子串搜索及编号升序。
+- [ ] 将搜索、上一条/下一条接入当前 Filtered Problems。
+- [x] 领域层支持 Fisher–Yates 单轮不重复随机队列。
+- [ ] 将随机训练会话接入页面，结果耗尽后重新洗牌。
+- [ ] 完成 Problem Detail 的墙图、图例、说明和 Foot Rule 中文显示。
+- [-] 分享入口已有骨架；待接入真实 Problem ID 与分享落地加载。
+
+验证：搜索、顺序和随机均不越过当前 Wall + Layout + Angle + Grade；分享链接可直达对应线路。
+
+---
+
+## Phase 1F — Admin Layout Editor
+
+- [ ] 实现管理员创建 Wall、上传图片与创建 Layout 流程。
+- [ ] 实现 Continuous Add Mode，连续创建 H001、H002……。
+- [ ] 默认 `kind = hold` 与默认 radius；支持 Hold/Volume 切换。
+- [ ] 实现移动中心、调整 radius、删除与至少 50 步 Undo。
+- [ ] 保证所有坐标以 0–1 保存，禁止保存屏幕像素。
+- [ ] 使用真实墙图人工标注至少 300 个 Hold 并验证性能。
+
+验证：连续标点不弹窗打断；刷新后 Hold ID、位置、半径和版本保持正确。
+
+---
+
+## Phase 1G — Release
+
+- [ ] 完成加载、空状态、网络失败、权限失败和保存失败反馈。
+- [ ] 按 `layout:{layoutId}:{version}` 实现 Layout 缓存与失效。
+- [ ] 补齐产品规则、数据模型、架构和人工测试文档。
+- [ ] 在至少一台 Android 和一台 iPhone 完成规格中的真机清单。
+- [ ] 修复阻塞问题，生成微信体验版并完成 Phase 1 Freeze。
+
+最终门槛：完整规格第 70 节的 38 项 Definition of Done 全部通过。
+
+---
+
+## Phase 2 — Local Vision Annotator
+
+Phase 1 Freeze 后才开始。
+
+- [ ] 创建 Python 3.11 + FastAPI 本地标注工具。
+- [ ] 集成 MobileSAM，单张图片只计算一次 embedding。
+- [ ] 使用既有 Hold Center 作为 Point Prompt，不进行全图自动检测。
+- [ ] 完成 Mask 候选预览、Retry、审核和异常标记。
+- [ ] 使用 OpenCV 将 Mask 转换为简化 Polygon，并保持 Hold ID 不变。
+- [ ] 实现 500ms debounce 自动保存和 CloudBase Layout 兼容 JSON 导出。
+- [ ] 小程序增加 BBox + Point-in-Polygon 两阶段命中。
+- [ ] 迁移真实 Layout 并完成手机性能验证。
+
+最终门槛：完整规格第 90 节的 19 项 Definition of Done 全部通过，历史 Problem 无需迁移。
+
+## 每次交付检查
+
+```bash
+npm test
+npm run build
+git status --short
+```
+
+每次汇报必须包含：完成任务、修改文件、测试结果、未解决问题和下一任务。
