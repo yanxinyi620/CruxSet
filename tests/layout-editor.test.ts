@@ -15,3 +15,9 @@ it('moves and resizes an existing hold with normalized coordinates', () => {
   editor.move('H001', 1.2, -.2); editor.resize('H001', .5)
   expect(editor.value()[0]).toMatchObject({ x: 1, y: 0, radius: .5 })
 })
+
+it('does not reuse a hold id after deletion', () => {
+  const editor = new LayoutEditor([])
+  editor.add({ x: .1, y: .1 }); editor.add({ x: .2, y: .2 }); editor.remove('H001')
+  expect(editor.add({ x: .3, y: .3 }).id).toBe('H003')
+})
