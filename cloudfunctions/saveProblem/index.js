@@ -11,7 +11,7 @@ exports.main = async event => {
   const [wallResult, layoutResult] = await Promise.all([db.collection('walls').doc(wallId).get(), db.collection('layouts').doc(layoutId).get()])
   const wall = wallResult.data; const layout = layoutResult.data
   if (!wall || !layout || layout.wallId !== wallId) throw new Error('INVALID_WALL_LAYOUT')
-  if (!wall.angleOptions.includes(draft.angle) || !validGrades.has(draft.grade)) throw new Error('INVALID_ROUTE_METADATA')
+  if (!wall.angleOptions.includes(draft.angle) || !validGrades.has(draft.grade) || (draft.description && draft.description.length > 500)) throw new Error('INVALID_ROUTE_METADATA')
   if (!['feet_follow', 'specified', 'all'].includes(draft.footRule || 'feet_follow')) throw new Error('INVALID_FOOT_RULE')
   const holds = Object.fromEntries(roles.map(role => [role, [...(draft.holds?.[role] || [])]]))
   if (!holds.start.length || !holds.finish.length || (draft.footRule === 'specified' && !holds.foot.length)) throw new Error('INVALID_ROUTE_HOLDS')

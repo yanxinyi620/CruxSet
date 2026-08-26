@@ -8,3 +8,5 @@
 - `adminLayout`：管理员管理 Wall/Layout
 
 云函数必须从数据库重新读取 Wall、Layout、User 和 Admin，不能信任客户端传入的权限或 Hold 数据。
+
+错误码使用大写稳定字符串（如 `LOGIN_REQUIRED`、`FORBIDDEN`、`INVALID_HOLD_ID`），小程序端负责将错误码映射为用户可读提示。
