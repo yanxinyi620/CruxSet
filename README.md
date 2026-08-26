@@ -43,6 +43,8 @@ npm run build
 
 不要把私有环境配置或密钥提交到仓库。
 
+集合与字段见 [数据模型](docs/data-model.md)，业务约束见 [产品规则](docs/product-rules.md)，真机检查见 [人工测试清单](docs/manual-test.md)。
+
 ## 核心规则
 
 - Problem 只引用 Hold ID，不保存屏幕坐标。
