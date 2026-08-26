@@ -1,0 +1,3 @@
+const cloud = require('wx-server-sdk')
+cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
+exports.main = async event => { const db = cloud.database(); const { OPENID: openid } = cloud.getWXContext(); const user = await db.collection('users').where({ openid }).limit(1).get(); if (!user.data.length) throw new Error('LOGIN_REQUIRED'); const admin = await db.collection('admins').where({ userId: user.data[0].id }).limit(1).get(); if (!admin.data.length) throw new Error('FORBIDDEN'); if (!['createWall','createLayout','updateLayout','publishLayout'].includes(event.action)) throw new Error('INVALID_ACTION'); return { ok: true, action: event.action } }

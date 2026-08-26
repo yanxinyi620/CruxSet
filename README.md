@@ -13,7 +13,7 @@ CruxSet 是用于数字化真实攀岩墙的微信原生小程序，目标是在
 - Circle/Polygon 基础命中与坐标变换
 - TypeScript 和 Vitest 自动检查
 
-Canvas 手势、线路编辑器、CloudBase 云函数、管理员标点工具和真机验收仍在开发中。准确进度见 [实施计划](docs/IMPLEMENTATION_PLAN.md)。
+Canvas 手势和线路编辑基础已完成；CloudBase 云函数、管理员标点工具和真机验收仍在开发中。准确进度见 [实施计划](docs/IMPLEMENTATION_PLAN.md)。
 
 ## 文档
 
@@ -57,7 +57,7 @@ npm run build
 
 ```text
 miniprogram/       微信原生小程序
-cloudfunctions/    CloudBase 云函数（后续任务）
+cloudfunctions/    CloudBase 云函数入口
 src/domain/        可测试的共享领域规则
 src/repository/    数据访问边界
 tests/             自动测试

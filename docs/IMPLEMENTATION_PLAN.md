@@ -93,21 +93,21 @@ Phase 1 完成前不得提前开发 Phase 2。每个任务均遵循：先测试�
 
 ### D1. 用户与权限
 
-- [ ] 实现 `login`：OPENID 只用于查找/创建 User，返回 `users.id`。
+- [-] 实现 `login`：OPENID 只用于查找/创建 User，返回 `users.id`（云函数入口已建立，待真实环境部署验证）。
 - [ ] 实现 `admins` 的 userId 鉴权，前端隐藏入口但不承担安全判断。
 - [ ] 增加身份测试，证明业务表不保存 OpenID 外键。
 
 ### D2. Problem 写操作
 
-- [ ] 实现 `saveProblem` 服务端完整校验。
-- [ ] 使用事务更新 `counters/problem_number`，生成唯一 `CS-000001` 编号。
-- [ ] 创建时生成不可变 `problem_xxx` ID，确保 ID 不等于编号。
-- [ ] 实现 `deleteProblem`，仅创建者或管理员可删除。
+- [-] 实现 `saveProblem` 服务端完整校验（入口与基础校验已建立，待真实环境验证）。
+- [-] 使用事务更新 `counters/problem_number`，生成唯一 `CS-000001` 编号（入口已建立，待真实环境验证）。
+- [-] 创建时生成不可变 `problem_xxx` ID，确保 ID 不等于编号（入口已建立，待真实环境验证）。
+- [-] 实现 `deleteProblem`，仅创建者或管理员可删除（入口已建立，待真实环境验证）。
 - [ ] 对云函数返回统一的用户可读错误码。
 
 ### D3. Layout 管理
 
-- [ ] 实现 `adminLayout` 的 createWall、createLayout、updateLayout、publishLayout。
+- [-] 实现 `adminLayout` 的 createWall、createLayout、updateLayout、publishLayout（鉴权入口已建立，具体操作待真实环境接入）。
 - [ ] 重新装点必须新建 Layout；小修订只增加 version。
 - [ ] 保存原图与 1600–2048px 日常展示图的文件 ID。
 

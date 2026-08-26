@@ -1,0 +1,3 @@
+const cloud = require('wx-server-sdk')
+cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
+exports.main = async ({ id }) => { const { OPENID: openid } = cloud.getWXContext(); const db = cloud.database(); const user = await db.collection('users').where({ openid }).limit(1).get(); if (!user.data.length) throw new Error('LOGIN_REQUIRED'); const admins = await db.collection('admins').where({ userId: user.data[0].id }).limit(1).get(); const problem = await db.collection('problems').doc(id).get(); if (!problem.data || (problem.data.createdBy !== user.data[0].id && !admins.data.length)) throw new Error('FORBIDDEN'); await db.collection('problems').doc(id).remove(); return { ok: true } }
