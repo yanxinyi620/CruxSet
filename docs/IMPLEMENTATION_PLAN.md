@@ -147,7 +147,7 @@ Phase 1 完成前不得提前开发 Phase 2。每个任务均遵循：先测试�
 ## Phase 1G — Release
 
 - [-] 完成加载、空状态、网络失败、权限失败和保存失败反馈（主要页面已覆盖，发布前需统一审查）。
-- [ ] 按 `layout:{layoutId}:{version}` 实现 Layout 缓存与失效。
+- [-] 按 `layout:{layoutId}:{version}` 实现 Layout 缓存与失效（工具与小程序读取已完成，真实数据验证待完成）。
 - [ ] 补齐产品规则、数据模型、架构和人工测试文档。
 - [ ] 在至少一台 Android 和一台 iPhone 完成规格中的真机清单。
 - [ ] 修复阻塞问题，生成微信体验版并完成 Phase 1 Freeze。
