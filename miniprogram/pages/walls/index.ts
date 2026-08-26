@@ -1,1 +1,1 @@
-Page({data:{walls:[{id:'wall_001',name:'日坛 Spraywall',layoutName:'2026-08 Layout',angles:[20,25,30,35,40,45]}]},openWall(e:WechatMiniprogram.BaseEvent){wx.navigateTo({url:`/pages/wall/index?id=${e.currentTarget.dataset.id}`})}})
+Page({data:{walls:[{id:'wall_demo',name:'日坛 Spraywall',layoutName:'2026-08 Layout',angles:[20,25,30,35,40,45]}]},openWall(e:WechatMiniprogram.BaseEvent){wx.navigateTo({url:`/pages/wall/index?id=${e.currentTarget.dataset.id}`})}})
