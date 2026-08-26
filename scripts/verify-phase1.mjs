@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process'
 import { join } from 'node:path'
 import process from 'node:process'
 const root=process.cwd()
-const required=['project.config.json','miniprogram/app.json','miniprogram/app.ts','miniprogram/sitemap.json','docs/IMPLEMENTATION_PLAN.md','docs/manual-test.md','docs/cloudbase-setup.md','config/cloudbase.collections.json','cloudfunctions/login/index.js','cloudfunctions/saveProblem/index.js','cloudfunctions/deleteProblem/index.js','cloudfunctions/adminLayout/index.js']
+const required=['project.config.json','miniprogram/app.json','miniprogram/app.ts','miniprogram/sitemap.json','docs/IMPLEMENTATION_PLAN.md','docs/manual-test.md','docs/cloudbase-setup.md','config/cloudbase.collections.json','config/cloudbase.rules.json','cloudfunctions/login/index.js','cloudfunctions/saveProblem/index.js','cloudfunctions/deleteProblem/index.js','cloudfunctions/adminLayout/index.js']
 const missing=required.filter(file=>!existsSync(join(root,file)))
 const config=JSON.parse(readFileSync(join(root,'project.config.json'),'utf8'))
 const schema=JSON.parse(readFileSync(join(root,'config/cloudbase.collections.json'),'utf8'))

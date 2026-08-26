@@ -13,6 +13,8 @@
 
 创建 `users`、`walls`、`layouts`、`problems`、`admins`、`counters` 六个集合。建议索引：`users.openid` 唯一，`layouts.wallId + version`，`problems.wallId + layoutId + angle + grade`，`problems.number` 升序，`admins.userId` 唯一。
 
+客户端权限策略记录在 [`config/cloudbase.rules.json`](../config/cloudbase.rules.json)：客户端只读 `walls`、`layouts`、`problems`，所有写入必须经过云函数。
+
 ## 权限原则
 
 - 客户端不直接写 `problems`、`layouts`、`admins`、`counters`。
