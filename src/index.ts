@@ -1,5 +1,7 @@
 export * from './domain/types.js'
 export * from './domain/routes.js'
 export * from './domain/random.js'
+export * from './domain/geometry.js'
+export * from './domain/transform.js'
 export * from './repository/problem-repository.js'
 export * from './repository/memory-repository.js'

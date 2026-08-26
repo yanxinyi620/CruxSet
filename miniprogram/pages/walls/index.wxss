@@ -1,0 +1,1 @@
+.wall{position:relative}.wall-name{font-size:38rpx;font-weight:700;margin-bottom:10rpx}.angles{margin-top:28rpx;font-size:24rpx;color:#4b5846}.arrow{position:absolute;right:30rpx;top:48rpx;font-size:42rpx}

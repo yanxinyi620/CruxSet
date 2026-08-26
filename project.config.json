@@ -1,0 +1,1 @@
+{"description":"CruxSet 微信小程序","miniprogramRoot":"miniprogram/","cloudfunctionRoot":"cloudfunctions/","setting":{"es6":true,"enhance":true,"postcss":true,"minified":true},"compileType":"miniprogram","appid":"touristappid","projectname":"CruxSet"}
