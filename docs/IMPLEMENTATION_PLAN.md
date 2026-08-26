@@ -56,7 +56,7 @@ Phase 1 完成前不得提前开发 Phase 2。每个任务均遵循：先测试�
 
 ### B2. 坐标与手势
 
-- [x] 实现 `imageToScreen`、`screenToImage`、normalize、denormalize 和 anchor zoom 纯函数。
+- [x] 实现 `imageToScreen`、`screenToImage`、normalize、denormalize、anchor zoom 和 Pan 边界夹紧纯函数。
 - [x] 实现 Circle 命中、Polygon 基础命中与最近岩点选择。
 - [-] 实现单指 Pan、双指 Pinch Zoom、短按 Tap 的手势状态机（已接入 Canvas，并以当前 fit-width scale 作为缩放下限，待真机接线验证）。
 - [x] 使用移动不超过 8px、持续不超过 300ms 判断 Tap。
