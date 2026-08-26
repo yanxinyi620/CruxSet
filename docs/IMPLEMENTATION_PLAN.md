@@ -49,7 +49,7 @@ Phase 1 完成前不得提前开发 Phase 2。每个任务均遵循：先测试�
 
 ### B1. Canvas 渲染
 
-- [-] 创建 `wall-canvas` 组件，以 Canvas 2D 绘制墙图和 Hold（组件已建立，300–600 个 Hold 性能待真机验证）。
+- [-] 创建 `wall-canvas` 组件，以 Canvas 2D 绘制墙图和 Hold（组件已建立，并补齐异步 Layout 更新后的重绘；300–600 个 Hold 性能待真机验证）。
 - [-] 根据图片和画布尺寸计算 fit-width `minScale`，限制 `maxScale = minScale × 5`（Canvas 已按容器宽度初始化基础缩放与 DPR，手势动态尺寸待真机验证）。
 - [x] 使用统一角色色：Start 绿、Foot 黄、Hand 蓝、Assist 橙、Finish 紫。
 - [-] 处理图片加载失败、空 Layout 和画布尺寸变化（加载失败/空 Layout 已处理，尺寸变化待真机验证）。
