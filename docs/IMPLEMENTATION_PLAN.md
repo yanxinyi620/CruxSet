@@ -36,7 +36,7 @@ Phase 1 完成前不得提前开发 Phase 2。每个任务均遵循：先测试�
 
 ### A2. CloudBase 基础
 
-- [ ] 配置真实小程序 AppID 与 CloudBase 环境 ID。
+- [-] 配置真实小程序 AppID 与 CloudBase 环境 ID（小程序服务层已建立，真实环境待配置）。
 - [ ] 建立 `users`、`walls`、`layouts`、`problems`、`admins`、`counters` 集合。
 - [ ] 编写最小开发种子数据：一面 Wall、一个 Layout、多个 Hold。
 - [ ] 记录集合索引、权限规则和环境初始化步骤。
@@ -93,13 +93,13 @@ Phase 1 完成前不得提前开发 Phase 2。每个任务均遵循：先测试�
 
 ### D1. 用户与权限
 
-- [-] 实现 `login`：OPENID 只用于查找/创建 User，返回 `users.id`（云函数入口已建立，待真实环境部署验证）。
+- [-] 实现 `login`：OPENID 只用于查找/创建 User，返回 `users.id`（云函数与小程序调用服务已建立，待真实环境部署验证）。
 - [ ] 实现 `admins` 的 userId 鉴权，前端隐藏入口但不承担安全判断。
 - [ ] 增加身份测试，证明业务表不保存 OpenID 外键。
 
 ### D2. Problem 写操作
 
-- [-] 实现 `saveProblem` 服务端完整校验（入口与基础校验已建立，待真实环境验证）。
+- [-] 实现 `saveProblem` 服务端完整校验（入口、小程序调用服务与基础校验已建立，编辑页已调用，待真实环境验证）。
 - [-] 使用事务更新 `counters/problem_number`，生成唯一 `CS-000001` 编号（入口已建立，待真实环境验证）。
 - [-] 创建时生成不可变 `problem_xxx` ID，确保 ID 不等于编号（入口已建立，待真实环境验证）。
 - [-] 实现 `deleteProblem`，仅创建者或管理员可删除（入口已建立，待真实环境验证）。
