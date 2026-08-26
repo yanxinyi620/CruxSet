@@ -118,7 +118,7 @@ Phase 1 完成前不得提前开发 Phase 2。每个任务均遵循：先测试�
 ## Phase 1E — Browse & Share
 
 - [-] 墙面列表和 Wall Detail 已有静态页面骨架。
-- [-] 接入 Wall、历史/Active Layout 数据（Layout/Problem 服务已接入，Wall 查询与真实环境待完成）。
+- [-] 接入 Wall、历史/Active Layout 数据（首页 Wall 服务与 Layout/Problem 读取已建立，真实环境验证待完成）。
 - [-] 实现角度、难度筛选和当前上下文持久化（Demo 页面已接入筛选，云端上下文待完成）。
 - [x] 领域层支持编号/名称子串搜索及编号升序。
 - [-] 将搜索、上一条/下一条接入当前 Filtered Problems（领域层完成，Demo 页面已接入基础导航）。
@@ -133,7 +133,7 @@ Phase 1 完成前不得提前开发 Phase 2。每个任务均遵循：先测试�
 
 ## Phase 1F — Admin Layout Editor
 
-- [-] 实现管理员创建 Wall、上传图片与创建 Layout 流程（编辑页骨架已接入，待 CloudBase）。
+- [-] 实现管理员创建 Wall、上传图片与创建 Layout 流程（编辑页、图片上传与草稿已接入，真实 CloudBase 操作待验证）。
 - [-] 实现 Continuous Add Mode，连续创建 H001、H002……（领域与页面已接入，待真实 Canvas 点位与图片）。
 - [-] 默认 `kind = hold` 与默认 radius；支持 Hold/Volume 切换（领域与页面已接入，待真实 Canvas 点位）。
 - [-] 实现移动中心、调整 radius、删除与至少 50 步 Undo（删除/Undo/归一化点选/位置与半径控件已接入，待真机验证）。
