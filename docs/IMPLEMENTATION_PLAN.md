@@ -18,9 +18,9 @@ Phase 1 完成前不得提前开发 Phase 2。每个任务均遵循：先测试�
 - [x] 默认 `feet_follow` 与三种 Foot Rule 基础校验
 - [x] 当前筛选结果的搜索、排序和不重复随机队列
 - [x] Circle/Polygon 基础命中和坐标变换纯函数
-- [-] 墙面列表、线路列表、详情、编辑和管理页面仅有页面骨架
-- [ ] CloudBase 环境、集合和云函数尚未接入
-- [ ] Canvas、手势、真实数据读写和真机验收尚未完成
+- [-] 墙面列表、线路列表、详情、编辑和管理页面已具备 Demo/服务接入，仍待线上数据完善
+- [-] CloudBase 服务、集合声明和云函数入口已建立，真实环境尚未部署
+- [-] Canvas、手势和真实数据读写已具备基础实现，真机验收尚未完成
 
 ---
 
@@ -49,18 +49,18 @@ Phase 1 完成前不得提前开发 Phase 2。每个任务均遵循：先测试�
 
 ### B1. Canvas 渲染
 
-- [ ] 创建 `wall-canvas` 组件，以 Canvas 2D 绘制墙图和 300–600 个 Hold。
-- [ ] 根据图片和画布尺寸计算 fit-width `minScale`，限制 `maxScale = minScale × 5`。
-- [ ] 使用统一角色色：Start 绿、Foot 黄、Hand 蓝、Assist 橙、Finish 紫。
-- [ ] 处理图片加载失败、空 Layout 和画布尺寸变化。
+- [-] 创建 `wall-canvas` 组件，以 Canvas 2D 绘制墙图和 Hold（组件已建立，300–600 个 Hold 性能待真机验证）。
+- [-] 根据图片和画布尺寸计算 fit-width `minScale`，限制 `maxScale = minScale × 5`（手势控制器已具备范围，Canvas 尺寸适配待完善）。
+- [x] 使用统一角色色：Start 绿、Foot 黄、Hand 蓝、Assist 橙、Finish 紫。
+- [-] 处理图片加载失败、空 Layout 和画布尺寸变化（加载失败/空 Layout 已处理，尺寸变化待真机验证）。
 
 ### B2. 坐标与手势
 
 - [x] 实现 `imageToScreen`、`screenToImage`、normalize、denormalize 和 anchor zoom 纯函数。
 - [x] 实现 Circle 命中、Polygon 基础命中与最近岩点选择。
 - [-] 实现单指 Pan、双指 Pinch Zoom、短按 Tap 的手势状态机（领域控制器已完成，待真机接线验证）。
-- [ ] 使用移动不超过 8px、持续不超过 300ms 判断 Tap。
-- [ ] 将 15–25px 屏幕吸附半径按 scale 转换到图片坐标。
+- [x] 使用移动不超过 8px、持续不超过 300ms 判断 Tap。
+- [x] 将 15–25px 屏幕吸附半径按 scale 转换到图片坐标。
 - [-] 完成重叠优先级：普通 Hold 优先于 Volume，其次最近中心、较小半径（领域命中已完成，待 Canvas 真实场景验证）。
 
 验证：坐标往返误差接近 0；缩放锚点不漂移；缩放后仍能准确选择密集岩点；完成 Android 与 iPhone Canvas 真机检查。
