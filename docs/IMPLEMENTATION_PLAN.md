@@ -99,7 +99,7 @@ Phase 1 完成前不得提前开发 Phase 2。每个任务均遵循：先测试�
 
 ### D2. Problem 写操作
 
-- [-] 实现 `saveProblem` 服务端完整校验（入口、小程序调用服务与基础校验已建立，编辑页已调用，待真实环境验证）。
+- [-] 实现 `saveProblem` 服务端完整校验（入口、小程序调用服务与基础校验已建立，编辑页已调用并传递当前 Wall/Layout，待真实环境验证）。
 - [-] 使用事务更新 `counters/problem_number`，生成唯一 `CS-000001` 编号（入口已建立，待真实环境验证）。
 - [-] 创建时生成不可变 `problem_xxx` ID，确保 ID 不等于编号（入口已建立，待真实环境验证）。
 - [-] 实现 `deleteProblem`，仅创建者或管理员可删除（入口已建立，待真实环境验证）。
@@ -124,7 +124,7 @@ Phase 1 完成前不得提前开发 Phase 2。每个任务均遵循：先测试�
 - [-] 将搜索、上一条/下一条接入当前 Filtered Problems（领域层完成，Demo 页面已接入基础导航）。
 - [x] 领域层支持 Fisher–Yates 单轮不重复随机队列。
 - [-] 将随机训练会话接入页面，结果耗尽后重新洗牌（已接入 Demo 页面，待持久化会话与云端数据）。
-- [-] 完成 Problem Detail 的墙图、图例、说明和 Foot Rule 中文显示（真实 Problem/Layout 动态读取与详情 Canvas 已接入，图例和真实环境待完成）。
+- [-] 完成 Problem Detail 的墙图、图例、说明和 Foot Rule 中文显示（真实 Problem/Layout 动态读取、详情 Canvas 和 Foot Rule 动态说明已接入，图例和真实环境待完成）。
 - [-] 分享入口已有骨架；已接入 Demo Problem ID，待 CloudBase 数据落地加载。
 
 验证：搜索、顺序和随机均不越过当前 Wall + Layout + Angle + Grade；分享链接可直达对应线路。
