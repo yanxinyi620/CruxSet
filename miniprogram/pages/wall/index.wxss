@@ -1,2 +1,2 @@
 .wall-title{font-size:46rpx;margin-bottom:28rpx}.chips{white-space:nowrap;margin-bottom:18rpx}.chip{display:inline-block;padding:14rpx 24rpx;border-radius:999rpx;background:#e7e8e1;margin-right:12rpx;font-size:26rpx}.active{background:#192018;color:#fff}.search{background:#fff;border-radius:20rpx;padding:24rpx 28rpx;margin:24rpx 0}.empty{text-align:center;color:#8a9186;padding:100rpx 0}
-.canvas-wrap{height:720rpx;border-radius:28rpx;overflow:hidden;margin-bottom:24rpx}
+.canvas-wrap{height:720rpx;border-radius:28rpx;overflow:hidden;margin-bottom:24rpx}.problem{position:relative}.problem-number{font-size:32rpx;font-weight:700}.random{margin-bottom:16rpx;background:#192018;color:#fff}
