@@ -37,7 +37,7 @@ Phase 1 完成前不得提前开发 Phase 2。每个任务均遵循：先测试�
 ### A2. CloudBase 基础
 
 - [-] 配置真实小程序 AppID 与 CloudBase 环境 ID（小程序服务层已建立，真实环境待配置）。
-- [-] 建立 `users`、`walls`、`layouts`、`problems`、`admins`、`counters` 集合（配置清单已文档化，真实环境待执行）。
+- [-] 建立 `users`、`walls`、`layouts`、`problems`、`admins`、`counters` 集合（机器可读声明与配置清单已建立，真实环境待执行）。
 - [x] 编写最小开发种子数据：一面 Wall、一个 Layout、多个 Hold。
 - [-] 记录集合索引、权限规则和环境初始化步骤（基础文档已建立，真实环境索引/权限待配置）。
 
