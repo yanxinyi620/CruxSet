@@ -7,7 +7,7 @@
 3. 创建 CloudBase 环境，将环境 ID 配入 `wx.cloud.init`。
 4. 分别为 `login`、`saveProblem`、`deleteProblem`、`adminLayout` 安装各目录的 `wx-server-sdk` 依赖并部署。
 
-部署前在项目根目录执行 `npm run verify:phase1`；该命令会检查云函数 JavaScript 语法和依赖声明。
+部署前在项目根目录执行 `npm run verify:phase1`；该命令会检查云函数 JavaScript 语法和依赖声明。正式发布使用 `npm run verify:phase1 -- --release`，会强制要求真实 AppID。
 
 ## 集合与索引
 

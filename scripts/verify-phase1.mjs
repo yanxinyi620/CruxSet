@@ -10,5 +10,6 @@ const schema=JSON.parse(readFileSync(join(root,'config/cloudbase.collections.jso
 const expected=['users','walls','layouts','problems','admins','counters']
 if(expected.some(name=>!schema.collections.some(collection=>collection.name===name))){console.error('FAIL: CloudBase collection declaration is incomplete');process.exitCode=1}
 for(const fn of ['login','saveProblem','deleteProblem','adminLayout']){try{execFileSync(process.execPath,['--check',join(root,'cloudfunctions',fn,'index.js')],{stdio:'pipe'});const pkg=JSON.parse(readFileSync(join(root,'cloudfunctions',fn,'package.json'),'utf8'));if(!pkg.dependencies?.['wx-server-sdk'])throw new Error('wx-server-sdk is not declared')}catch(error){console.error(`FAIL: cloudfunction ${fn} is not deployable: ${error.message}`);process.exitCode=1}}
-if(config.appid==='touristappid'||!config.appid) console.warn('WARN: project.config.json still uses a test AppID')
+const release=process.argv.includes('--release')
+if(config.appid==='touristappid'||!config.appid){if(release){console.error('FAIL: release verification requires a real AppID');process.exitCode=1}else console.warn('WARN: project.config.json still uses a test AppID')}
 if(missing.length){console.error(`FAIL: missing ${missing.join(', ')}`);process.exitCode=1}else console.log('PASS: Phase 1 structure and CloudBase entrypoints are present')
