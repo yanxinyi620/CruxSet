@@ -150,7 +150,7 @@ Phase 1 完成前不得提前开发 Phase 2。每个任务均遵循：先测试�
 - [-] 按 `layout:{layoutId}:{version}` 实现 Layout 缓存与失效（客户端已按指定版本读取并缓存，真实数据验证待完成）。
 - [x] 补齐产品规则、数据模型、架构和人工测试文档。
 - [ ] 在至少一台 Android 和一台 iPhone 完成规格中的真机清单。
-- [-] 修复阻塞问题，生成微信体验版并完成 Phase 1 Freeze（本地结构、页面入口、权限语义、sitemap 与 `--release` AppID 门禁已建立；真实 AppID、CloudBase 和真机仍待完成）。
+- [-] 修复阻塞问题，生成微信体验版并完成 Phase 1 Freeze（本地结构、页面入口、权限语义、不可变 Layout 发布流程、sitemap 与 `--release` AppID 门禁已建立；真实 AppID、CloudBase 和真机仍待完成）。
 
 最终门槛：完整规格第 70 节的 38 项 Definition of Done 全部通过。
 
