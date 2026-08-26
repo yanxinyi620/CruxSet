@@ -133,7 +133,7 @@ Phase 1 完成前不得提前开发 Phase 2。每个任务均遵循：先测试�
 
 ## Phase 1F — Admin Layout Editor
 
-- [-] 实现管理员创建 Wall、上传图片与创建 Layout 流程（编辑页、远端/本地墙图显示、图片上传、草稿及 `publishLayout` 发布调用已接入，真实 CloudBase 操作待验证）。
+- [-] 实现管理员创建 Wall、上传图片与创建 Layout 流程（新增 Admin Setup 页面，选图读取真实尺寸，创建后进入标注页；远端/本地墙图显示、图片上传、草稿及 `publishLayout` 已接入，真实 CloudBase 操作待验证）。
 - [-] 实现 Continuous Add Mode，连续创建 H001、H002……（领域与页面已接入，编号按历史最大值递增，待真实 Canvas 点位与图片）。
 - [-] 默认 `kind = hold` 与默认 radius；支持 Hold/Volume 切换（领域与页面已接入，待真实 Canvas 点位）。
 - [-] 实现移动中心、调整 radius、删除与至少 50 步 Undo（删除/Undo/归一化点选/位置与半径控件已接入，待真机验证）。
