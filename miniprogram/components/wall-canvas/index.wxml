@@ -1,1 +1,1 @@
-<canvas type="2d" id="wallCanvas" class="canvas" bindtouchstart="onTouchStart" bindtouchmove="onTouchMove" bindtouchend="onTouchEnd"></canvas>
+<view class="canvas-wrap"><canvas type="2d" id="wallCanvas" class="canvas" bindtouchstart="onTouchStart" bindtouchmove="onTouchMove" bindtouchend="onTouchEnd"></canvas><view wx:if="{{imageError}}" class="image-error">墙图加载失败，仍可使用岩点</view></view>
