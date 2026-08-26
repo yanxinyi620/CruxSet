@@ -36,6 +36,8 @@ exports.main = async event => {
   }
   if (event.action === 'createLayout') {
     validateLayoutData(data)
+    const wall = await db.collection('walls').doc(data.wallId).get()
+    if (!wall.data) throw new Error('WALL_NOT_FOUND')
     const id = `layout_${now.toString(36)}_${Math.random().toString(36).slice(2, 7)}`
     await db.collection('layouts').doc(id).set({ data: { ...data, id, version: 1, published: false, createdAt: now, updatedAt: now } })
     return { id, version: 1 }
@@ -46,6 +48,8 @@ exports.main = async event => {
   const layouts = await db.collection('layouts').where({ id: data.id }).orderBy('version', 'desc').limit(1).get()
   const layout = layouts.data[0]
   if (!layout) throw new Error('LAYOUT_NOT_FOUND')
+  const wall = await db.collection('walls').doc(layout.wallId).get()
+  if (!wall.data) throw new Error('WALL_NOT_FOUND')
   const version = (layout.version || 1) + 1
   const update = { ...data, id: data.id, wallId: layout.wallId, version, updatedAt: now }
   if (event.action === 'publishLayout') update.published = true

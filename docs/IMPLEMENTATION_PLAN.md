@@ -107,7 +107,7 @@ Phase 1 完成前不得提前开发 Phase 2。每个任务均遵循：先测试�
 
 ### D3. Layout 管理
 
-- [-] 实现 `adminLayout` 的 createWall、createLayout、updateLayout、publishLayout（管理员鉴权、结构校验、归一化 Hold 校验和发布状态已接入，真实环境待验证）。
+- [-] 实现 `adminLayout` 的 createWall、createLayout、updateLayout、publishLayout（管理员鉴权、Wall 存在性、结构校验、归一化 Hold 校验和发布状态已接入，真实环境待验证）。
 - [-] 重新装点必须新建 Layout；小修订只增加 version（云函数已改为新增版本文档、发布更新 activeLayoutId，客户端按 id + version 查询，真实环境待验证）。
 - [ ] 保存原图与 1600–2048px 日常展示图的文件 ID。
 
