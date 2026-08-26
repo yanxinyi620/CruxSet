@@ -29,9 +29,9 @@ exports.main = async event => {
   const now = Date.now()
 
   if (event.action === 'createWall') {
-    if (!data.name) throw new Error('INVALID_WALL_DATA')
+    if (!data.name || (data.angleOptions !== undefined && (!Array.isArray(data.angleOptions) || data.angleOptions.some(angle => ![20, 25, 30, 35, 40, 45].includes(angle))))) throw new Error('INVALID_WALL_DATA')
     const id = `wall_${now.toString(36)}_${Math.random().toString(36).slice(2, 7)}`
-    await db.collection('walls').doc(id).set({ data: { ...data, id, createdAt: now, updatedAt: now } })
+    await db.collection('walls').doc(id).set({ data: { ...data, id, description: data.description || '', activeLayoutId: data.activeLayoutId || '', angleOptions: data.angleOptions || [20, 25, 30, 35, 40, 45], createdAt: now, updatedAt: now } })
     return { id }
   }
   if (event.action === 'createLayout') {
