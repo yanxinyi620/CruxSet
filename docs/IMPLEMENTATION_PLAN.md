@@ -73,8 +73,8 @@ Phase 1 完成前不得提前开发 Phase 2。每个任务均遵循：先测试�
 
 - [x] 定义五种线路角色与三个 Foot Rule，默认 `feet_follow`。
 - [x] 实现 Start、Finish、角度、难度、Hold ID 和 `specified` Foot 校验基础。
-- [-] 实现角色工具栏、点击切换、再次点击取消和单 Hold 单角色迁移（领域状态与编辑页面已接入，待 Canvas 点选接线）。
-- [-] 实现至少覆盖 Add、Remove、Change Role 的 Undo（领域状态与编辑页面已接入，待 Canvas 点选接线）。
+- [-] 实现角色工具栏、点击切换、再次点击取消和单 Hold 单角色迁移（领域状态、编辑页面与 Canvas 点选已接入，待真机验证）。
+- [-] 实现至少覆盖 Add、Remove、Change Role 的 Undo（领域状态、编辑页面与 Canvas 点选已接入，待真机验证）。
 - [x] 实现 Clear 的二次确认。
 - [x] 实现名称与不超过 500 字的说明输入。
 
