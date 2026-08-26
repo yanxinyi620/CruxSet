@@ -1,0 +1,28 @@
+import type { Point, ViewTransform } from './types.js'
+import { zoomAroundAnchor } from './transform.js'
+
+type Touch = { x: number; y: number }
+type GestureResult = { kind: 'tap'|'pan'|'zoom'; transform: ViewTransform }
+const midpoint = (a: Touch, b: Touch): Point => [(a.x + b.x) / 2, (a.y + b.y) / 2]
+const distance = (a: Touch, b: Touch) => Math.hypot(a.x - b.x, a.y - b.y)
+
+export class GestureController {
+  private initial: Touch[] = []
+  private initialTransform: ViewTransform
+  private startTime = 0
+  private current: ViewTransform
+  constructor(initial: ViewTransform, private readonly minScale = 1, private readonly maxScale = 5) { this.current = initial; this.initialTransform = initial }
+  start(touches: Touch[], time: number) { this.initial = touches; this.startTime = time; this.initialTransform = this.current }
+  move(touches: Touch[], time: number): GestureResult {
+    if (this.initial.length >= 2 && touches.length >= 2) {
+      const startDistance = distance(this.initial[0], this.initial[1]); const nextDistance = distance(touches[0], touches[1])
+      const scale = Math.max(this.minScale, Math.min(this.maxScale, this.initialTransform.scale * nextDistance / startDistance))
+      this.current = zoomAroundAnchor(this.initialTransform, scale, midpoint(touches[0], touches[1])); return { kind: 'zoom', transform: this.current }
+    }
+    const dx = touches[0].x - this.initial[0].x; const dy = touches[0].y - this.initial[0].y
+    if (Math.hypot(dx, dy) > 8) { this.current = { ...this.initialTransform, offsetX: this.initialTransform.offsetX + dx, offsetY: this.initialTransform.offsetY + dy }; return { kind: 'pan', transform: this.current }
+    }
+    return { kind: time - this.startTime <= 300 ? 'tap' : 'pan', transform: this.current }
+  }
+  end() { this.initial = [] }
+}
