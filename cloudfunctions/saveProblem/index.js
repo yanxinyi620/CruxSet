@@ -8,8 +8,8 @@ exports.main = async event => {
   const user = await db.collection('users').where({ openid }).limit(1).get()
   if (!user.data.length) throw new Error('LOGIN_REQUIRED')
   const actor = user.data[0]; const { draft, wallId, layoutId } = event
-  const [wallResult, layoutResult] = await Promise.all([db.collection('walls').doc(wallId).get(), db.collection('layouts').doc(layoutId).get()])
-  const wall = wallResult.data; const layout = layoutResult.data
+  const [wallResult, layoutResult] = await Promise.all([db.collection('walls').doc(wallId).get(), db.collection('layouts').where({ id: layoutId }).orderBy('version', 'desc').limit(1).get()])
+  const wall = wallResult.data; const layout = layoutResult.data[0]
   if (!wall || !layout || layout.wallId !== wallId) throw new Error('INVALID_WALL_LAYOUT')
   if (!wall.angleOptions.includes(draft.angle) || !validGrades.has(draft.grade) || (draft.description && draft.description.length > 500)) throw new Error('INVALID_ROUTE_METADATA')
   if (!['feet_follow', 'specified', 'all'].includes(draft.footRule || 'feet_follow')) throw new Error('INVALID_FOOT_RULE')

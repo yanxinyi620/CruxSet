@@ -43,12 +43,13 @@ exports.main = async event => {
 
   validateLayoutData(data)
   if (!data.id) throw new Error('INVALID_LAYOUT_DATA')
-  const layout = await db.collection('layouts').doc(data.id).get()
-  if (!layout.data) throw new Error('LAYOUT_NOT_FOUND')
-  const version = (layout.data.version || 1) + 1
-  const update = { ...data, id: data.id, wallId: layout.data.wallId, version, updatedAt: now }
+  const layouts = await db.collection('layouts').where({ id: data.id }).orderBy('version', 'desc').limit(1).get()
+  const layout = layouts.data[0]
+  if (!layout) throw new Error('LAYOUT_NOT_FOUND')
+  const version = (layout.version || 1) + 1
+  const update = { ...data, id: data.id, wallId: layout.wallId, version, updatedAt: now }
   if (event.action === 'publishLayout') update.published = true
   await db.collection('layouts').add({ data: update })
   if (event.action === 'publishLayout') await db.collection('walls').doc(update.wallId).update({ data: { activeLayoutId: update.id, updatedAt: now } })
-  return { id: data.id, version, published: Boolean(update.published || layout.data.published) }
+  return { id: data.id, version, published: Boolean(update.published || layout.published) }
 }
