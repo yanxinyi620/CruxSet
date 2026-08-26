@@ -108,7 +108,7 @@ Phase 1 完成前不得提前开发 Phase 2。每个任务均遵循：先测试�
 ### D3. Layout 管理
 
 - [-] 实现 `adminLayout` 的 createWall、createLayout、updateLayout、publishLayout（管理员鉴权、结构校验、归一化 Hold 校验和发布状态已接入，真实环境待验证）。
-- [-] 重新装点必须新建 Layout；小修订只增加 version（云函数规则已修正并增加版本纯函数测试，真实环境待验证）。
+- [-] 重新装点必须新建 Layout；小修订只增加 version（云函数已改为新增版本文档、发布更新 activeLayoutId，客户端按 id + version 查询，真实环境待验证）。
 - [ ] 保存原图与 1600–2048px 日常展示图的文件 ID。
 
 验证：并发创建线路编号不重复；伪造 userId、Hold ID、Wall/Layout、角度或难度均被服务端拒绝。
@@ -147,7 +147,7 @@ Phase 1 完成前不得提前开发 Phase 2。每个任务均遵循：先测试�
 ## Phase 1G — Release
 
 - [-] 完成加载、空状态、网络失败、权限失败和保存失败反馈（错误码映射已统一，墙面列表增加加载失败状态，主要页面仍需发布前人工审查）。
-- [-] 按 `layout:{layoutId}:{version}` 实现 Layout 缓存与失效（工具与小程序读取已完成，真实数据验证待完成）。
+- [-] 按 `layout:{layoutId}:{version}` 实现 Layout 缓存与失效（客户端已按指定版本读取并缓存，真实数据验证待完成）。
 - [x] 补齐产品规则、数据模型、架构和人工测试文档。
 - [ ] 在至少一台 Android 和一台 iPhone 完成规格中的真机清单。
 - [-] 修复阻塞问题，生成微信体验版并完成 Phase 1 Freeze（本地结构门禁、sitemap 检查与 `--release` AppID 门禁已建立；真实 AppID、CloudBase 和真机仍待完成）。

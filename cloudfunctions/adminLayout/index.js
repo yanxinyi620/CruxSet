@@ -48,6 +48,7 @@ exports.main = async event => {
   const version = (layout.data.version || 1) + 1
   const update = { ...data, id: data.id, wallId: layout.data.wallId, version, updatedAt: now }
   if (event.action === 'publishLayout') update.published = true
-  await db.collection('layouts').doc(data.id).update({ data: update })
+  await db.collection('layouts').add({ data: update })
+  if (event.action === 'publishLayout') await db.collection('walls').doc(update.wallId).update({ data: { activeLayoutId: update.id, updatedAt: now } })
   return { id: data.id, version, published: Boolean(update.published || layout.data.published) }
 }
