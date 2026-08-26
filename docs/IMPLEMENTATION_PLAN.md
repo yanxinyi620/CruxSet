@@ -58,7 +58,7 @@ Phase 1 完成前不得提前开发 Phase 2。每个任务均遵循：先测试�
 
 - [x] 实现 `imageToScreen`、`screenToImage`、normalize、denormalize 和 anchor zoom 纯函数。
 - [x] 实现 Circle 命中、Polygon 基础命中与最近岩点选择。
-- [-] 实现单指 Pan、双指 Pinch Zoom、短按 Tap 的手势状态机（领域控制器已完成，待真机接线验证）。
+- [-] 实现单指 Pan、双指 Pinch Zoom、短按 Tap 的手势状态机（已接入 Canvas，并以当前 fit-width scale 作为缩放下限，待真机接线验证）。
 - [x] 使用移动不超过 8px、持续不超过 300ms 判断 Tap。
 - [x] 将 15–25px 屏幕吸附半径按 scale 转换到图片坐标。
 - [-] 完成重叠优先级：普通 Hold 优先于 Volume，其次最近中心、较小半径（领域命中已完成，待 Canvas 真实场景验证）。

@@ -17,3 +17,9 @@ it('zooms around the midpoint of two touches', () => {
   expect(result.kind).toBe('zoom')
   expect(result.transform.scale).toBe(2)
 })
+
+it('preserves a fit-width scale below one while zooming', () => {
+  const controller = new GestureController({ scale: 0.5, offsetX: 0, offsetY: 0 }, 0.5, 2.5)
+  controller.start([{ x: 10, y: 10 }, { x: 30, y: 10 }], 0)
+  expect(controller.move([{ x: 5, y: 10 }, { x: 35, y: 10 }], 100).transform.scale).toBe(0.75)
+})
