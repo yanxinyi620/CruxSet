@@ -3,7 +3,7 @@ import ProblemEditor from '../../../../src/domain/editor.js'
 import { demoLayout } from '../../../../src/data/demo.js'
 import { saveProblem } from '../../../services/problems.js'
 import { currentUserId } from '../../../services/users.js'
-import { getCachedLayout } from '../../../services/layouts.js'
+import { getLayout } from '../../../services/layouts.js'
 
 let layout = demoLayout; let wallId = 'wall_demo'; let layoutId = demoLayout.id; let draftKey = `problemDraft:${layoutId}`
 let saved = wx.getStorageSync(draftKey) || {}; let editor = new ProblemEditor(saved.holds || saved)
@@ -13,7 +13,7 @@ const footRules = ['feet_follow', 'specified', 'all']; const labels = { feet_fol
 
 Page({
   data: { layout, angles, grades, angle: 35, angleIndex: 3, grade: 'V4', gradeIndex: 4, layoutId, roles, selectedRole: 'hand', footRules, footRuleIndex: 0, footRule: 'feet_follow', footRuleLabel: labels.feet_follow, footRuleHint: hints.feet_follow, name: saved.name || '', description: saved.description || '', selected: editor.value().holds },
-  onLoad(options) { wallId = options.wallId || wallId; layoutId = options.layoutId || layoutId; draftKey = `problemDraft:${layoutId}`; saved = wx.getStorageSync(draftKey) || {}; const angle = saved.angle || 35; const grade = saved.grade || 'V4'; getCachedLayout(layoutId, 1).then(next => { layout = next; editor = new ProblemEditor(saved.holds || {}); this.setData({ layout, selected: editor.value().holds, name: saved.name || '', description: saved.description || '', footRule: saved.footRule || 'feet_follow', angle, angleIndex: Math.max(0, angles.indexOf(angle)), grade, gradeIndex: Math.max(0, grades.indexOf(grade)) }) }).catch(() => {}) },
+  onLoad(options) { wallId = options.wallId || wallId; layoutId = options.layoutId || layoutId; draftKey = `problemDraft:${layoutId}`; saved = wx.getStorageSync(draftKey) || {}; const angle = saved.angle || 35; const grade = saved.grade || 'V4'; getLayout(layoutId).then(next => { layout = next; editor = new ProblemEditor(saved.holds || {}); this.setData({ layout, selected: editor.value().holds, name: saved.name || '', description: saved.description || '', footRule: saved.footRule || 'feet_follow', angle, angleIndex: Math.max(0, angles.indexOf(angle)), grade, gradeIndex: Math.max(0, grades.indexOf(grade)) }) }).catch(() => {}) },
   onReady() { if (!Object.keys(saved).length) return; wx.showModal({ title: '恢复线路草稿？', content: '检测到上次未完成的线路设置。', confirmText: '继续编辑', cancelText: '丢弃草稿', success: result => { if (!result.confirm) { saved = {}; editor.clear(); wx.removeStorageSync(draftKey); this.setData({ selected: editor.value().holds, name: '', description: '', footRule: 'feet_follow', angle: 35, angleIndex: 3, grade: 'V4', gradeIndex: 4, footRuleLabel: labels.feet_follow, footRuleHint: hints.feet_follow }) } } }) },
   selectAngle(e) { const index = Number(e.detail.value); this.setData({ angleIndex: index, angle: angles[index] }); this.persist() }, selectGrade(e) { const index = Number(e.detail.value); this.setData({ gradeIndex: index, grade: grades[index] }); this.persist() },
   selectRole(e) { this.setData({ selectedRole: e.currentTarget.dataset.role }) }, onHoldTap(e) { editor.toggle(e.detail.holdId, this.data.selectedRole); this.persist(); this.setData({ selected: editor.value().holds }) }, selectHold(e) { this.onHoldTap({ detail: { holdId: e.currentTarget.dataset.id } }) },
