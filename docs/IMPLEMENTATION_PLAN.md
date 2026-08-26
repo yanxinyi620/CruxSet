@@ -94,7 +94,7 @@ Phase 1 完成前不得提前开发 Phase 2。每个任务均遵循：先测试�
 ### D1. 用户与权限
 
 - [-] 实现 `login`：OPENID 只用于查找/创建 User，返回 `users.id`（云函数、小程序启动登录与缓存已建立，待真实环境部署验证）。
-- [ ] 实现 `admins` 的 userId 鉴权，前端隐藏入口但不承担安全判断。
+- [x] 实现 `admins` 的 userId 鉴权，前端隐藏入口但不承担安全判断（`adminLayout`/`deleteProblem` 云函数已重新查询 `admins.userId`，真实云端权限仍需验收）。
 - [-] 增加身份测试，证明业务表不保存 OpenID 外键（纯身份映射测试已建立，云端业务写入验证待完成）。
 
 ### D2. Problem 写操作
