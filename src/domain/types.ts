@@ -8,5 +8,5 @@ export interface Wall { id:string; name:string; description:string; activeLayout
 export interface Hold { id:string; x:number; y:number; radius:number; kind:HoldKind; bbox?:readonly [number,number,number,number]; polygon?:Point[] }
 export interface Layout { id:string; wallId:string; name:string; imageFileId:string; displayImageFileId?:string; imageWidth:number; imageHeight:number; geometryType:'circle'|'polygon'; version:number; holds:Hold[]; createdAt:number; updatedAt:number }
 export interface ProblemHolds { start:string[]; foot:string[]; hand:string[]; assist:string[]; finish:string[] }
-export interface Problem { id:string; number:string; wallId:string; layoutId:string; name?:string; description?:string; angle:number; grade:Grade; footRule:FootRule; holds:ProblemHolds; createdBy:string; createdAt:number; updatedAt:number }
+export interface Problem { id:string; number:string; wallId:string; layoutId:string; layoutVersion?:number; name?:string; description?:string; angle:number; grade:Grade; footRule:FootRule; holds:ProblemHolds; createdBy:string; createdAt:number; updatedAt:number }
 export interface ViewTransform { scale:number; offsetX:number; offsetY:number }

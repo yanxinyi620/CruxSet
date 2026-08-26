@@ -124,7 +124,7 @@ Phase 1 完成前不得提前开发 Phase 2。每个任务均遵循：先测试�
 - [-] 将搜索、上一条/下一条接入当前 Filtered Problems（领域层完成，Demo/远端详情页已接入当前 Wall/Layout/Angle/Grade 导航）。
 - [x] 领域层支持 Fisher–Yates 单轮不重复随机队列。
 - [-] 将随机训练会话接入页面，结果耗尽后重新洗牌（已接入 Demo 页面，待持久化会话与云端数据）。
-- [-] 完成 Problem Detail 的墙图、图例、说明和 Foot Rule 中文显示（真实 Problem/Layout 动态读取、详情 Canvas 和 Foot Rule 动态说明已接入，图例和真实环境待完成）。
+- [-] 完成 Problem Detail 的墙图、图例、说明和 Foot Rule 中文显示（真实 Problem/Layout 动态读取、详情 Canvas、Layout 版本读取和 Foot Rule 动态说明已接入，图例和真实环境待完成）。
 - [-] 分享入口已有骨架；已接入 Demo Problem ID，待 CloudBase 数据落地加载。
 
 验证：搜索、顺序和随机均不越过当前 Wall + Layout + Angle + Grade；分享链接可直达对应线路。

@@ -14,7 +14,7 @@ export function createProblem(draft:ProblemDraft,wall:Wall,layout:Layout):Proble
   if(footRule==='specified'&&!holds.foot.length) throw new Error('specified requires foot holds')
   const ids=Object.values(holds).flat(); if(new Set(ids).size!==ids.length) throw new Error('a hold can only have one role')
   const available=new Set(layout.holds.map(h=>h.id)); for(const id of ids) if(!available.has(id)) throw new Error(`unknown hold: ${id}`)
-  const now=draft.now??Date.now(); return {...draft,grade:draft.grade as Grade,footRule:footRule as FootRule,holds,createdAt:now,updatedAt:now}
+  const now=draft.now??Date.now(); return {...draft,layoutVersion:layout.version,grade:draft.grade as Grade,footRule:footRule as FootRule,holds,createdAt:now,updatedAt:now}
 }
 export function filterProblems(problems:Problem[],f:Partial<Pick<Problem,'wallId'|'layoutId'|'angle'|'grade'>>):Problem[]{return problems.filter(p=>Object.entries(f).every(([k,v])=>v===undefined||p[k as keyof Problem]===v)).sort((a,b)=>a.number.localeCompare(b.number))}
 export function searchProblems(problems:Problem[],query:string):Problem[]{const q=query.trim().toLocaleLowerCase();return q?problems.filter(p=>p.number.toLocaleLowerCase().includes(q)||p.name?.toLocaleLowerCase().includes(q)):problems}
