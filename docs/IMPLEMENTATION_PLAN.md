@@ -123,7 +123,7 @@ Phase 1 完成前不得提前开发 Phase 2。每个任务均遵循：先测试�
 - [x] 领域层支持编号/名称子串搜索及编号升序。
 - [-] 将搜索、上一条/下一条接入当前 Filtered Problems（领域层完成，Demo 页面已接入基础导航）。
 - [x] 领域层支持 Fisher–Yates 单轮不重复随机队列。
-- [ ] 将随机训练会话接入页面，结果耗尽后重新洗牌。
+- [-] 将随机训练会话接入页面，结果耗尽后重新洗牌（已接入 Demo 页面，待持久化会话与云端数据）。
 - [ ] 完成 Problem Detail 的墙图、图例、说明和 Foot Rule 中文显示。
 - [-] 分享入口已有骨架；已接入 Demo Problem ID，待 CloudBase 数据落地加载。
 
@@ -133,10 +133,10 @@ Phase 1 完成前不得提前开发 Phase 2。每个任务均遵循：先测试�
 
 ## Phase 1F — Admin Layout Editor
 
-- [ ] 实现管理员创建 Wall、上传图片与创建 Layout 流程。
-- [-] 实现 Continuous Add Mode，连续创建 H001、H002……（领域编辑器已完成，待页面接线）。
-- [-] 默认 `kind = hold` 与默认 radius；支持 Hold/Volume 切换（领域编辑器已完成，待页面接线）。
-- [-] 实现移动中心、调整 radius、删除与至少 50 步 Undo（领域编辑器已完成，待页面接线）。
+- [-] 实现管理员创建 Wall、上传图片与创建 Layout 流程（编辑页骨架已接入，待 CloudBase）。
+- [-] 实现 Continuous Add Mode，连续创建 H001、H002……（领域与页面已接入，待真实 Canvas 点位与图片）。
+- [-] 默认 `kind = hold` 与默认 radius；支持 Hold/Volume 切换（领域与页面已接入，待真实 Canvas 点位）。
+- [-] 实现移动中心、调整 radius、删除与至少 50 步 Undo（删除/Undo 已接入页面，移动/调整待完成）。
 - [ ] 保证所有坐标以 0–1 保存，禁止保存屏幕像素。
 - [ ] 使用真实墙图人工标注至少 300 个 Hold 并验证性能。
 
