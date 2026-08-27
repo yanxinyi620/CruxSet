@@ -1,3 +1,4 @@
 // @ts-nocheck
 import { listMyWalls } from '../../services/walls.js'
-Page({data:{walls:[],loading:true},onShow(){listMyWalls().then(walls=>this.setData({walls,loading:false})).catch(()=>this.setData({loading:false}))},create(){wx.navigateTo({url:'/pages/admin/index'})},open(e){wx.navigateTo({url:`/pages/wall/index?id=${e.currentTarget.dataset.id}`})}})
+import { listLayouts } from '../../services/layouts.js'
+Page({data:{walls:[],loading:true},onShow(){this.setData({loading:true});listMyWalls().then(async walls=>{const managed=await Promise.all(walls.map(async wall=>({...wall,layouts:await listLayouts(wall.id).catch(()=>[])})));this.setData({walls:managed,loading:false})}).catch(()=>this.setData({loading:false}))},create(){wx.navigateTo({url:'/pages/admin/index'})},open(e){wx.navigateTo({url:`/pages/wall/index?id=${e.currentTarget.dataset.id}`})},mark(e){wx.navigateTo({url:`/pages/admin/layout-editor/index?wallId=${e.currentTarget.dataset.wallId}&layoutId=${e.currentTarget.dataset.layoutId}`})},newLayout(e){wx.navigateTo({url:`/pages/admin/layout-create/index?wallId=${e.currentTarget.dataset.wallId}`})}})

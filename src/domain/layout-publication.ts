@@ -9,3 +9,9 @@ export const latestLayouts = <T extends { id: string; version: number }>(layouts
     if (!latest[layout.id] || latest[layout.id].version < layout.version) latest[layout.id] = layout
     return latest
   }, {}))
+
+export const layoutEditorRoute = (wallId: string, layoutId: string) =>
+  `/pages/admin/layout-editor/index?wallId=${wallId}&layoutId=${layoutId}`
+
+export const newLayoutRoute = (wallId: string) =>
+  `/pages/admin/layout-create/index?wallId=${wallId}`
