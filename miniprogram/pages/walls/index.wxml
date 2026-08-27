@@ -1,1 +1,14 @@
-<view class="page"><view class="eyebrow">Climb · Create · Share</view><view class="title">线路</view><view class="muted intro">选择公开墙面，开始一条线路。</view><view wx:if="{{loading}}" class="muted">加载墙面中…</view><view wx:if="{{error}}" class="card error">{{error}}<view class="muted">当前显示本地示例数据</view></view><view wx:for="{{walls}}" wx:key="id" class="card wall" data-id="{{item.id}}" bindtap="openWall"><view class="wall-name">{{item.name}}</view><view class="muted">{{item.layoutName}}</view><view class="angles">{{item.anglesLabel}}</view><view class="arrow">→</view></view><view wx:if="{{!loading && !error && !walls.length}}" class="empty">暂无公开墙面</view></view>
+<view class="page lines-page">
+  <view class="page-kicker">FIND A WALL</view>
+  <view class="page-title">找线路</view>
+  <view class="page-lead">先选择一面公开墙，再选择 Layout 和线路。</view>
+  <view wx:if="{{loading}}" class="quiet-empty">正在加载公开墙面…</view>
+  <view wx:if="{{error}}" class="error-card"><view>{{error}}</view><view class="error-copy">当前显示本地示例数据</view></view>
+  <view wx:for="{{walls}}" wx:key="id" class="line-wall-card" data-id="{{item.id}}" bindtap="openWall">
+    <view class="wall-card-top"><view class="wall-name">{{item.name}}</view><view class="wall-arrow">›</view></view>
+    <view class="layout-label">{{item.layoutName}}</view>
+    <view class="wall-card-bottom"><view class="public-chip">公开</view><view class="angle-label">{{item.anglesLabel}}</view></view>
+  </view>
+  <view wx:if="{{!loading && !error && !walls.length}}" class="empty">暂无公开墙面</view>
+</view>
+
