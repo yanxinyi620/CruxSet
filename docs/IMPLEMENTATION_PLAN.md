@@ -18,7 +18,8 @@ Phase 1 完成前不得提前开发 Phase 2。每个任务均遵循：先测试�
 - [x] 默认 `feet_follow` 与三种 Foot Rule 基础校验
 - [x] 当前筛选结果的搜索、排序和不重复随机队列
 - [x] 默认本地 Mock 模式：固定日坛墙图、草稿 Layout、运行期内存写入与发布锁定；CloudBase 模式保留为真实验收入口
-- [x] 新建线路只显示当前已发布且至少有两个岩点的 Layout；未发布草稿只在“我的”中管理和标注
+- [x] 新建线路只显示当前已发布且至少有两个岩点的活动 Layout；未发布草稿只在“创建 → 我的草稿”中继续标注，发布后永久锁定
+- [x] “我的”仅显示用户墙面 / Layout 状态和删除管理；删除已发布 Layout 会级联删除其线路，删除墙面会级联删除所有 Layout 与线路
 - [x] Circle/Polygon 基础命中和坐标变换纯函数
 - [-] 墙面列表、线路列表、详情、编辑和管理页面已具备 Demo/服务接入，仍待线上数据完善
 - [-] CloudBase 服务、集合声明和云函数入口已建立；默认开发改为本地 Mock，真实环境部署与验收仍待完成
@@ -109,7 +110,7 @@ Phase 1 完成前不得提前开发 Phase 2。每个任务均遵循：先测试�
 
 ### D3. Layout 管理
 
-- [-] 实现 `wallManager` 的 createWall、createLayout、updateLayout、publishLayout（创建者/管理员鉴权、Wall 字段校验、Layout 尺寸/几何类型与 Hold 结构校验、归一化校验和发布状态已接入，真实环境待验证）。
+- [-] 实现 `wallManager` 的 createWall、createLayout、updateLayout、publishLayout、deleteLayout、deleteWall（创建者/管理员鉴权、Wall 字段校验、Layout 尺寸/几何类型与 Hold 结构校验、归一化校验、发布状态与服务端级联删除已接入，真实环境待验证）。
 - [-] Layout 首次发布后永久锁定；补点、移动或删除岩点必须创建新的 Layout。旧线路按 `layoutId + layoutVersion` 读取原始快照；服务端锁定与“我的墙面”草稿入口已接入，真实环境待验证。
 - [ ] 保存原图与 1600–2048px 日常展示图的文件 ID。
 
@@ -135,7 +136,7 @@ Phase 1 完成前不得提前开发 Phase 2。每个任务均遵循：先测试�
 
 ## Phase 1F — Layout 标注与发布
 
-- [-] 实现用户创建 Wall、上传图片与创建 Layout 流程（新建墙面、草稿“开始标注”、发布后“创建新 Layout”入口已接入；创建者可读取自己草稿图，真实 CloudBase 操作待验证）。
+- [-] 实现用户创建 Wall、上传图片与创建 Layout 流程（新建墙面后直接首次标注，草稿可从“创建 → 我的草稿”继续标注；发布后 Layout 锁定且只能定线，创建者可读取自己草稿图，真实 CloudBase 操作待验证）。
 - [-] 实现 Continuous Add Mode，连续创建 H001、H002……（领域与页面已接入，编号按历史最大值递增，待真实 Canvas 点位与图片）。
 - [-] 默认 `kind = hold` 与默认 radius；支持 Hold/Volume 切换（领域与页面已接入，待真实 Canvas 点位）。
 - [-] 实现移动中心、调整 radius、删除与至少 50 步 Undo（删除/Undo/归一化点选/位置与半径控件已接入，待真机验证）。
@@ -176,7 +177,7 @@ Phase 1 Freeze 后才开始。
 ## 后续阶段 — 用户自主管理内容
 
 - [x] 增加 Wall 的 `ownerId` 与 `visibility`，并由云函数校验所有权；新建 Wall 默认 `visibility: 'private'`，创建者可在创建时切换为 `public`。
-- [-] 支持用户创建、修改、删除自己的 Wall、Layout 与 Problem；创建、草稿标注、发布后新建 Layout 与线路创建已接入，墙面编辑、删除和线路管理待完成。
+- [-] 支持用户创建、修改、删除自己的 Wall、Layout 与 Problem；创建、草稿标注、发布后定线，以及 Wall / Layout 级联删除已接入，墙面编辑、独立线路管理和真实环境验证待完成。
 - [ ] 为用户上传墙图配置专属存储路径与访问规则。
 - [ ] 在用户自主上传流程中接入自动识别和人工岩点校正。
 
