@@ -1,7 +1,7 @@
 const cloud = require('wx-server-sdk')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 
-const writeActions = new Set(['createWall', 'updateWall', 'createLayout', 'updateLayout', 'publishLayout', 'deleteLayout', 'deleteWall'])
+const writeActions = new Set(['createWall', 'updateWall', 'createLayout', 'updateLayout', 'publishLayout', 'deleteLayout', 'deleteWall', 'deleteProblem'])
 const validVisibility = value => value === 'public' ? 'public' : 'private'
 const validHolds = holds => Array.isArray(holds) && holds.every(hold => hold && /^H\d{3,}$/.test(hold.id) && ['hold', 'volume'].includes(hold.kind) && Number.isFinite(hold.x) && hold.x >= 0 && hold.x <= 1 && Number.isFinite(hold.y) && hold.y >= 0 && hold.y <= 1 && Number.isFinite(hold.radius) && hold.radius > 0)
 
@@ -56,6 +56,7 @@ exports.main = async event => {
     delete filter.wallId
     return (await db.collection('problems').where({ wallId: wall.id, ...filter }).orderBy('number', 'asc').get()).data
   }
+  if (action === 'listMyProblems') return (await db.collection('problems').where({ createdBy: actor.user.id }).orderBy('createdAt', 'desc').get()).data
   if (action === 'getProblem') {
     const problem = (await db.collection('problems').doc(data.id).get()).data
     if (!problem) throw new Error('PROBLEM_NOT_FOUND')
@@ -72,6 +73,13 @@ exports.main = async event => {
     return { id }
   }
 
+  if (action === 'deleteProblem') {
+    const problem = (await db.collection('problems').doc(data.id).get()).data
+    if (!problem) throw new Error('PROBLEM_NOT_FOUND')
+    if (problem.createdBy !== actor.user.id && !actor.isAdmin) throw new Error('FORBIDDEN')
+    await db.collection('problems').doc(data.id).remove()
+    return { ok: true }
+  }
   const wall = await wallAccess(db, data.wallId || '', actor)
   owner(wall, actor)
   if (action === 'deleteLayout') {
@@ -107,4 +115,3 @@ exports.main = async event => {
   if (action === 'publishLayout') await db.collection('walls').doc(wall.id).update({ data: { activeLayoutId: layout.id, updatedAt: now } })
   return { id: layout.id, version: update.version }
 }
-

@@ -1,0 +1,1 @@
+.problem{display:flex;justify-content:space-between;align-items:center;margin-top:24rpx;font-size:28rpx;font-weight:800}.problem button{color:#c75b49;font-size:21rpx}

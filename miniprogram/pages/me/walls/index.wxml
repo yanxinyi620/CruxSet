@@ -1,0 +1,1 @@
+<view class="page"><view class="page-title">我的墙面</view><view wx:for="{{walls}}" wx:key="id" class="card"><view>{{item.name}}</view><view class="muted">{{item.visibility==='public'?'公开':'私有'}}</view></view></view>
