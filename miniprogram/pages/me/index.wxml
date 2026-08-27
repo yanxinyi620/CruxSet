@@ -1,1 +1,21 @@
-<view class="page"><view class="eyebrow">My Walls</view><view class="title">我的墙面</view><button class="button create" bindtap="create">＋ 新建墙面</button><view wx:if="{{loading}}" class="muted">加载中…</view><view wx:for="{{walls}}" wx:key="id" class="card wall-card"><view class="wall-head" data-id="{{item.id}}" bindtap="open"><view><view class="wall-name">{{item.name}}</view><view class="muted">{{item.visibility==='public'?'公开墙面':'私有墙面'}}</view></view><view class="arrow">→</view></view><view wx:for="{{item.layouts}}" wx:for-item="layout" wx:key="id" class="layout-row"><view><view class="layout-name">{{layout.name}}</view><view class="muted">{{layout.published?'已发布并锁定':'草稿，尚未发布'}}</view></view><button wx:if="{{!layout.published}}" class="small-action" size="mini" data-wall-id="{{item.id}}" data-layout-id="{{layout.id}}" bindtap="mark">开始标注</button><view wx:else class="locked">已锁定</view></view><button class="new-layout" data-wall-id="{{item.id}}" bindtap="newLayout">＋ 创建新 Layout</button></view><view wx:if="{{!loading&&!walls.length}}" class="empty">还没有创建墙面</view></view>
+<view class="page me-page">
+  <view class="page-kicker">YOUR WALLS</view>
+  <view class="page-title">我的</view>
+  <view class="page-lead">查看自己创建的墙面和 Layout 状态，管理不再需要的内容。</view>
+  <view wx:if="{{loading}}" class="quiet-empty">正在加载你的墙面…</view>
+  <view wx:for="{{walls}}" wx:key="id" class="wall-card">
+    <view class="wall-card-head">
+      <view><view class="wall-name">{{item.name}}</view><view class="wall-meta">{{item.visibility==='public'?'公开墙面':'私有墙面'}} · {{item.layouts.length}} 个 Layout</view></view>
+      <view class="visibility-chip">{{item.visibility==='public'?'公开':'私有'}}</view>
+    </view>
+    <view class="layout-list">
+      <view wx:for="{{item.layouts}}" wx:for-item="layout" wx:key="id" class="layout-row">
+        <view class="layout-copy"><view class="layout-name">{{layout.name}}</view><view class="layout-status {{layout.published?'published':'draft'}}">{{layout.published?'已发布并锁定':'草稿，尚未发布'}}</view></view>
+        <button class="delete-layout" size="mini" data-wall-id="{{item.id}}" data-layout-id="{{layout.id}}" data-layout-name="{{layout.name}}" data-published="{{layout.published}}" bindtap="confirmDeleteLayout">删除 Layout</button>
+      </view>
+    </view>
+    <button class="delete-wall" size="mini" data-wall-id="{{item.id}}" data-wall-name="{{item.name}}" bindtap="confirmDeleteWall">删除墙面</button>
+  </view>
+  <view wx:if="{{!loading&&!walls.length}}" class="quiet-empty">还没有创建墙面。去“创建”开始录入一面墙吧。</view>
+</view>
+
