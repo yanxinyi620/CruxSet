@@ -5,6 +5,10 @@ vi.mock('../miniprogram/services/cloud.js', () => ({
   normalizeCloudError: (error: unknown) => error,
 }))
 
+vi.mock('../miniprogram/config/runtime.js', () => ({
+  isMockMode: () => false,
+}))
+
 import { call } from '../miniprogram/services/cloud.js'
 import { getLayoutImageUrl } from '../miniprogram/services/layouts.js'
 

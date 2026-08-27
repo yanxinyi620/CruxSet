@@ -30,8 +30,15 @@ export class MockRepository {
   private async writeLayout(wallId: string, layoutId: string, holds: Layout['holds'], publish: boolean) { const wall = await this.getWall(wallId); if (wall.ownerId !== mockCurrentUserId) throw new Error('FORBIDDEN'); const current = await this.getLayout(layoutId); if (current.wallId !== wallId) throw new Error('INVALID_LAYOUT_DATA'); if (current.published) throw new Error('LAYOUT_LOCKED'); const next: Layout = { ...current, holds: clone(holds), version: current.version + 1, published: publish, updatedAt: Date.now() }; this.layouts.push(next); if (publish) { const target = this.walls.find(item => item.id === wallId)!; target.activeLayoutId = layoutId; target.updatedAt = next.updatedAt } return clone(next) }
   async updateLayout(wallId: string, layoutId: string, holds: Layout['holds']) { return this.writeLayout(wallId, layoutId, holds, false) }
   async publishLayout(wallId: string, layoutId: string, holds: Layout['holds']) { return this.writeLayout(wallId, layoutId, holds, true) }
+  async listProblems(filter: Partial<Pick<Problem, 'wallId' | 'layoutId' | 'angle' | 'grade'>> = {}) { return clone(this.problems.filter(problem => Object.entries(filter).every(([key, value]) => value === undefined || problem[key as keyof Problem] === value)).sort((a, b) => a.number.localeCompare(b.number))) }
+  async getProblem(id: string) { const problem = this.problems.find(item => item.id === id); if (!problem) throw new Error('PROBLEM_NOT_FOUND'); return clone(problem) }
+  async createProblem(wallId: string, layoutId: string, draft: Partial<Problem>) { const wall = await this.getWall(wallId), layout = await this.getLayout(layoutId); if (layout.wallId !== wall.id) throw new Error('INVALID_LAYOUT_DATA'); const now = Date.now(), sequence = this.problems.length + 121, problem: Problem = { id: `problem_mock_${now}`, number: `CS-${String(sequence).padStart(6, '0')}`, wallId, layoutId, layoutVersion: layout.version, name: draft.name, description: draft.description, angle: draft.angle || wall.angleOptions[0], grade: draft.grade || 'V0', footRule: draft.footRule || 'feet_follow', holds: { start: draft.holds?.start || [], foot: draft.holds?.foot || [], hand: draft.holds?.hand || [], assist: draft.holds?.assist || [], finish: draft.holds?.finish || [] }, createdBy: mockCurrentUserId, createdAt: now, updatedAt: now }; this.problems.push(problem); return { id: problem.id, number: problem.number } }
+  async deleteProblem(id: string) { const index = this.problems.findIndex(item => item.id === id); if (index < 0) throw new Error('PROBLEM_NOT_FOUND'); this.problems.splice(index, 1); return { ok: true } }
   async uploadWallImage(filePath: string) { return { fileID: filePath } }
   async getLayoutImageUrl(fileID: string) { return fileID }
 }
 
 export const createMockRepository = () => new MockRepository()
+const activeRepository = createMockRepository()
+export const repositoryForMode = (mode: 'mock' | 'cloudbase') => mode === 'mock' ? activeRepository : undefined
+export const mockRepository = activeRepository
