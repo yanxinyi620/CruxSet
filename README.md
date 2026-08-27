@@ -38,7 +38,15 @@ npm run verify:phase1
 
 使用微信开发者工具导入仓库根目录；工具会读取 `project.config.json`，小程序源码位于 `miniprogram/`。
 
-当前已配置微信小程序 AppID。Phase 1 默认使用 CloudBase，但业务页面通过 services/repository 抽象访问数据，未来可替换为 FastAPI。接入真实 CloudBase 前，需要：
+当前开发默认使用本地 Mock 数据，不需要部署 CloudBase。Mock 使用固定的日坛 Spraywall 墙图和草稿 Layout；创建、标注、发布等操作只保留到本次运行结束，重新编译即恢复初始数据。
+
+运行模式配置位于 [runtime.ts](miniprogram/config/runtime.ts)：
+
+```ts
+export const runtimeMode: RuntimeMode = 'mock'
+```
+
+准备 CloudBase 验收时，将其改为 `'cloudbase'` 后重新编译；体验版或正式发布前必须使用 `'cloudbase'`。业务页面继续通过 services/repository 抽象访问数据，未来可替换为 FastAPI。接入真实 CloudBase 前，需要：
 
 1. 创建 CloudBase 环境；
 2. 在小程序初始化配置中指定环境；
