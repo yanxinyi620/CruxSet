@@ -11,3 +11,13 @@ nav button.active { color: #fff; font-weight: 900; }
 
 /* Chinese page titles need breathing room at this compact device width. */
 h1 { letter-spacing: 2px; }
+
+.hub-card { display:flex; align-items:center; gap:14px; width:100%; margin:12px 0; padding:18px; text-align:left; color:var(--ink); border:1px solid var(--line); border-radius:20px; }
+.hub-card.walls { background:#dff5e7; border-color:#c6ebd2; }
+.hub-card.problems { background:#eeeaff; border-color:#ddd7ff; }
+.hub-card > i { display:grid; place-items:center; width:48px; height:48px; flex:0 0 auto; border-radius:15px; background:#fff; color:#6046d6; font-style:normal; font-size:24px; }
+.hub-card span { display:grid; gap:3px; flex:1; min-width:0; }
+.hub-card small { color:#6f7187; font-size:12px; font-weight:800; }
+.hub-card b { font-size:20px; }
+.hub-card em { color:#6f7187; font-style:normal; font-size:13px; line-height:1.45; }
+.hub-card strong { color:#6046d6; font-size:25px; }
