@@ -173,7 +173,7 @@ Phase 1 Freeze 后才开始。
 
 ## 后续阶段 — 用户自主管理内容
 
-- [ ] 增加 Wall 的 `ownerId` 与 `visibility`，并由云函数校验所有权。
+- [ ] 增加 Wall 的 `ownerId` 与 `visibility`，并由云函数校验所有权；新建 Wall 默认 `visibility: 'private'`，创建者可在创建或编辑时切换为 `public`。
 - [ ] 支持用户创建、修改、删除自己的 Wall、Layout 与 Problem；保存后立即生效，不设置提交审核流程。
 - [ ] 为用户上传墙图配置专属存储路径与访问规则。
 - [ ] 在用户自主上传流程中接入自动识别和人工岩点校正。
