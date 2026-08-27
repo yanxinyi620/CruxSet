@@ -7,3 +7,4 @@ project.private.config.json
 cloudfunctions/**/node_modules/
 tools/annotator/.venv/
 tools/annotator/data/
+.worktrees/
