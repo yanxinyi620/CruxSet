@@ -1,6 +1,6 @@
 // @ts-nocheck
-import ProblemEditor from '../../../../src/domain/editor.js'
-import { demoLayout } from '../../../../src/data/demo.js'
+import ProblemEditor from '../../../domain/editor.js'
+import { demoLayout } from '../../../data/demo.js'
 import { saveProblem } from '../../../services/problems.js'
 import { currentUserId } from '../../../services/users.js'
 import { getLayout } from '../../../services/layouts.js'

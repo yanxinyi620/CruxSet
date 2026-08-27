@@ -1,8 +1,8 @@
 // @ts-nocheck
-import { demoLayout } from '../../../src/data/demo.js'
-import { demoProblems } from '../../../src/data/demo-problems.js'
-import { browseProblems } from '../../../src/domain/browse.js'
-import { RandomSession } from '../../../src/domain/random.js'
+import { demoLayout } from '../../data/demo.js'
+import { demoProblems } from '../../data/demo-problems.js'
+import { browseProblems } from '../../domain/browse.js'
+import { RandomSession } from '../../domain/random.js'
 import { getLayout } from '../../services/layouts.js'
 import { listProblems } from '../../services/problems.js'
 import { getWall } from '../../services/walls.js'

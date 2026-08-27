@@ -1,6 +1,6 @@
 // @ts-nocheck
-import { demoProblems } from '../../../../src/data/demo-problems.js'
-import { demoLayout } from '../../../../src/data/demo.js'
+import { demoProblems } from '../../../data/demo-problems.js'
+import { demoLayout } from '../../../data/demo.js'
 import { getProblem, listProblems } from '../../../services/problems.js'
 import { getCachedLayout } from '../../../services/layouts.js'
 const footRuleText={feet_follow:['手脚同点','手类点可踩，黄色 Foot 只能脚踩'],specified:['指定脚点','脚只能踩线路中的黄色 Foot'],all:['全墙脚点','当前 Layout 所有允许踩的岩点均可作为脚点']}

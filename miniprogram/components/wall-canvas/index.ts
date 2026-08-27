@@ -1,9 +1,9 @@
 // 微信原生 Component 的动态 this 类型由开发者工具注入；领域模块保持严格类型。
 // @ts-nocheck
-import type { Hold, Layout } from '../../../src/domain/types.js'
-import { circleHitTest, nearestHold, polygonHitTest } from '../../../src/domain/geometry.js'
-import { clampTransform, imageToScreen, screenToImage } from '../../../src/domain/transform.js'
-import { GestureController } from '../../../src/domain/gesture.js'
+import type { Hold, Layout } from '../../domain/types.js'
+import { circleHitTest, nearestHold, polygonHitTest } from '../../domain/geometry.js'
+import { clampTransform, imageToScreen, screenToImage } from '../../domain/transform.js'
+import { GestureController } from '../../domain/gesture.js'
 import { downloadCloudImage } from '../../services/layouts.js'
 
 Component({ properties: { layout: { type: Object, value: null, observer() { this.initCanvas() } }, activeHolds: { type: Object, value: {}, observer() { this.render() } } }, data: { transform: { scale: 1, offsetX: 0, offsetY: 0 }, viewportWidth: 0, viewportHeight: 0, imageError: false }, methods: {

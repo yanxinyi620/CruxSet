@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { LayoutEditor } from '../../../../src/domain/layout-editor.js'
+import { LayoutEditor } from '../../../domain/layout-editor.js'
 import { adminLayout, getLayout, uploadWallImage } from '../../../services/layouts.js'
 let layoutId='layout_demo';let wallId='wall_demo';let editor=new LayoutEditor([])
 const draftKey=()=>`layoutDraft:${layoutId}`;const persist=(page:any)=>wx.setStorageSync(draftKey(),{imageFileId:page.data.imageFileId,holds:page.data.holds})
