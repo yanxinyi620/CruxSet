@@ -31,7 +31,7 @@ Phase 1 完成前不得提前开发 Phase 2。每个任务均遵循：先测试�
 - [x] 初始化原生微信小程序、npm、Vitest 和严格 TypeScript。
 - [x] 定义独立的 `users.id`，业务模型不以 OpenID 作为外键。
 - [x] 定义 Wall、Layout、Hold、Problem 与 normalized coordinate 数据结构。
-- [-] 将共享领域模块接入小程序构建流程，避免小程序页面复制类型和规则（编辑页与 Canvas 已接入，页面层类型仍待清理）。
+- [-] 将共享领域模块接入小程序构建流程，避免小程序页面复制类型和规则（页面/组件已通过 services/repository 边界访问 CloudBase，编辑页与 Canvas 已接入，页面层类型仍待清理）。
 - [x] 增加稳定的 ID 生成器与 ID 前缀测试：`usr_`、`wall_`、`layout_`、`problem_`。
 
 ### A2. CloudBase 基础

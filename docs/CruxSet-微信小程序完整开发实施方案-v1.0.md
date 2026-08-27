@@ -176,7 +176,9 @@ Phase 1：
              微信小程序体验版
                     │
                     ▼
-                CloudBase
+          Repository / API abstraction
+                    │
+          CloudBase（Phase 1 默认适配器）
                     │
         ┌───────────┼───────────┐
         ▼           ▼           ▼
@@ -213,7 +215,7 @@ CloudBase Layout
 微信原生小程序
 TypeScript
 Canvas 2D
-wx.cloud
+services / repository abstraction
 ```
 
 Phase 1 不使用：
@@ -227,7 +229,9 @@ React Native
 
 ---
 
-# 6. CloudBase
+# 6. Phase 1 默认数据适配器：CloudBase
+
+CloudBase 是 Phase 1 的默认推荐实现，不是业务层硬性绑定。页面和组件不得直接调用 `wx.cloud`，必须通过 `services` / `repository` 抽象访问数据，例如 `problemService.list()`、`problemService.get()`、`problemService.create()`、`wallService.list()` 和 `layoutService.get()`。未来切换 FastAPI 或其他独立后端时，只替换适配层。
 
 使用：
 
@@ -3356,5 +3360,4 @@ Hold Geometry
 > 做一个复杂的 AI 攀岩 Demo。
 
 而是：
-
 

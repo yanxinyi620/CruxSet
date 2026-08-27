@@ -38,12 +38,11 @@ npm run verify:phase1
 
 使用微信开发者工具导入仓库根目录；工具会读取 `project.config.json`，小程序源码位于 `miniprogram/`。
 
-当前配置使用测试 AppID。接入真实微信与 CloudBase 前，需要：
+当前已配置微信小程序 AppID。Phase 1 默认使用 CloudBase，但业务页面通过 services/repository 抽象访问数据，未来可替换为 FastAPI。接入真实 CloudBase 前，需要：
 
-1. 将 `project.config.json` 中的 `appid` 替换为项目 AppID；
-2. 创建 CloudBase 环境；
-3. 在小程序初始化配置中指定环境；
-4. 按实施计划建立集合、权限和云函数。
+1. 创建 CloudBase 环境；
+2. 在小程序初始化配置中指定环境；
+3. 按实施计划建立集合、权限和云函数。
 
 不要把私有环境配置或密钥提交到仓库。
 
