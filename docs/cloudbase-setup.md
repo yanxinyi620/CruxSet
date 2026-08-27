@@ -4,7 +4,7 @@
 
 1. 在微信公众平台创建小程序并取得真实 AppID。
 2. 在微信开发者工具中打开仓库根目录，绑定 AppID。
-3. 创建 CloudBase 环境，将环境 ID 配入 `wx.cloud.init`。
+3. 已配置 CloudBase 环境 `cloud1-d0g8toggn7735e61e`，并写入 `miniprogram/app.ts` 的 `wx.cloud.init`；如切换环境，只修改该配置。
 4. 分别为 `login`、`saveProblem`、`deleteProblem`、`adminLayout` 安装各目录的 `wx-server-sdk` 依赖并部署。
 
 部署前在项目根目录执行 `npm run verify:phase1`；该命令会检查云函数 JavaScript 语法和依赖声明。正式发布使用 `npm run verify:phase1 -- --release`，会强制要求真实 AppID。
