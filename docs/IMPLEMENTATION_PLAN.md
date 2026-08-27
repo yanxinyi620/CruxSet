@@ -107,8 +107,8 @@ Phase 1 完成前不得提前开发 Phase 2。每个任务均遵循：先测试�
 
 ### D3. Layout 管理
 
-- [-] 实现 `adminLayout` 的 createWall、createLayout、updateLayout、publishLayout（管理员鉴权、Wall 字段校验与默认值、Wall 存在性、Layout 尺寸/几何类型与 Hold 结构校验、归一化校验和发布状态已接入，真实环境待验证）。
-- [-] 重新装点必须新建 Layout；小修订只增加 version（云函数已改为新增版本文档、发布更新 activeLayoutId，客户端按 id + version 查询，真实环境待验证）。
+- [-] 实现 `wallManager` 的 createWall、createLayout、updateLayout、publishLayout（创建者/管理员鉴权、Wall 字段校验、Layout 尺寸/几何类型与 Hold 结构校验、归一化校验和发布状态已接入，真实环境待验证）。
+- [-] Layout 首次发布后永久锁定；补点、移动或删除岩点必须创建新的 Layout。旧线路按 `layoutId + layoutVersion` 读取原始快照；服务端锁定与“我的墙面”草稿入口已接入，真实环境待验证。
 - [ ] 保存原图与 1600–2048px 日常展示图的文件 ID。
 
 验证：并发创建线路编号不重复；伪造 userId、Hold ID、Wall/Layout、角度或难度均被服务端拒绝。
@@ -131,9 +131,9 @@ Phase 1 完成前不得提前开发 Phase 2。每个任务均遵循：先测试�
 
 ---
 
-## Phase 1F — Admin Layout Editor
+## Phase 1F — Layout 标注与发布
 
-- [-] 实现管理员创建 Wall、上传图片与创建 Layout 流程（新增 Admin Setup 页面，选图读取真实尺寸，创建后进入标注页；远端/本地墙图显示、图片上传、草稿及 `publishLayout` 已接入，真实 CloudBase 操作待验证）。
+- [-] 实现用户创建 Wall、上传图片与创建 Layout 流程（新建墙面、草稿“开始标注”、发布后“创建新 Layout”入口已接入；创建者可读取自己草稿图，真实 CloudBase 操作待验证）。
 - [-] 实现 Continuous Add Mode，连续创建 H001、H002……（领域与页面已接入，编号按历史最大值递增，待真实 Canvas 点位与图片）。
 - [-] 默认 `kind = hold` 与默认 radius；支持 Hold/Volume 切换（领域与页面已接入，待真实 Canvas 点位）。
 - [-] 实现移动中心、调整 radius、删除与至少 50 步 Undo（删除/Undo/归一化点选/位置与半径控件已接入，待真机验证）。
@@ -173,8 +173,8 @@ Phase 1 Freeze 后才开始。
 
 ## 后续阶段 — 用户自主管理内容
 
-- [ ] 增加 Wall 的 `ownerId` 与 `visibility`，并由云函数校验所有权；新建 Wall 默认 `visibility: 'private'`，创建者可在创建或编辑时切换为 `public`。
-- [ ] 支持用户创建、修改、删除自己的 Wall、Layout 与 Problem；保存后立即生效，不设置提交审核流程。
+- [x] 增加 Wall 的 `ownerId` 与 `visibility`，并由云函数校验所有权；新建 Wall 默认 `visibility: 'private'`，创建者可在创建时切换为 `public`。
+- [-] 支持用户创建、修改、删除自己的 Wall、Layout 与 Problem；创建、草稿标注、发布后新建 Layout 与线路创建已接入，墙面编辑、删除和线路管理待完成。
 - [ ] 为用户上传墙图配置专属存储路径与访问规则。
 - [ ] 在用户自主上传流程中接入自动识别和人工岩点校正。
 
