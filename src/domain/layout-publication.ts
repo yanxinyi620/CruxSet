@@ -15,3 +15,8 @@ export const layoutEditorRoute = (wallId: string, layoutId: string) =>
 
 export const newLayoutRoute = (wallId: string) =>
   `/pages/admin/layout-create/index?wallId=${wallId}`
+
+export const layoutEditorState = (layout: PublicationState) =>
+  isLayoutPublished(layout)
+    ? { editable: false, message: '该 Layout 已发布并锁定' }
+    : { editable: true, message: '' }

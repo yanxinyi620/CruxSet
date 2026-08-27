@@ -2,17 +2,18 @@ const cloud = require('wx-server-sdk')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 
 const findLayoutByImage = async (db, fileID) => {
-  const primary = await db.collection('layouts').where({ imageFileId: fileID }).limit(1).get()
+  const primary = await db.collection('layouts').where({ imageFileId: fileID }).orderBy('version', 'desc').limit(1).get()
   if (primary.data.length) return primary.data[0]
-  const display = await db.collection('layouts').where({ displayImageFileId: fileID }).limit(1).get()
+  const display = await db.collection('layouts').where({ displayImageFileId: fileID }).orderBy('version', 'desc').limit(1).get()
   return display.data[0]
 }
 
-const isAdmin = async (db, openid) => {
+const identity = async (db, openid) => {
   const users = await db.collection('users').where({ openid }).limit(1).get()
-  if (!users.data.length) return false
-  const admins = await db.collection('admins').where({ userId: users.data[0].id }).limit(1).get()
-  return admins.data.length > 0
+  if (!users.data.length) throw new Error('LOGIN_REQUIRED')
+  const user = users.data[0]
+  const admins = await db.collection('admins').where({ userId: user.id }).limit(1).get()
+  return { user, isAdmin: admins.data.length > 0 }
 }
 
 exports.main = async event => {
@@ -25,7 +26,9 @@ exports.main = async event => {
 
   if (!layout.published) {
     const { OPENID: openid } = cloud.getWXContext()
-    if (!await isAdmin(db, openid)) throw new Error('FORBIDDEN')
+    const actor = await identity(db, openid)
+    const wall = (await db.collection('walls').doc(layout.wallId).get()).data
+    if (!actor.isAdmin && wall?.ownerId !== actor.user.id) throw new Error('FORBIDDEN')
   }
 
   const result = await cloud.getTempFileURL({ fileList: [fileID] })
