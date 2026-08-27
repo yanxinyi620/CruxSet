@@ -1,5 +1,6 @@
 import './styles/tokens.css'
 import './styles/base.css'
+import './styles/device.css'
 import { PreviewStore } from './preview-store.js'
 
 const root = document.querySelector<HTMLElement>('#app')!
