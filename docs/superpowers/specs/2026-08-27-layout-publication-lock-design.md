@@ -30,6 +30,7 @@
 - 一旦某 Layout 最新快照为 `published: true`，两种写入操作均返回 `LAYOUT_LOCKED`。
 - `createLayout` 仍允许墙面创建者或管理员调用，用于创建全新的草稿 Layout。
 - 所有权限检查保持在 `wallManager` 云函数中；页面不自行判断授权来替代服务端校验。
+- 草稿 Layout 的图片临时地址只可由其墙面创建者或管理员取得；公开浏览者只可取得已发布 Layout 的图片地址。
 
 ## 页面与错误处理
 

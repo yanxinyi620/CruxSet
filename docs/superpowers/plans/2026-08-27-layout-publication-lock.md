@@ -319,3 +319,27 @@ git add docs/IMPLEMENTATION_PLAN.md docs/manual-test.md
 git commit -m "docs: record layout lock verification"
 ```
 
+### Task 7: Permit owners to preview their own draft images
+
+**Files:**
+- Modify: `cloudfunctions/getLayoutImageUrl/index.js`
+- Modify: `docs/manual-test.md`
+
+- [ ] **Step 1: Extend the real-environment image-access checklist**
+
+Add checks that a wall owner can open an unpublished Layout and see its uploaded image, while a different non-admin account is denied a temporary URL for that same draft.
+
+- [ ] **Step 2: Add the owner check**
+
+Resolve the caller's `users` record from `OPENID`, load the Layout's Wall, and permit an unpublished image only when `wall.ownerId === user.id` or the caller is in `admins`. Keep public access limited to `layout.published === true`.
+
+- [ ] **Step 3: Verify and commit**
+
+Run: `npm test && npm run build && npm run verify:phase1 -- --release`
+
+Expected: all commands pass.
+
+```bash
+git add cloudfunctions/getLayoutImageUrl/index.js docs/manual-test.md
+git commit -m "fix: allow owners to preview draft layouts"
+```
