@@ -1,7 +1,7 @@
 <view class="page create-page">
-  <view class="page-kicker">MAKE SOMETHING</view>
+  <view class="preview-top"><view>CRUXSET</view><view class="preview-avatar"></view></view>
   <view class="page-title">创建</view>
-  <view class="page-lead">新建内容，或继续完成尚未发布的墙面标注。</view>
+  <view class="page-lead">从这里开始新建内容，或继续完成尚未发布的墙面标注。</view>
   <view class="create-hero" bindtap="createWall">
     <view class="create-hero-mark">＋</view>
     <view class="create-hero-kicker">从真实墙面开始</view>
