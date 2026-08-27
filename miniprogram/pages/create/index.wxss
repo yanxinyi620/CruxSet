@@ -1,0 +1,1 @@
+.action{display:flex;align-items:center;gap:24rpx}.action-icon{width:74rpx;height:74rpx;border-radius:50%;background:#df792b;color:#fff;font-size:54rpx;line-height:68rpx;text-align:center}.section-title{font-size:30rpx;font-weight:700;margin:46rpx 0 12rpx}
