@@ -9,13 +9,11 @@
     <view class="create-hero-copy">上传照片、设置可见范围，然后开始首次标注。</view>
   </view>
   <view class="section-label">继续创建</view>
-  <view wx:if="{{loading}}" class="quiet-empty">正在整理你的草稿…</view>
-  <view wx:for="{{drafts}}" wx:key="layoutId" class="action-row" data-wall-id="{{item.wallId}}" data-layout-id="{{item.layoutId}}" bindtap="resumeDraft">
+  <view class="action-row" bindtap="openDrafts">
     <view class="draft-symbol"><view>✦</view></view>
-    <view class="action-body"><view class="action-title">{{item.wallName}}</view><view class="action-meta">草稿 · {{item.layoutName}}</view></view>
+    <view class="action-body"><view class="action-title">我的草稿</view><view class="action-meta">查看并继续标注未发布 Layout</view></view>
     <view class="action-arrow">›</view>
   </view>
-  <view wx:if="{{!loading&&!drafts.length}}" class="quiet-empty">没有未发布的标注草稿</view>
   <view class="section-label">设置线路</view>
   <view class="wall-row" bindtap="createProblem">
     <view class="route-visual"></view>
