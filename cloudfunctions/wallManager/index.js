@@ -112,6 +112,6 @@ exports.main = async event => {
   if (layout.published) throw new Error('LAYOUT_LOCKED')
   const update = { ...layout, ...data, id: layout.id, wallId: wall.id, version: (layout.version || 1) + 1, updatedAt: now, published: action === 'publishLayout' }
   await db.collection('layouts').add({ data: update })
-  if (action === 'publishLayout') await db.collection('walls').doc(wall.id).update({ data: { activeLayoutId: layout.id, updatedAt: now } })
+  if (action === 'publishLayout') await db.collection('walls').doc(wall.id).update({ data: { visibility: 'public', updatedAt: now } })
   return { id: layout.id, version: update.version }
 }

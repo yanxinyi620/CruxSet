@@ -16,13 +16,14 @@ Page({
   data: { wallId: 'wall_demo', wallName: '日坛 Spraywall', layoutName: '2026-08 Layout', layout: demoLayout, layoutId: 'layout_demo', angles: defaultAngles, grades, angle: 35, grade: 'V4', query: '', problems: [] },
   onLoad(options) {
     const wallId = options.id || 'wall_demo'
+    const requestedLayoutId = options.layoutId || 'layout_demo'
     const saved = wx.getStorageSync(contextKey(wallId)) || {}
     this.setData({ wallId, angle: saved.angle || 35, grade: saved.grade || 'V4', query: saved.query || '' })
     getWall(wallId).then(wall => {
       const angles = wall.angleOptions || defaultAngles
       const angle = angles.includes(this.data.angle) ? this.data.angle : angles[0]
-      this.setData({ wallName: wall.name, angles, angle, layoutId: wall.activeLayoutId })
-      return getLayout(wall.activeLayoutId)
+      this.setData({ wallName: wall.name, angles, angle, layoutId: requestedLayoutId })
+      return getLayout(requestedLayoutId)
     }).then(layout => {
       this.setData({ layout, layoutName: layout.name })
       return listProblems({ wallId, layoutId: layout.id })
