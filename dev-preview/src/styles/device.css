@@ -21,3 +21,5 @@ h1 { letter-spacing: 2px; }
 .hub-card b { font-size:20px; }
 .hub-card em { color:#6f7187; font-style:normal; font-size:13px; line-height:1.45; }
 .hub-card strong { color:#6046d6; font-size:25px; }
+
+.back-button { display:grid; place-items:center; width:34px; height:34px; margin:0 0 16px -4px; border:1px solid var(--line); border-radius:11px; background:#fff; color:#6046d6; font-size:30px; line-height:1; }
