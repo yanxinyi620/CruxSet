@@ -1,9 +1,8 @@
-import { demoLayout, demoWall } from '../data/demo.js'
+import { demoDraftLayout, demoLayout, demoWall } from '../data/demo.js'
 import { demoProblems } from '../data/demo-problems.js'
 import type { Layout, Problem, Wall } from '../domain/types.js'
 
 export const mockCurrentUserId = 'usr_mock_owner'
-const localImage = '/assets/mock/ritan-spraywall-0822.jpg'
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T
 
 export class MockRepository {
@@ -12,10 +11,8 @@ export class MockRepository {
   private problems: Problem[]
 
   constructor() {
-    const mockWall: Wall = { id: 'wall_mock_ritan', name: '日坛 Spraywall · 本地标注草稿', description: '本地 Mock 固定测试墙面', activeLayoutId: '', angleOptions: [20, 25, 30, 35, 40, 45], ownerId: mockCurrentUserId, visibility: 'private', createdAt: 1, updatedAt: 1 }
-    const mockLayout: Layout = { id: 'layout_mock_ritan_draft', wallId: mockWall.id, name: '2026-08 本地草稿', imageFileId: localImage, imageWidth: 4096, imageHeight: 3072, geometryType: 'circle', version: 1, published: false, holds: [], createdAt: 1, updatedAt: 1 }
-    this.walls = clone([demoWall, mockWall])
-    this.layouts = clone([demoLayout, mockLayout])
+    this.walls = clone([demoWall])
+    this.layouts = clone([demoLayout, demoDraftLayout])
     this.problems = clone(demoProblems)
   }
 
