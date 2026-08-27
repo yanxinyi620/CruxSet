@@ -8,3 +8,6 @@
 nav { padding: 17px 15px calc(17px + var(--safe-bottom)); }
 nav button { padding: 6px 0; font-size: 16px; letter-spacing: .04em; }
 nav button.active { color: #fff; font-weight: 900; }
+
+/* Chinese page titles need breathing room at this compact device width. */
+h1 { letter-spacing: 2px; }
