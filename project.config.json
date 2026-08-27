@@ -1,1 +1,40 @@
-{"description":"CruxSet 微信小程序","miniprogramRoot":"miniprogram/","cloudfunctionRoot":"cloudfunctions/","setting":{"es6":true,"enhance":true,"postcss":true,"minified":true},"compileType":"miniprogram","appid":"wx123fe6920af8c5a9","projectname":"CruxSet"}
+{
+  "description": "CruxSet 微信小程序",
+  "miniprogramRoot": "miniprogram/",
+  "cloudfunctionRoot": "cloudfunctions/",
+  "setting": {
+    "es6": true,
+    "enhance": true,
+    "postcss": true,
+    "minified": true,
+    "compileWorklet": false,
+    "uglifyFileName": false,
+    "uploadWithSourceMap": true,
+    "packNpmManually": false,
+    "packNpmRelationList": [],
+    "minifyWXSS": true,
+    "minifyWXML": true,
+    "localPlugins": false,
+    "disableUseStrict": false,
+    "useCompilerPlugins": [
+      "typescript"
+    ],
+    "condition": false,
+    "swc": false,
+    "disableSWC": true,
+    "babelSetting": {
+      "ignore": [],
+      "disablePlugins": [],
+      "outputPath": ""
+    }
+  },
+  "compileType": "miniprogram",
+  "appid": "wx123fe6920af8c5a9",
+  "projectname": "CruxSet",
+  "simulatorPluginLibVersion": {},
+  "packOptions": {
+    "ignore": [],
+    "include": []
+  },
+  "editorSetting": {}
+}

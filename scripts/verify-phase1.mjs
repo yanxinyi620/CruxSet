@@ -10,6 +10,7 @@ const app=JSON.parse(readFileSync(join(root,'miniprogram/app.json'),'utf8'))
 const schema=JSON.parse(readFileSync(join(root,'config/cloudbase.collections.json'),'utf8'))
 const rules=JSON.parse(readFileSync(join(root,'config/cloudbase.rules.json'),'utf8'))
 const expected=['users','walls','layouts','problems','admins','counters']
+if(!Array.isArray(config.setting?.useCompilerPlugins)||!config.setting.useCompilerPlugins.includes('typescript')){console.error('FAIL: the WeChat TypeScript compiler plugin must be enabled');process.exitCode=1}
 if(expected.some(name=>!schema.collections.some(collection=>collection.name===name))){console.error('FAIL: CloudBase collection declaration is incomplete');process.exitCode=1}
 if(rules.client?.write?.length || JSON.stringify(rules.client?.read)!==JSON.stringify(['walls','layouts','problems']) || !expected.every(name=>rules.cloudFunctions?.write?.includes(name))){console.error('FAIL: CloudBase permission policy is unsafe or incomplete');process.exitCode=1}
 const missingPages=app.pages.filter(page=>['ts','wxml','json','wxss'].some(ext=>!existsSync(join(root,'miniprogram',`${page}.${ext}`))))
