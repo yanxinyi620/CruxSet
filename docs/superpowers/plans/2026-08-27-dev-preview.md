@@ -17,6 +17,7 @@
 | `package.json` | 增加预览和预览测试脚本，以及 Vite 依赖。 |
 | `dev-preview/vite.config.ts` | Vite 根目录、端口 5173、静态资源和测试配置。 |
 | `dev-preview/index.html` | 预览器入口。 |
+| `dev-preview/public/assets/mock/ritan-spraywall-0822.jpg` | 浏览器预览器使用的本地墙面静态图片副本。 |
 | `dev-preview/src/data/preview-repository.ts` | 将 `MockRepository` 暴露成浏览器安全、可重置的预览数据接口。 |
 | `dev-preview/src/preview-store.ts` | 路由、设备、对话框、通知和会话数据的唯一 UI 状态来源。 |
 | `dev-preview/src/routes.ts` | 路由名称、参数和 URL 编解码。 |
@@ -33,6 +34,7 @@
 - Create: `dev-preview/tsconfig.json`
 - Create: `dev-preview/vite.config.ts`
 - Create: `dev-preview/index.html`
+- Create: `dev-preview/public/assets/mock/ritan-spraywall-0822.jpg`（从 `miniprogram/assets/mock/ritan-spraywall-0822.jpg` 复制）
 - Create: `dev-preview/src/main.ts`
 - Create: `dev-preview/src/styles/tokens.css`
 - Create: `dev-preview/src/styles/base.css`
@@ -94,7 +96,7 @@ export default defineConfig({
 })
 ```
 
-`index.html` 提供 `<main id="app"></main>` 并加载 `/src/main.ts`。`main.ts` 导入两个样式文件并将一个临时 shell 渲染到 `#app`。`tokens.css` 至少定义 `--ink`、`--canvas`、`--surface`、`--accent`、`--line`、`--radius-card`、`--safe-bottom`；`base.css` 负责 box sizing、页面背景和可访问焦点样式。
+`index.html` 提供 `<main id="app"></main>` 并加载 `/src/main.ts`。将 `miniprogram/assets/mock/ritan-spraywall-0822.jpg` 原样复制到 `dev-preview/public/assets/mock/ritan-spraywall-0822.jpg`，使 Mock Repository 中的 `/assets/mock/ritan-spraywall-0822.jpg` 在 Vite 中可访问。`main.ts` 导入两个样式文件并将一个临时 shell 渲染到 `#app`。`tokens.css` 至少定义 `--ink`、`--canvas`、`--surface`、`--accent`、`--line`、`--radius-card`、`--safe-bottom`；`base.css` 负责 box sizing、页面背景和可访问焦点样式。
 
 - [ ] **Step 4: 运行单测和 Vite 构建**
 
