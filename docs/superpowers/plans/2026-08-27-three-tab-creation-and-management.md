@@ -107,18 +107,21 @@ git commit -m "feat: enforce draft and routing lifecycle"
 ```ts
 import { expect, it } from 'vitest'
 import { createMockRepository } from '../miniprogram/services/mock-repository.js'
-it('deletes a published Layout and its routes', async () => {
+it('deletes an owned published Layout and its routes', async () => {
   const repo = createMockRepository()
-  expect((await repo.listProblems({ layoutId: 'layout_demo' })).length).toBeGreaterThan(0)
-  await repo.deleteLayout('wall_demo', 'layout_demo')
-  await expect(repo.getLayout('layout_demo')).rejects.toThrow('LAYOUT_NOT_FOUND')
-  expect(await repo.listProblems({ layoutId: 'layout_demo' })).toEqual([])
+  const [wall] = await repo.listMyWalls(); const [layout] = await repo.listLayouts(wall.id)
+  const holds = [{ id: 'H001', x: .1, y: .1, radius: .02, kind: 'hold' }, { id: 'H002', x: .2, y: .2, radius: .02, kind: 'hold' }] as any
+  await repo.publishLayout(wall.id, layout.id, holds)
+  await repo.createProblem(wall.id, layout.id, { angle: 20, grade: 'V0', holds: { start: ['H001'], finish: ['H002'] } })
+  await repo.deleteLayout(wall.id, layout.id)
+  await expect(repo.getLayout(layout.id)).rejects.toThrow('LAYOUT_NOT_FOUND')
+  expect(await repo.listProblems({ layoutId: layout.id })).toEqual([])
 })
-it('deletes a wall together with layouts and routes', async () => {
-  const repo = createMockRepository()
-  await repo.deleteWall('wall_demo')
-  await expect(repo.getWall('wall_demo')).rejects.toThrow('WALL_NOT_FOUND')
-  expect(await repo.listProblems({ wallId: 'wall_demo' })).toEqual([])
+it('deletes an owned wall together with layouts and routes', async () => {
+  const repo = createMockRepository(); const [wall] = await repo.listMyWalls()
+  await repo.deleteWall(wall.id)
+  await expect(repo.getWall(wall.id)).rejects.toThrow('WALL_NOT_FOUND')
+  expect(await repo.listProblems({ wallId: wall.id })).toEqual([])
 })
 ```
 
@@ -328,4 +331,3 @@ git commit -m "docs: record draft and deletion workflows"
 - Status/delete-only My: Task 4.
 - Published lock, write protection, ownership, and cascades: Tasks 1–2.
 - Mock/CloudBase parity and acceptance checks: Tasks 1, 2, and 6.
-
