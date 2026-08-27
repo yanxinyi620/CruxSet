@@ -23,3 +23,7 @@ h1 { letter-spacing: 2px; }
 .hub-card strong { color:#6046d6; font-size:25px; }
 
 .back-button { display:grid; place-items:center; width:34px; height:34px; margin:0 0 16px -4px; border:1px solid var(--line); border-radius:11px; background:#fff; color:#6046d6; font-size:30px; line-height:1; }
+
+.layout-card { display:flex; align-items:center; gap:12px; margin:12px 0; padding:15px; background:#fff; border:1px solid var(--line); border-radius:18px; }
+.layout-card span { display:grid; gap:3px; flex:1; min-width:0; }
+.layout-card b { font-size:16px; }.layout-card em { color:#6f7187; font-size:12px; font-style:normal; }.layout-card small { width:max-content; padding:4px 8px; border-radius:999px; font-size:11px; font-weight:800; }.layout-card small.published { background:#e8f7ee; color:#397355; }.layout-card small.draft { background:#fff4d7; color:#987719; }.delete-button { padding:7px 9px; border:1px solid #efc1b7; border-radius:10px; background:#fff; color:#c75b49; font-size:12px; font-weight:800; }
