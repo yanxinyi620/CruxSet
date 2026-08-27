@@ -1,1 +1,27 @@
-<view class="page"><view class="eyebrow">Make a move</view><view class="title">创建</view><view class="card action" bindtap="createWall"><view class="action-icon">＋</view><view><view class="wall-name">新建墙面</view><view class="muted">上传墙图并标注岩点</view></view></view><view class="section-title">新建线路</view><view class="muted">选择自己的墙面或公开墙面。</view><view wx:if="{{loading}}" class="muted">加载墙面中…</view><view wx:for="{{walls}}" wx:key="id" class="card wall" data-id="{{item.id}}" bindtap="openWall"><view class="wall-name">{{item.name}}</view><view class="muted">{{item.visibility==='public'?'公开墙面':'我的私有墙面'}} · 选择后设置线路</view><view class="arrow">→</view></view><view wx:if="{{!loading&&!walls.length}}" class="empty">先发布一个已标注 Layout，再开始设置线路</view></view>
+<view class="page create-page">
+  <view class="page-kicker">MAKE SOMETHING</view>
+  <view class="page-title">创建</view>
+  <view class="page-lead">新建内容，或继续完成尚未发布的墙面标注。</view>
+  <view class="create-hero" bindtap="createWall">
+    <view class="create-hero-mark">＋</view>
+    <view class="create-hero-kicker">从真实墙面开始</view>
+    <view class="create-hero-title">新建墙面</view>
+    <view class="create-hero-copy">上传照片、设置可见范围，然后开始首次标注。</view>
+  </view>
+  <view class="section-label">继续创建</view>
+  <view wx:if="{{loading}}" class="quiet-empty">正在整理你的草稿…</view>
+  <view wx:for="{{drafts}}" wx:key="layoutId" class="action-row" data-wall-id="{{item.wallId}}" data-layout-id="{{item.layoutId}}" bindtap="resumeDraft">
+    <view class="action-symbol">✦</view>
+    <view class="action-body"><view class="action-title">我的草稿</view><view class="action-meta">{{item.wallName}} · {{item.layoutName}}</view></view>
+    <view class="action-arrow">›</view>
+  </view>
+  <view wx:if="{{!loading&&!drafts.length}}" class="quiet-empty">没有未发布的标注草稿</view>
+  <view class="section-label">设置线路</view>
+  <view wx:for="{{routableWalls}}" wx:key="id" class="wall-row" data-id="{{item.id}}" bindtap="openWall">
+    <view class="wall-badge">{{item.visibility==='public'?'公开':'我的'}}</view>
+    <view class="wall-copy"><view class="wall-name">{{item.name}}</view><view class="wall-meta">已发布 Layout · 选择后设置线路</view></view>
+    <view class="action-arrow">›</view>
+  </view>
+  <view wx:if="{{!loading&&!routableWalls.length}}" class="quiet-empty">先发布一个至少包含两个岩点的 Layout，再开始设置线路</view>
+</view>
+
