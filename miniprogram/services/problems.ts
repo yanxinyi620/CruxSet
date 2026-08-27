@@ -1,7 +1,8 @@
 // @ts-nocheck
-import { call, normalizeCloudError } from './cloud.js'
+import { call } from './cloud.js'
 import type { Problem } from '../domain/types.js'
+import { wallManager } from './walls.js'
 export const saveProblem = (wallId: string, layoutId: string, draft: Partial<Problem>) => call<{ id: string; number: string }>('saveProblem', { wallId, layoutId, draft })
 export const deleteProblem = (id: string) => call<{ ok: boolean }>('deleteProblem', { id })
-export const listProblems = (filter: Partial<Pick<Problem, 'wallId'|'layoutId'|'angle'|'grade'>> = {}) => new Promise<Problem[]>((resolve, reject) => { if (!wx.cloud) return reject(normalizeCloudError(new Error('CLOUD_NOT_CONFIGURED'))); wx.cloud.database().collection('problems').where(filter).orderBy('number', 'asc').get({ success: result => resolve(result.data as Problem[]), fail: error => reject(normalizeCloudError(error)) }) })
-export const getProblem = (id: string) => new Promise<Problem>((resolve, reject) => { if (!wx.cloud) return reject(normalizeCloudError(new Error('CLOUD_NOT_CONFIGURED'))); wx.cloud.database().collection('problems').doc(id).get({ success: result => resolve(result.data as Problem), fail: error => reject(normalizeCloudError(error)) }) })
+export const listProblems=(filter:Partial<Pick<Problem,'wallId'|'layoutId'|'angle'|'grade'>>={})=>wallManager('listProblems',filter as Record<string,unknown>) as Promise<Problem[]>
+export const getProblem=(id:string)=>wallManager('getProblem',{id}) as Promise<Problem>

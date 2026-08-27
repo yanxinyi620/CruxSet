@@ -1,1 +1,1 @@
-<view class="page"><view class="title">我的</view></view>
+<view class="page"><view class="eyebrow">My Walls</view><view class="title">我的墙面</view><button class="button" bindtap="create">＋ 新建墙面</button><view wx:if="{{loading}}" class="muted">加载中…</view><view wx:for="{{walls}}" wx:key="id" class="card" data-id="{{item.id}}" bindtap="open"><view>{{item.name}}</view><view class="muted">{{item.visibility==='public'?'公开':'私有'}}</view></view><view wx:if="{{!loading&&!walls.length}}" class="empty">还没有创建墙面</view></view>

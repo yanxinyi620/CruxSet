@@ -4,7 +4,7 @@ export type FootRule = 'feet_follow' | 'specified' | 'all'
 export type Grade = `V${0|1|2|3|4|5|6|7|8|9|10|11|12}`
 export type Point = readonly [number, number]
 export interface User { id:string; openid:string; unionid?:string; displayName?:string; avatarUrl?:string; createdAt:number; updatedAt:number }
-export interface Wall { id:string; name:string; description:string; activeLayoutId:string; angleOptions:number[]; createdAt:number; updatedAt:number }
+export interface Wall { id:string; name:string; description:string; activeLayoutId:string; angleOptions:number[]; ownerId:string; visibility:'private'|'public'; createdAt:number; updatedAt:number }
 export interface Hold { id:string; x:number; y:number; radius:number; kind:HoldKind; bbox?:readonly [number,number,number,number]; polygon?:Point[] }
 export interface Layout { id:string; wallId:string; name:string; imageFileId:string; displayImageFileId?:string; imageWidth:number; imageHeight:number; geometryType:'circle'|'polygon'; version:number; holds:Hold[]; createdAt:number; updatedAt:number }
 export interface ProblemHolds { start:string[]; foot:string[]; hand:string[]; assist:string[]; finish:string[] }

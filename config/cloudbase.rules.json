@@ -1,5 +1,5 @@
 {
-  "client": { "read": ["walls", "layouts", "problems"], "write": [], "readDeny": ["users", "admins", "counters"] },
+  "client": { "read": [], "write": [], "readDeny": ["users", "admins", "counters", "walls", "layouts", "problems"] },
   "cloudFunctions": { "write": ["users", "walls", "layouts", "problems", "admins", "counters"], "validateActor": true, "businessForeignKeys": "users.id" },
-  "notes": ["客户端不直接写入任何业务集合。", "OPENID 只允许在登录云函数中用于映射 users.id。", "Layout 发布、线路保存和删除必须经过对应云函数。"]
+  "notes": ["客户端不直接读写任何业务集合。", "OPENID 只允许在登录云函数中用于映射 users.id。", "Wall、Layout 和线路读写必须经过对应云函数。"]
 }

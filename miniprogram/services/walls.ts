@@ -1,5 +1,7 @@
 // @ts-nocheck
 import type { Wall } from '../domain/types.js'
-import { normalizeCloudError } from './cloud.js'
-export const listWalls = () => new Promise<Wall[]>((resolve, reject) => { if (!wx.cloud) return reject(normalizeCloudError(new Error('CLOUD_NOT_CONFIGURED'))); wx.cloud.database().collection('walls').orderBy('name', 'asc').get({ success: result => resolve(result.data as Wall[]), fail: error => reject(normalizeCloudError(error)) }) })
-export const getWall = (id: string) => new Promise<Wall>((resolve, reject) => { if (!wx.cloud) return reject(normalizeCloudError(new Error('CLOUD_NOT_CONFIGURED'))); wx.cloud.database().collection('walls').doc(id).get({ success: result => resolve(result.data as Wall), fail: error => reject(normalizeCloudError(error)) }) })
+import { call } from './cloud.js'
+export const wallManager=(action:string,data:Record<string,unknown>={})=>call<any>('wallManager',{action,data})
+export const listWalls=()=>wallManager('listBrowseWalls') as Promise<Wall[]>
+export const listMyWalls=()=>wallManager('listMyWalls') as Promise<Wall[]>
+export const getWall=(id:string)=>wallManager('getWall',{id}) as Promise<Wall>
