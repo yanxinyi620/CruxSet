@@ -11,17 +11,16 @@
   <view class="section-label">继续创建</view>
   <view wx:if="{{loading}}" class="quiet-empty">正在整理你的草稿…</view>
   <view wx:for="{{drafts}}" wx:key="layoutId" class="action-row" data-wall-id="{{item.wallId}}" data-layout-id="{{item.layoutId}}" bindtap="resumeDraft">
-    <view class="action-symbol">✦</view>
-    <view class="action-body"><view class="action-title">我的草稿</view><view class="action-meta">{{item.wallName}} · {{item.layoutName}}</view></view>
+    <view class="draft-symbol"><view>✦</view></view>
+    <view class="action-body"><view class="action-title">{{item.wallName}}</view><view class="action-meta">草稿 · {{item.layoutName}}</view></view>
     <view class="action-arrow">›</view>
   </view>
   <view wx:if="{{!loading&&!drafts.length}}" class="quiet-empty">没有未发布的标注草稿</view>
   <view class="section-label">设置线路</view>
   <view wx:for="{{routableWalls}}" wx:key="id" class="wall-row" data-id="{{item.id}}" bindtap="openWall">
-    <view class="wall-badge">{{item.visibility==='public'?'公开':'我的'}}</view>
-    <view class="wall-copy"><view class="wall-name">{{item.name}}</view><view class="wall-meta">已发布 Layout · 选择后设置线路</view></view>
+    <view class="route-visual"></view>
+    <view class="wall-copy"><view class="wall-name">{{item.name}}</view><view class="wall-meta">{{item.visibility==='public'?'公开':'我的'}} · 已发布 Layout</view></view>
     <view class="action-arrow">›</view>
   </view>
   <view wx:if="{{!loading&&!routableWalls.length}}" class="quiet-empty">先发布一个至少包含两个岩点的 Layout，再开始设置线路</view>
 </view>
-
