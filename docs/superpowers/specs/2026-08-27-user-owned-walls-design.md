@@ -24,11 +24,13 @@
 
 所有 Layout 操作先取得所属 Wall，再验证 `wall.ownerId === currentUser.id` 或调用者为管理员。管理员可管理任何墙面；其他用户不能修改不属于自己的 Wall 或 Layout。
 
+`walls`、`layouts`、`problems` 对小程序客户端均设为“所有用户不可读写”。所有读取也通过云函数执行：浏览接口只返回公开 Wall 及其关联 Layout / Problem；“我的墙面”接口只返回调用者拥有的内容；管理员可读取全部内容。
+
 ## 服务边界
 
 将 `adminLayout` 更名为通用 `wallManager` 云函数，避免用管理员身份作为用户功能入口。它支持：`createWall`、`updateWall`、`createLayout`、`updateLayout`、`publishLayout`。旧 `adminLayout` 不再由客户端调用。
 
-`listWalls` 使用云函数返回“公开墙面 + 当前用户拥有的墙面”；`listMyWalls` 仅返回当前用户拥有的墙面。页面不直接写数据库。
+`wallManager` 同时提供 `listBrowseWalls`、`getWall`、`getLayout`、`listProblems`、`getProblem` 等读取动作，并在服务端按 Wall 的 `visibility`、`ownerId` 和管理员身份过滤。页面既不直接读取也不直接写数据库。
 
 ## 非目标
 
