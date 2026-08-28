@@ -13,6 +13,7 @@ export interface DraftCanvasOptions {
   onAddHold: (point: Point) => void
   onMoveStart: (holdId: string) => void
   onMoveHold: (holdId: string, point: Point) => void
+  onMoveCandidate?: (candidateId: string, point: Point) => void
   onDeleteHold: (holdId: string) => void
   onSelectHold: (holdId: string | null) => void
   candidates?: Hold[]
@@ -35,6 +36,44 @@ export const candidateHitTest = (point: Point, holds: Hold[], candidates: Hold[]
     return best
   }
   return hit(candidates) ?? hit(holds)
+}
+
+export const moveCandidatePoint = (candidate: Hold, image: Point, dragOffset: Point, onMove: (point: Point) => void) => {
+  onMove([clamp01(image[0] - dragOffset[0]), clamp01(image[1] - dragOffset[1])])
+}
+
+export const drawCandidateOverlay = (
+  ctx: CanvasRenderingContext2D,
+  candidate: Hold,
+  toScreen: (point: Point) => Point,
+  selected: boolean,
+  scale: number,
+) => {
+  const trace = () => {
+    ctx.beginPath()
+    if (candidate.polygon && candidate.polygon.length >= 3) {
+      candidate.polygon.forEach((p, i) => { const [sx, sy] = toScreen(p); if (i === 0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy) })
+      ctx.closePath()
+    } else {
+      const [sx, sy] = toScreen([candidate.x, candidate.y])
+      ctx.arc(sx, sy, Math.max(2, candidate.radius * scale), 0, Math.PI * 2)
+    }
+  }
+  const style = candidateStyle(selected)
+  ctx.save()
+  ctx.globalAlpha = style.alpha
+  ctx.fillStyle = style.color
+  trace()
+  ctx.fill()
+  ctx.restore()
+  ctx.save()
+  ctx.globalAlpha = style.alpha
+  ctx.setLineDash([8, 5])
+  trace()
+  ctx.strokeStyle = style.color
+  ctx.lineWidth = selected ? 4 : 3
+  ctx.stroke()
+  ctx.restore()
 }
 
 const NEON_HOLD = "#00e5ff"
@@ -150,7 +189,9 @@ export class DraftCanvasView {
       if (Math.hypot(dx, dy) > 2) this.moved = true
       if (this.draggingId) {
         const image = this.toImage(e)
-        this.opts.onMoveHold(this.draggingId, [clamp01(image[0] - this.dragOffsetX), clamp01(image[1] - this.dragOffsetY)])
+        const isCandidate = (this.opts.candidates ?? []).some(candidate => candidate.id === this.draggingId)
+        if (isCandidate) this.opts.onMoveCandidate?.(this.draggingId, [clamp01(image[0] - this.dragOffsetX), clamp01(image[1] - this.dragOffsetY)])
+        else this.opts.onMoveHold(this.draggingId, [clamp01(image[0] - this.dragOffsetX), clamp01(image[1] - this.dragOffsetY)])
         return
       }
       this.offsetX += dx
@@ -291,25 +332,7 @@ export class DraftCanvasView {
       ctx.restore()
     }
     for (const candidate of this.opts.candidates ?? []) {
-      const selected = candidate.id === this.opts.selectedCandidateId
-      const trace = () => {
-        ctx.beginPath()
-        if (candidate.polygon && candidate.polygon.length >= 3) {
-          candidate.polygon.forEach((p, i) => { const [sx, sy] = this.toScreen(p); if (i === 0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy) })
-          ctx.closePath()
-        } else {
-          const [sx, sy] = this.toScreen([candidate.x, candidate.y])
-          ctx.arc(sx, sy, Math.max(2, candidate.radius * this.scale), 0, Math.PI * 2)
-        }
-      }
-      ctx.save()
-      ctx.globalAlpha = candidateStyle(selected).alpha
-      ctx.setLineDash([8, 5])
-      trace()
-      ctx.strokeStyle = candidateStyle(selected).color
-      ctx.lineWidth = selected ? 4 : 3
-      ctx.stroke()
-      ctx.restore()
+      drawCandidateOverlay(ctx, candidate, point => this.toScreen(point), candidate.id === this.opts.selectedCandidateId, this.scale)
     }
   }
 

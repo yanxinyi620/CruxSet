@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { Hold } from '../miniprogram/domain/types.js'
+import type { Hold, Point } from '../miniprogram/domain/types.js'
 import {
   changeCandidateKind,
   clearCandidates,
@@ -9,7 +9,7 @@ import {
   replaceCandidates,
   type CandidateState,
 } from '../web/src/candidate-editor.js'
-import { candidateHitTest, candidateStyle } from '../web/src/draft-canvas.js'
+import { candidateHitTest, candidateStyle, drawCandidateOverlay, moveCandidatePoint } from '../web/src/draft-canvas.js'
 
 const confirmed: Hold[] = [{ id: 'H001', x: .1, y: .2, radius: .02, kind: 'hold' }]
 const candidate: Hold = {
@@ -28,6 +28,29 @@ describe('candidate editor', () => {
 
   it('uses a translucent amber dashed style for candidates', () => {
     expect(candidateStyle(false)).toEqual({ color: '#f59e0b', alpha: 0.55, dashed: true })
+  })
+
+  it('draws a translucent fill as well as a dashed outline', () => {
+    const calls: string[] = []
+    const ctx = {
+      beginPath: () => calls.push('beginPath'), closePath: () => calls.push('closePath'),
+      moveTo: () => calls.push('moveTo'), lineTo: () => calls.push('lineTo'),
+      arc: () => calls.push('arc'), fill: () => calls.push('fill'), stroke: () => calls.push('stroke'),
+      save: () => calls.push('save'), restore: () => calls.push('restore'), setLineDash: (dash: number[]) => calls.push(`dash:${dash.join(',')}`),
+      globalAlpha: 1, fillStyle: '', strokeStyle: '', lineWidth: 0,
+    } as unknown as CanvasRenderingContext2D
+
+    drawCandidateOverlay(ctx, candidate, point => point, false, 100)
+
+    expect(calls).toContain('fill')
+    expect(calls).toContain('stroke')
+    expect(calls).toContain('dash:8,5')
+  })
+
+  it('moves candidate geometry through the candidate callback boundary', () => {
+    const points: Point[] = []
+    moveCandidatePoint(candidate, [.99, -.2], [.1, .1], point => points.push(point))
+    expect(points).toEqual([[.89, 0]])
   })
 
   it('replaces candidates without modifying confirmed or input arrays', () => {
