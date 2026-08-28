@@ -492,8 +492,6 @@ Wall 表示：
 
   "description": "",
 
-  "activeLayoutId": "layout_202608",
-
   "angleOptions": [
     20,
     25,
@@ -507,6 +505,8 @@ Wall 表示：
   "updatedAt": 0
 }
 ```
+
+一个 Wall 可以拥有多个 Layout，且业务上**不存在** `activeLayoutId` 或“活动 Layout”。草稿 Layout 仅创建者可在“创建 → 我的草稿”中标注；任一已发布 Layout 均公开、锁定，并可独立被选择用于浏览与定线。
 
 ---
 
