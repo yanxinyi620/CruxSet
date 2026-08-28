@@ -1,7 +1,11 @@
 export type LocalUser = { id: string; isAdmin: boolean }
 
+export function localApiBaseUrl(location: Pick<Location, 'protocol' | 'hostname'> = window.location): string {
+  return `${location.protocol}//${location.hostname}:8000`
+}
+
 export class LocalApiClient {
-  constructor(private baseUrl = 'http://localhost:8000', private fetcher: typeof fetch = fetch) {}
+  constructor(private baseUrl = localApiBaseUrl(), private fetcher: typeof fetch = fetch) {}
 
   async login(email: string, password: string): Promise<LocalUser> {
     const fetcher = this.fetcher

@@ -1,5 +1,6 @@
 import { expect, it, vi } from 'vitest'
 import { LocalApiClient } from '../web/src/api.js'
+import { localApiBaseUrl } from '../web/src/api.js'
 
 it('sends login requests with browser credentials and parses the current user', async () => {
   const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({ user: { id: 'usr_1', isAdmin: true } }), { status: 200 }))
@@ -21,4 +22,8 @@ it('does not bind a supplied fetch function to the API client instance', async (
   }
   const api = new LocalApiClient('http://localhost:8000', fetcher as typeof fetch)
   await expect(api.currentUser()).resolves.toEqual({ id: 'usr_1', isAdmin: true })
+})
+
+it('uses the current LAN host instead of phone localhost for the local API', () => {
+  expect(localApiBaseUrl({ protocol: 'http:', hostname: '192.168.43.179' })).toBe('http://192.168.43.179:8000')
 })
