@@ -8,6 +8,7 @@ dependencies = [
   "fastapi>=0.115.0",
   "itsdangerous>=2.2.0",
   "pydantic>=2.9.0",
+  "python-multipart>=0.0.32",
   "tencentcloud-sdk-python-tcb>=3.1.166",
   "uvicorn[standard]>=0.30.0",
 ]
