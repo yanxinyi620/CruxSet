@@ -84,8 +84,13 @@ describe('auto hold/volume detection', () => {
     })
     expect(hold.x).toBeCloseTo(0.6, 1)
     expect(hold.y).toBeCloseTo(0.5, 1)
-    expect(hold.bbox).toEqual(expect.arrayContaining([expect.any(Number), expect.any(Number), expect.any(Number), expect.any(Number)]))
-    expect(hold.polygon?.every(([x, y]) => x >= 0.5 && x <= 1 && y >= 0.25 && y <= 0.75)).toBe(true)
+    expect(hold.bbox?.[0]).toBeCloseTo(0.54, 1)
+    expect(hold.bbox?.[1]).toBeCloseTo(0.44, 1)
+    expect(hold.bbox?.[2]).toBeCloseTo(0.67, 1)
+    expect(hold.bbox?.[3]).toBeCloseTo(0.57, 1)
+    expect(hold.radius).toBeCloseTo(0.06, 1)
+    expect(hold.polygon?.some(([x, y]) => x < 0.6 && y < 0.5)).toBe(true)
+    expect(hold.polygon?.some(([x, y]) => x > 0.6 && y > 0.5)).toBe(true)
   })
 
   it('ignores foreground outside the ROI when given a full image', () => {

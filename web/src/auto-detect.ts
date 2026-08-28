@@ -211,7 +211,9 @@ export function detectFromPixels(width: number, height: number, data: Uint8Clamp
       : Math.max(bw / width, bh / height) / 2
     const kind = radius >= o.volumeRadiusRatio ? 'volume' : 'hold'
     const localPolygon = outlineOf(c, width, height, o.outlineBuckets)
-    const polygon = localPolygon?.map(([px, py]) => [roiX + px * roiW, roiY + py * roiH] as Point)
+    const polygon = localPolygon?.map(([px, py]) => o.roiAlreadyApplied
+      ? [roiX + px * roiW, roiY + py * roiH] as Point
+      : [px, py] as Point)
     const bbox: readonly [number, number, number, number] = [
       o.roiAlreadyApplied ? roiX + (c.minX / width) * roiW : c.minX / width,
       o.roiAlreadyApplied ? roiY + (c.minY / height) * roiH : c.minY / height,
