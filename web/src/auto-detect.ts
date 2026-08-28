@@ -216,7 +216,7 @@ export function detectFromPixels(width: number, height: number, data: Uint8Clamp
     if (opts.dropBoundaryComponents &&
       (c.minX <= roiLeft || c.minY <= roiTop || c.maxX >= roiRight || c.maxY >= roiBottom)) continue
     const areaRatio = c.area / analysisArea
-    const minArea = Math.min(
+    const minArea = Math.max(
       o.minAreaRatio * analysisArea,
       opts.minComponentPixels ?? o.minComponentPixels,
     )

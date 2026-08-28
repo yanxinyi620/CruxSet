@@ -82,6 +82,11 @@ describe('auto hold/volume detection', () => {
     expect(detectFromPixels(100, 100, data)).toEqual([])
   })
 
+  it('filters components below the default pixel minimum even when they pass the area ratio', () => {
+    const data = makeImage(100, 100, [circle(50, 50, 2, [220, 60, 60])])
+    expect(detectFromPixels(100, 100, data)).toEqual([])
+  })
+
   it('maps detections from an ROI back to full-image coordinates', () => {
     const data = makeImage(100, 100, [circle(60, 50, 6, [220, 60, 60])])
     const [hold] = detectFromPixels(100, 100, data, {
@@ -121,7 +126,7 @@ describe('auto hold/volume detection', () => {
 
   it('retains a component that meets the pixel threshold despite a small area ratio', () => {
     const data = makeImage(200, 200, [circle(100, 100, 4, [220, 60, 60])])
-    expect(detectFromPixels(200, 200, data, { minAreaRatio: 0.01, minComponentPixels: 20 })).toHaveLength(1)
+    expect(detectFromPixels(200, 200, data, { minAreaRatio: 0.0001, minComponentPixels: 20 })).toHaveLength(1)
   })
 
   it('returns no detections for an invalid or zero-sized ROI', () => {
