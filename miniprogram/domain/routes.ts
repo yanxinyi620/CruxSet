@@ -1,3 +1,1 @@
-import type {Problem} from './types.js'
-export function filterProblems(problems:Problem[],filter:Partial<Pick<Problem,'wallId'|'layoutId'|'angle'|'grade'>>):Problem[]{return problems.filter(problem=>Object.entries(filter).every(([key,value])=>value===undefined||problem[key as keyof Problem]===value)).sort((a,b)=>a.number.localeCompare(b.number))}
-export function searchProblems(problems:Problem[],query:string):Problem[]{const q=query.trim().toLocaleLowerCase();return q?problems.filter(problem=>problem.number.toLocaleLowerCase().includes(q)||problem.name?.toLocaleLowerCase().includes(q)):problems}
+export * from '../../src/domain/routes.js'

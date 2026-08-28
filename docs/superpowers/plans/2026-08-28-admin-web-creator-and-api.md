@@ -37,14 +37,13 @@ miniprogram/services/               API-contract adapters; no page calls CloudBa
 
 `dev-preview/` remains a visual prototype until Task 8 migrates its useful UI and Canvas code to `web/`. Do not modify unrelated, currently uncommitted Preview work while executing this plan.
 
-### Task 1: Consolidate shared domain modules
+### Task 1: Consolidate shared route rules
 
 **Files:**
-- Modify: `src/index.ts`
-- Modify: `miniprogram/domain/*.ts`
+- Modify: `miniprogram/domain/routes.ts`
 - Create: `tests/shared-domain-imports.test.ts`
 
-- [ ] **Step 1: Write the failing import-boundary test**
+- [x] **Step 1: Write the failing import-boundary test**
 
 ```ts
 import { expect, it } from 'vitest'
@@ -56,29 +55,29 @@ it('uses the same route rule implementation on both clients', () => {
 })
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `npm test -- tests/shared-domain-imports.test.ts`
 
 Expected: FAIL because the two modules export different function instances.
 
-- [ ] **Step 3: Replace Mini Program domain duplicates with re-exports**
+- [x] **Step 3: Replace the Mini Program route module with a re-export**
 
-Each platform-neutral `miniprogram/domain/<name>.ts` becomes a re-export of its `src/domain/<name>.ts` counterpart, for example:
+Only `miniprogram/domain/routes.ts` becomes a re-export of `src/domain/routes.ts`:
 
 ```ts
 export * from '../../src/domain/routes.js'
 ```
 
-Do this only for modules that do not import `wx`, `document`, Canvas objects, or platform storage.
+Other duplicated domain modules remain unchanged for now, by explicit product-owner direction.
 
-- [ ] **Step 4: Run focused and full checks**
+- [x] **Step 4: Run focused and full checks**
 
 Run: `npm test -- tests/shared-domain-imports.test.ts && npm test && npm run build`
 
 Expected: all tests pass and both TypeScript projects compile.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src miniprogram/domain tests/shared-domain-imports.test.ts
