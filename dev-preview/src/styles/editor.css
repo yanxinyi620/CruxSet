@@ -1,0 +1,27 @@
+.editor-head { margin-bottom: 14px; }
+.editor-head h1 { font-size: 24px; letter-spacing: 0; margin: 0 0 4px; }
+.editor-head p { margin: 0; color: #6a6b88; font-size: 13px; }
+.field { margin: 13px 0; }
+.field > label { display: block; font-size: 12px; font-weight: 800; color: #6f7187; margin-bottom: 7px; letter-spacing: .04em; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { padding: 6px 11px; border: 1px solid var(--line); border-radius: 999px; background: #fff; color: #4d4f66; font-size: 13px; font-weight: 700; }
+.chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+#editor-canvas { border-radius: 16px; overflow: hidden; box-shadow: 0 8px 24px #3e39721a; background: #f2f2fa; }
+.wall-canvas { display: block; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 9px; font-size: 11px; color: #6f7187; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: -1px; }
+.role-toolbar { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 13px; }
+.role-btn { display: grid; gap: 4px; justify-items: center; padding: 8px 2px; border: 1px solid var(--line); border-radius: 12px; background: #fff; font-size: 12px; font-weight: 800; color: #4d4f66; }
+.role-btn i { width: 14px; height: 14px; border-radius: 50%; }
+.role-btn.active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.editor-actions { display: flex; gap: 8px; margin-top: 14px; }
+.editor-actions button { flex: 1; padding: 11px; border-radius: 12px; border: 1px solid var(--line); background: #fff; font-weight: 800; font-size: 14px; color: #4d4f66; }
+.editor-actions button.save { background: var(--accent); border-color: var(--accent); color: #fff; }
+.editor-actions button:disabled { opacity: .45; cursor: not-allowed; }
+.field input, .field textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: #fff; font-size: 14px; color: var(--ink); }
+.field textarea { resize: vertical; min-height: 54px; }
+.editor-toast { margin-top: 12px; padding: 10px 12px; border-radius: 12px; background: #e8f7ee; color: #397355; font-size: 13px; font-weight: 700; }
+.problem-row { display: flex; align-items: center; gap: 10px; padding: 11px; border-radius: 12px; background: #f8f8fc; }
+.problem-row span { display: grid; gap: 2px; flex: 1; min-width: 0; }
+.problem-row b { font-size: 12px; color: #6046d6; }
+.problem-row em { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #4d4f66; font-size: 12px; font-style: normal; }

@@ -1,26 +1,138 @@
 import './styles/tokens.css'
 import './styles/base.css'
 import './styles/device.css'
+import './styles/editor.css'
+import './styles/responsive.css'
 import { PreviewStore } from './preview-store.js'
+import ProblemEditor from '../../miniprogram/domain/editor.js'
+import type { FootRule, Grade, HoldRole } from '../../miniprogram/domain/types.js'
+import { WallCanvasView } from './wall-canvas.js'
+import { ROLE_COLORS } from './wall-canvas.js'
 
 const root = document.querySelector<HTMLElement>('#app')!
 const store = new PreviewStore()
-let panel: 'home'|'drafts'|'my-walls'|'my-problems'|'layout-choice' = 'home'
+let panel: 'home'|'drafts'|'my-walls'|'my-problems'|'layout-choice'|'layout-problems' = 'home'
 let choiceMode: 'browse'|'create' = 'browse'
 let expandedLayout = ''
+let activeLayout: { wallId: string; layoutId: string } | null = null
 const thumb = '<i class="thumb"></i>'
 const back = '<button class="back-button" data-back aria-label="返回">‹</button>'
 
+const ROLE_ORDER: HoldRole[] = ['start','foot','hand','assist','finish']
+const ROLE_LABELS: Record<HoldRole,string> = { start:'起步', foot:'脚点', hand:'手点', assist:'辅助', finish:'终点' }
+const FOOT_RULE_LABELS: Record<FootRule,string> = { feet_follow:'手脚同点', specified:'指定脚点', all:'全墙脚点' }
+const GRADES: Grade[] = ['V0','V1','V2','V3','V4','V5','V6','V7','V8','V9','V10','V11','V12']
+
+type EditorCtx = {
+  wallId: string; layoutId: string; wallName: string; layoutName: string; angleOptions: number[]
+  editor: ProblemEditor; selectedRole: HoldRole; angle: number; grade: Grade; footRule: FootRule
+  name: string; description: string; undoCount: number
+  canvas?: WallCanvasView; shellBuilt: boolean; saved?: string; toast?: string
+}
+let editorCtx: EditorCtx | null = null
+
+const openEditor = async (wallId: string, layoutId: string) => {
+  const wall = await store.session.getWall(wallId)
+  const layout = await store.session.getLayout(layoutId)
+  editorCtx = {
+    wallId, layoutId, wallName: wall.name, layoutName: layout.name, angleOptions: wall.angleOptions,
+    editor: new ProblemEditor(), selectedRole: 'hand', angle: wall.angleOptions[0] ?? 20, grade: 'V4',
+    footRule: 'feet_follow', name: '', description: '', undoCount: 0, shellBuilt: false,
+  }
+  await render()
+}
+
+const editorShell = (ctx: EditorCtx) => `<div class="device"><header><small>CRUXSET</small><i></i></header><main>
+<button class="back-button" data-editor-back aria-label="返回">‹</button>
+<div class="editor-head"><h1>新建线路</h1><p>${ctx.wallName} · ${ctx.layoutName}</p></div>
+<div class="field"><label>角度</label><div class="chips">${ctx.angleOptions.map(a=>`<button class="chip" data-angle="${a}">${a}°</button>`).join('')}</div></div>
+<div class="field"><label>难度</label><div class="chips">${GRADES.map(g=>`<button class="chip" data-grade="${g}">${g}</button>`).join('')}</div></div>
+<div class="field"><label>脚点规则</label><div class="chips">${(Object.keys(FOOT_RULE_LABELS) as FootRule[]).map(f=>`<button class="chip" data-footrule="${f}">${FOOT_RULE_LABELS[f]}</button>`).join('')}</div></div>
+<div class="field"><label>在墙图上点选岩点</label><div id="editor-canvas"></div><div class="legend">${ROLE_ORDER.map(r=>`<span><i style="background:${ROLE_COLORS[r]}"></i>${ROLE_LABELS[r]}</span>`).join('')}</div></div>
+<div class="role-toolbar">${ROLE_ORDER.map(r=>`<button class="role-btn" data-role="${r}"><i style="background:${ROLE_COLORS[r]}"></i>${ROLE_LABELS[r]}</button>`).join('')}</div>
+<div class="editor-actions"><button data-undo>撤销</button><button data-clear>清空</button><button class="save" data-save>保存线路</button></div>
+<div class="field"><label>线路名称（可选）</label><input id="editor-name" maxlength="60" placeholder="如：左侧动态"></div>
+<div class="field"><label>线路说明（可选，最多 500 字）</label><textarea id="editor-desc" maxlength="500" placeholder="记录起步、关键点等"></textarea></div>
+<div id="editor-toast" class="editor-toast" style="display:none"></div>
+</main></div>`
+
+const renderEditor = () => {
+  const ctx = editorCtx!
+  if (!ctx.shellBuilt) { ctx.shellBuilt = true; root.innerHTML = editorShell(ctx); void bindEditorEvents(ctx) }
+  updateEditorUI()
+}
+const bindEditorEvents = async (ctx: EditorCtx) => {
+  root.querySelector('[data-editor-back]')!.addEventListener('click', () => { ctx.canvas?.destroy(); editorCtx = null; void render() })
+  root.querySelectorAll<HTMLElement>('[data-role]').forEach(el => el.addEventListener('click', () => { ctx.selectedRole = el.getAttribute('data-role') as HoldRole; updateEditorUI() }))
+  root.querySelector('[data-undo]')!.addEventListener('click', () => { if (ctx.undoCount > 0) { ctx.editor.undo(); ctx.undoCount--; updateEditorUI() } })
+  root.querySelector('[data-clear]')!.addEventListener('click', () => { if (confirm('清除所有已点岩点？')) { ctx.editor.clear(); ctx.undoCount++; updateEditorUI() } })
+  root.querySelector('[data-save]')!.addEventListener('click', () => { void saveProblem() })
+  root.querySelectorAll<HTMLElement>('[data-angle]').forEach(el => el.addEventListener('click', () => { ctx.angle = Number(el.getAttribute('data-angle')); updateEditorUI() }))
+  root.querySelectorAll<HTMLElement>('[data-grade]').forEach(el => el.addEventListener('click', () => { ctx.grade = el.getAttribute('data-grade') as Grade; updateEditorUI() }))
+  root.querySelectorAll<HTMLElement>('[data-footrule]').forEach(el => el.addEventListener('click', () => { ctx.footRule = el.getAttribute('data-footrule') as FootRule; updateEditorUI() }))
+  root.querySelector('#editor-name')!.addEventListener('input', (e) => { ctx.name = (e.target as HTMLInputElement).value })
+  root.querySelector('#editor-desc')!.addEventListener('input', (e) => { ctx.description = (e.target as HTMLTextAreaElement).value })
+  const holder = root.querySelector('#editor-canvas')! as HTMLElement
+  const layout = await store.session.getLayout(ctx.layoutId)
+  ctx.canvas = new WallCanvasView(holder, {
+    imageUrl: layout.imageFileId, imageWidth: layout.imageWidth, imageHeight: layout.imageHeight, holds: layout.holds,
+    getAssignments: () => ctx.editor.value().holds,
+    getSelectedRole: () => ctx.selectedRole,
+    onTapHold: (id) => { ctx.editor.toggle(id, ctx.selectedRole); ctx.undoCount++; updateEditorUI() },
+  })
+}
+
+const updateEditorUI = () => {
+  const ctx = editorCtx!
+  root.querySelectorAll<HTMLElement>('[data-role]').forEach(el => el.classList.toggle('active', el.getAttribute('data-role') === ctx.selectedRole))
+  root.querySelectorAll<HTMLElement>('[data-angle]').forEach(el => el.classList.toggle('active', Number(el.getAttribute('data-angle')) === ctx.angle))
+  root.querySelectorAll<HTMLElement>('[data-grade]').forEach(el => el.classList.toggle('active', el.getAttribute('data-grade') === ctx.grade))
+  root.querySelectorAll<HTMLElement>('[data-footrule]').forEach(el => el.classList.toggle('active', el.getAttribute('data-footrule') === ctx.footRule))
+  const undoBtn = root.querySelector('[data-undo]') as HTMLButtonElement
+  undoBtn.disabled = ctx.undoCount === 0
+  const holds = ctx.editor.value().holds
+  const saveBtn = root.querySelector('[data-save]') as HTMLButtonElement
+  saveBtn.disabled = !(holds.start.length >= 1 && holds.finish.length >= 1) || !!ctx.saved
+  const toast = root.querySelector('#editor-toast') as HTMLElement
+  toast.style.display = ctx.toast ? 'block' : 'none'
+  if (ctx.toast) toast.textContent = ctx.toast
+  ctx.canvas?.redraw()
+}
+
+const saveProblem = async () => {
+  const ctx = editorCtx!
+  const holds = ctx.editor.value().holds
+  if (holds.start.length < 1 || holds.finish.length < 1) { ctx.toast = '线路需要至少一个起步和一个终点'; updateEditorUI(); return }
+  try {
+    const res = await store.session.createProblem(ctx.wallId, ctx.layoutId, {
+      angle: ctx.angle, grade: ctx.grade, footRule: ctx.footRule, name: ctx.name || undefined, description: ctx.description || undefined, holds,
+    })
+    ctx.saved = res.number
+    ctx.toast = `已保存线路 ${res.number}`
+    updateEditorUI()
+  } catch (err) {
+    ctx.toast = `保存失败：${(err as Error).message}`
+    updateEditorUI()
+  }
+}
 const render = async () => {
+  if (editorCtx) { renderEditor(); return }
   const route = store.state.route
   const mine = await store.session.listMyWalls()
   const allProblems = await store.session.listProblems()
+  let layoutProblemsHtml = ''
+  if (panel === 'layout-problems' && activeLayout) {
+    const wall = await store.session.getWall(activeLayout.wallId)
+    const layout = await store.session.getLayout(activeLayout.layoutId)
+    const problems = await store.session.listProblems({ wallId: activeLayout.wallId, layoutId: activeLayout.layoutId })
+    layoutProblemsHtml = `${back}<h1>${wall.name}</h1><p class="lead">${layout.name} · 已发布</p><button class="hero-card" data-new-problem><span>基于此 Layout</span><b>＋ 新建线路</b><em>选择角度、难度、脚点规则并标点保存</em></button><h3>线路（${problems.length}）</h3>${problems.map(p=>`<article class="problem-row"><span><b>${p.number}</b><em>${p.name||'未命名线路'} · ${p.angle}° · ${p.grade}</em></span></article>`).join('')||'<p class="note">该 Layout 暂无线路</p>'}`
+  }
   const published = (await Promise.all((await store.session.listWalls()).map(async wall => ({wall, layouts:(await store.session.listLayouts(wall.id)).filter(x=>x.published)})))).filter(x=>x.layouts.length)
   const drafts = (await Promise.all(mine.map(async wall => ({wall, layouts:(await store.session.listLayouts(wall.id)).filter(x=>!x.published)})))).filter(x=>x.layouts.length)
   const layoutsMine = await Promise.all(mine.map(async wall => ({wall, layouts:await store.session.listLayouts(wall.id)})))
   const tab = route.name==='create'?'create':route.name==='me'?'me':'browse'
   const chooser = `${back}<h1>${choiceMode==='create'?'选择 Layout':'选择已发布 Layout'}</h1><p class="lead">${choiceMode==='create'?'仅已发布 Layout 可用于创建线路。':'选择后查看该 Layout 的线路。'}</p>${published.flatMap(({wall,layouts})=>layouts.map(layout=>`<button class="wall-card" data-layout-id="${layout.id}" data-wall-id="${wall.id}">${thumb}<span><b>${wall.name}</b><em>${layout.name} · 已发布 · ${layout.holds.length} 个岩点</em><small>${choiceMode==='create'?'用于新建线路':'查看线路'}</small></span><strong>›</strong></button>`)).join('')}`
-  const browse = panel==='layout-choice'?chooser:`<h1>线路</h1><p class="lead">先选一面可浏览的墙，再选择已发布 Layout 和线路。</p><h3>可浏览的墙面</h3>${published.map(({wall,layouts})=>`<button class="wall-card" data-choose="browse">${thumb}<span><b>${wall.name}</b><em>${layouts.length} 个已发布 Layout · 可浏览、可定线</em><small>选择 Layout</small></span><strong>›</strong></button>`).join('')||'<p class="note">暂无已发布的墙面</p>'}`
+  const browse = panel==='layout-choice'?chooser:panel==='layout-problems'?layoutProblemsHtml:`<h1>线路</h1><p class="lead">先选一面可浏览的墙，再选择已发布 Layout 和线路。</p><h3>可浏览的墙面</h3>${published.map(({wall,layouts})=>`<button class="wall-card" data-choose="browse">${thumb}<span><b>${wall.name}</b><em>${layouts.length} 个已发布 Layout · 可浏览、可定线</em><small>选择 Layout</small></span><strong>›</strong></button>`).join('')||'<p class="note">暂无已发布的墙面</p>'}`
   const create = panel==='layout-choice'?chooser:panel==='drafts'?`${back}<h1>我的草稿</h1><p class="lead">仅在这里继续标注未发布 Layout。</p>${drafts.flatMap(({wall,layouts})=>layouts.map(layout=>`<article class="mine-card">${thumb}<span><b>${wall.name}</b><em>${layout.name} · 草稿 · 可继续标注</em><small>继续标注</small></span><mark>私有</mark></article>`)).join('')||'<p class="note">没有未发布草稿</p>'}`:`<h1>创建</h1><p class="lead">从这里新建内容，或继续完成尚未发布的墙面标注。</p><button class="hero-card"><span>从真实墙面开始</span><b>新建墙面</b><em>上传照片后进入首次标注；未发布前保持私有。</em></button><h3>继续创建</h3><button class="action-card" data-panel="drafts"><i>✦</i><span><b>我的草稿</b><em>${drafts.length} 面墙含未发布 Layout，仅此处可继续标注</em></span><strong>›</strong></button><button class="action-card" data-choose="create"><i>＋</i><span><b>新建线路</b><em>仅能选择已发布 Layout</em></span><strong>›</strong></button><p class="lock"><b>发布即公开并锁定：</b>发布后可浏览、可定线；草稿不能定线。</p>`
   const wallCards = layoutsMine.flatMap(({wall,layouts})=>layouts.map(layout=>`<article class="layout-card">${thumb}<span><b>${wall.name}</b><em>${layout.name}</em></span><small class="${layout.published?'published':'draft'}">${layout.published?'已发布':'草稿'}</small><button class="delete-button" data-delete-layout="${layout.id}" data-wall-id="${wall.id}">删除</button></article>`)).join('')
   const problemGroups = published.flatMap(({wall,layouts})=>layouts.map(layout=>{const problems=allProblems.filter(p=>p.layoutId===layout.id);const open=expandedLayout===layout.id;return `<article class="problem-group"><button class="group-head" data-expand="${layout.id}">${thumb}<span><b>${wall.name}</b><em>${layout.name} · 我创建 ${problems.length} 条线路</em></span><strong>${open?'⌃':'⌄'}</strong></button>${open?`<view class="problem-list">${problems.map(p=>`<article class="problem-row"><span><b>${p.number}</b><em>${p.name||'未命名线路'} · ${p.angle}° · ${p.grade}</em></span><button class="delete-button" data-delete-problem="${p.id}">删除</button></article>`).join('')||'<p class="note">该 Layout 下还没有你创建的线路。</p>'}</view>`:''}</article>`})).join('')
@@ -32,6 +144,8 @@ const render = async () => {
   root.querySelectorAll<HTMLButtonElement>('[data-choose]').forEach(b=>b.onclick=()=>{choiceMode=b.dataset.choose as typeof choiceMode;panel='layout-choice';void render()})
   root.querySelectorAll<HTMLButtonElement>('[data-expand]').forEach(b=>b.onclick=()=>{expandedLayout=expandedLayout===b.dataset.expand?'':b.dataset.expand!;void render()})
   root.querySelectorAll<HTMLButtonElement>('[data-back]').forEach(b=>b.onclick=()=>{panel='home';void render()})
+  root.querySelectorAll<HTMLButtonElement>('[data-layout-id]').forEach(b=>b.onclick=async()=>{const wallId=b.getAttribute('data-wall-id')!,layoutId=b.getAttribute('data-layout-id')!;if(choiceMode==='create'){await openEditor(wallId,layoutId);return}activeLayout={wallId,layoutId};panel='layout-problems';void render()})
+  root.querySelectorAll<HTMLButtonElement>('[data-new-problem]').forEach(b=>b.onclick=()=>{if(activeLayout)void openEditor(activeLayout.wallId,activeLayout.layoutId)})
   root.querySelectorAll<HTMLButtonElement>('[data-delete-layout]').forEach(b=>b.onclick=async()=>{if(confirm('删除 Layout 及其关联线路？')){await store.session.deleteLayout(b.dataset.wallId!,b.dataset.deleteLayout!);void render()}})
   root.querySelectorAll<HTMLButtonElement>('[data-delete-problem]').forEach(b=>b.onclick=async()=>{if(confirm('删除这条线路？')){await store.session.deleteProblem?.(b.dataset.deleteProblem!);void render()}})
 }
