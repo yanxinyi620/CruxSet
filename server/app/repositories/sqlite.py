@@ -55,3 +55,11 @@ class SQLiteRepository:
     def list_layouts(self, wall_id: str) -> list[Document]: return [item for item in self._list("layouts") if item.get("wallId") == wall_id]
     def insert_problem(self, problem: Document) -> None: self._put("problems", problem)
     def list_problems(self) -> list[Document]: return self._list("problems")
+    def delete_layout(self, layout_id: str) -> None:
+        self._connection.execute("DELETE FROM documents WHERE collection_name = 'layouts' AND document_id = ?", (layout_id,))
+        self._connection.commit()
+    def delete_problems_for_layout(self, layout_id: str) -> None:
+        for problem in self.list_problems():
+            if problem.get("layoutId") == layout_id:
+                self._connection.execute("DELETE FROM documents WHERE collection_name = 'problems' AND document_id = ?", (problem["id"],))
+        self._connection.commit()

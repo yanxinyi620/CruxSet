@@ -65,6 +65,12 @@ class MemoryRepository:
     def list_problems(self) -> list[Document]:
         return [deepcopy(problem) for problem in self._problems.values()]
 
+    def delete_layout(self, layout_id: str) -> None:
+        self._layouts = [layout for layout in self._layouts if layout.get("id") != layout_id]
+
+    def delete_problems_for_layout(self, layout_id: str) -> None:
+        self._problems = {key: value for key, value in self._problems.items() if value.get("layoutId") != layout_id}
+
     def list_layouts(self, wall_id: str) -> list[Document]:
         latest: dict[str, Document] = {}
         for layout in self._layouts:

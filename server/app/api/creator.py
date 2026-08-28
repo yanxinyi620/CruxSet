@@ -56,6 +56,18 @@ async def list_walls(request: Request):
     return {"walls": _repo(request).list_walls()}
 
 
+@router.get("/walls/{wall_id}/layouts")
+async def list_layouts(wall_id: str, request: Request):
+    if not _repo(request).find_wall(wall_id):
+        raise ApiError("NOT_FOUND", "Resource not found", 404)
+    return {"layouts": _repo(request).list_layouts(wall_id)}
+
+
+@router.get("/problems")
+async def list_problems(request: Request):
+    return {"problems": _repo(request).list_problems()}
+
+
 @router.post("/walls", status_code=201)
 async def create_wall(payload: WallInput, request: Request, user=Depends(require_admin)):
     now = _now()
@@ -92,6 +104,18 @@ async def publish_layout(layout_id: str, payload: HoldsInput, request: Request, 
     layout = {**layout, "holds": holds, "published": True, "version": int(layout["version"]) + 1, "updatedAt": _now()}
     _repo(request).replace_layout(layout)
     return {"layout": layout}
+
+
+@router.delete("/layouts/{layout_id}")
+async def delete_layout(layout_id: str, request: Request, confirmCascade: bool = False, _=Depends(require_admin)):
+    layout = _repo(request).find_layout(layout_id)
+    if not layout:
+        raise ApiError("NOT_FOUND", "Resource not found", 404)
+    if not confirmCascade:
+        raise ApiError("INVALID_INPUT", "Cascade deletion requires confirmation", 422)
+    _repo(request).delete_problems_for_layout(layout_id)
+    _repo(request).delete_layout(layout_id)
+    return {"ok": True}
 
 
 @router.post("/problems", status_code=201)
