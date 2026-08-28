@@ -1,6 +1,8 @@
+import { createHash } from 'node:crypto'
+import { readFileSync } from 'node:fs'
 import { describe, expect, it, vi } from 'vitest'
-import { AUTO_DETECT_DEFAULTS, detectFromPixels } from '../web/src/auto-detect.js'
-import { RITAN_SPRAYWALL_FIXTURE } from './fixtures/ritan-spraywall-rgba.js'
+import { AUTO_DETECT_DEFAULTS, DETECT_ROI_FALLBACK_MESSAGE, detectFromPixels } from '../web/src/auto-detect.js'
+import { RITAN_SPRAYWALL_FIXTURE, RITAN_SPRAYWALL_FIXTURE_METADATA } from './fixtures/ritan-spraywall-rgba.js'
 
 vi.mock('../web/src/preview-store.js', () => ({ PreviewStore: class { subscribe() {} } }))
 vi.mock('../web/src/api.js', () => ({ LocalApiClient: class { currentUser() { return Promise.resolve(null) } } }))
@@ -217,8 +219,14 @@ describe('auto hold/volume detection', () => {
       { x: 0, y: 0, width: 0, height: 1 },
       { x: 0.5, y: 0.5, width: 0.6, height: 0.5 },
     ]) {
-      expect(detectFromPixels(100, 100, data, { roi })).toEqual([])
+      expect(detectFromPixels(100, 100, data, { roi })).toEqual(detectFromPixels(100, 100, data))
     }
+  })
+
+  it('observes the invalid ROI fallback through the public message constant', () => {
+    const data = makeImage(100, 100, [circle(50, 50, 8, [220, 60, 60])])
+    expect(detectFromPixels(100, 100, data, { roi: { x: Number.NaN, y: 0, width: 1, height: 1 } })).toHaveLength(1)
+    expect(DETECT_ROI_FALLBACK_MESSAGE).toBe('识别区域无效，已回退整图')
   })
 
   it('uses the same area and side filters for full and cropped ROI input', () => {
@@ -283,4 +291,11 @@ it('regresses against real Ritan spraywall pixels without detections outside the
       expect(y).toBeLessThanOrEqual(roi.y + roi.height)
     }
   }
+})
+
+it('pins the real JPEG source and sampling metadata for the RGBA fixture', () => {
+  const source = readFileSync(RITAN_SPRAYWALL_FIXTURE_METADATA.sourcePath)
+  expect(createHash('sha256').update(source).digest('hex')).toBe(RITAN_SPRAYWALL_FIXTURE_METADATA.sourceSha256)
+  expect(RITAN_SPRAYWALL_FIXTURE_METADATA.sampleSize).toEqual({ width: RITAN_SPRAYWALL_FIXTURE.width, height: RITAN_SPRAYWALL_FIXTURE.height })
+  expect(RITAN_SPRAYWALL_FIXTURE.data).toHaveLength(RITAN_SPRAYWALL_FIXTURE.width * RITAN_SPRAYWALL_FIXTURE.height * 4)
 })

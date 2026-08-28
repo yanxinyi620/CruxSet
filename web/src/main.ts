@@ -12,13 +12,13 @@ import { LocalApiClient } from './api.js'
 import { DraftCanvasView } from './draft-canvas.js'
 import { LayoutEditor } from '../../src/domain/layout-editor.js'
 import type { DraftMode } from './draft-canvas.js'
-import { autoDetectHolds, type Roi } from './auto-detect.js'
+import { autoDetectHolds, DETECT_ROI_FALLBACK_MESSAGE, type Roi } from './auto-detect.js'
 
 export const DEFAULT_DETECT_ROI: Roi = { x: 0, y: 0, width: 1, height: 1 }
 const isValidDetectRoi = (roi: Roi): boolean =>
   Number.isFinite(roi.x) && Number.isFinite(roi.y) && Number.isFinite(roi.width) && Number.isFinite(roi.height) &&
   roi.x >= 0 && roi.y >= 0 && roi.width > 0 && roi.height > 0 && roi.x + roi.width <= 1 && roi.y + roi.height <= 1
-export const detectRoiValidationMessage = (roi: Roi): string | undefined => isValidDetectRoi(roi) ? undefined : '识别区域无效，已回退整图'
+export const detectRoiValidationMessage = (roi: Roi): string | undefined => isValidDetectRoi(roi) ? undefined : DETECT_ROI_FALLBACK_MESSAGE
 export const normalizeDetectRoi = (roi: Roi): Roi => {
   if (!isValidDetectRoi(roi)) return { ...DEFAULT_DETECT_ROI }
   const x = Math.min(1, Math.max(0, Number.isFinite(roi.x) ? roi.x : 0))

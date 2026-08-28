@@ -48,6 +48,7 @@ export interface AutoDetectOptions {
 }
 
 export interface Roi { x: number; y: number; width: number; height: number }
+export const DETECT_ROI_FALLBACK_MESSAGE = '识别区域无效，已回退整图'
 
 type AutoDetectDefaults = Required<Pick<AutoDetectOptions,
   'saturationThreshold' | 'darkValueThreshold' | 'minAreaRatio' | 'maxAreaRatio' |
@@ -140,13 +141,13 @@ const xInRoi = (coordinate: number, size: number, start: number, span: number): 
 const isValidRoi = (roi: Roi): boolean =>
   Number.isFinite(roi.x) && Number.isFinite(roi.y) && Number.isFinite(roi.width) && Number.isFinite(roi.height) &&
   roi.x >= 0 && roi.y >= 0 && roi.width > 0 && roi.height > 0 && roi.x + roi.width <= 1 && roi.y + roi.height <= 1
+const fullImageRoi = (roi: Roi): Roi => isValidRoi(roi) ? roi : { x: 0, y: 0, width: 1, height: 1 }
 
 /** 对像素数据（RGBA）执行自动识别，返回归一化坐标 + 可选边缘轮廓的岩点/体积列表。 */
 export function detectFromPixels(width: number, height: number, data: Uint8ClampedArray, opts: AutoDetectOptions = {}): Hold[] {
   const o = { ...AUTO_DETECT_DEFAULTS, ...opts }
   if (width <= 0 || height <= 0) return []
-  const roi = opts.roi ?? { x: 0, y: 0, width: 1, height: 1 }
-  if (!isValidRoi(roi)) return []
+  const roi = fullImageRoi(opts.roi ?? { x: 0, y: 0, width: 1, height: 1 })
   const roiX = Math.max(0, Math.min(1, roi.x))
   const roiY = Math.max(0, Math.min(1, roi.y))
   const roiW = Math.max(0, Math.min(1 - roiX, roi.width))
@@ -272,8 +273,7 @@ export function detectFromPixels(width: number, height: number, data: Uint8Clamp
 /** DOM 包装：把 <img> 绘制到离屏画布后交给 detectFromPixels。 */
 export function autoDetectHolds(image: HTMLImageElement, opts: AutoDetectOptions = {}): Hold[] {
   const maxDim = opts.maxDim ?? AUTO_DETECT_DEFAULTS.maxDim
-  const roi = opts.roi ?? { x: 0, y: 0, width: 1, height: 1 }
-  if (!isValidRoi(roi)) return []
+  const roi = fullImageRoi(opts.roi ?? { x: 0, y: 0, width: 1, height: 1 })
   const roiX = Math.max(0, Math.min(1, roi.x))
   const roiY = Math.max(0, Math.min(1, roi.y))
   const roiW = Math.max(0, Math.min(1 - roiX, roi.width))
