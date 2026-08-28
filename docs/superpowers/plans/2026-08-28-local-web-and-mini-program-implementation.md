@@ -6,7 +6,7 @@
 
 **Architecture:** Web uses responsive mobile-first UI, FastAPI, SQLite and a local media directory. The Mini Program keeps Node Cloud Functions and CloudBase. An explicit exporter/importer transfers only published data from Web to CloudBase; drafts never synchronize.
 
-**Tech Stack:** Vite, TypeScript, FastAPI, SQLAlchemy, SQLite, uv, CloudBase Node Cloud Functions, CloudBase database and storage.
+**Tech Stack:** Vite, TypeScript, FastAPI, Python `sqlite3`, SQLite, uv, CloudBase Node Cloud Functions, CloudBase database and storage.
 
 ---
 
@@ -29,10 +29,10 @@ cloudfunctions/                         Mini Program Node functions
 
 **Files:** Create `server/app/repositories/sqlite.py`, `server/app/database.py`, `server/tests/test_sqlite_repository.py`; modify `server/pyproject.toml`, `server/app/main.py`.
 
-- [ ] Write tests that create a temporary SQLite database, persist a wall, a draft Layout and a Problem, then re-open the repository and assert data remains.
-- [ ] Run `cd server && uv run pytest tests/test_sqlite_repository.py -q`; expect import failure.
-- [ ] Add SQLAlchemy and implement SQLite repository methods for users, walls, Layout snapshots, Problems and local media metadata. Set SQLite as the default `app.state.repository`; select database URL from `CRUXSET_DATABASE_URL`, defaulting to a project-local SQLite path.
-- [ ] Run `cd server && uv run pytest -q`; expect all API and repository tests to pass.
+- [x] Write tests that create a temporary SQLite database, persist a wall, a draft Layout and a Problem, then re-open the repository and assert data remains.
+- [x] Run `cd server && uv run pytest tests/test_sqlite_repository.py -q`; expect import failure.
+- [x] Implement SQLite repository methods for users, walls, Layout snapshots and Problems with Python `sqlite3`. Set SQLite as the default `app.state.repository`; select database URL from `CRUXSET_DATABASE_URL`, defaulting to a project-local SQLite path. Media metadata is implemented in Task 3.
+- [x] Run `cd server && uv run pytest -q`; expect all API and repository tests to pass.
 - [ ] Commit `feat: add local SQLite web repository`.
 
 ### Task 2: Complete local Web creator API lifecycle
