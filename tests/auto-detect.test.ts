@@ -1,9 +1,31 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { AUTO_DETECT_DEFAULTS, detectFromPixels } from '../web/src/auto-detect.js'
+
+vi.mock('../web/src/preview-store.js', () => ({ PreviewStore: class { subscribe() {} } }))
+vi.mock('../web/src/api.js', () => ({ LocalApiClient: class { currentUser() { return Promise.resolve(null) } } }))
+const fakeRoot = { innerHTML: '', querySelector: () => ({ style: {}, classList: { toggle() {} }, set onclick(_: unknown) {} }), querySelectorAll: () => [] }
+vi.stubGlobal('document', { querySelector: () => fakeRoot })
+const { normalizeDetectRoi, resetDetectRoi, shouldReplaceDetectedHolds } = await import('../web/src/main.js')
 
 type Rgb = [number, number, number]
 
 const BACKGROUND: Rgb = [200, 202, 210]
+
+describe('draft detection ROI helpers', () => {
+  it('normalizes ROI values to the image bounds', () => {
+    expect(normalizeDetectRoi({ x: -0.2, y: 0.4, width: 2, height: Number.NaN })).toEqual({ x: 0, y: 0.4, width: 1, height: 0 })
+  })
+  it('resets ROI to the full image without sharing state', () => {
+    const roi = resetDetectRoi()
+    roi.x = 0.5
+    expect(resetDetectRoi()).toEqual({ x: 0, y: 0, width: 1, height: 1 })
+  })
+  it('only replaces existing annotations when detection has results', () => {
+    expect(shouldReplaceDetectedHolds([])).toBe(false)
+    expect(shouldReplaceDetectedHolds(undefined)).toBe(false)
+    expect(shouldReplaceDetectedHolds([{ id: 'H001', x: 0, y: 0, radius: 0.02, kind: 'hold' }])).toBe(true)
+  })
+})
 
 /** 在 (w×h) 画布上叠加若干绘制函数（返回颜色或 null），生成 RGBA 像素。 */
 const makeImage = (w: number, h: number, draws: ((x: number, y: number) => Rgb | null)[]): Uint8ClampedArray => {

@@ -12,7 +12,18 @@ import { LocalApiClient } from './api.js'
 import { DraftCanvasView } from './draft-canvas.js'
 import { LayoutEditor } from '../../src/domain/layout-editor.js'
 import type { DraftMode } from './draft-canvas.js'
-import { autoDetectHolds } from './auto-detect.js'
+import { autoDetectHolds, type Roi } from './auto-detect.js'
+
+export const DEFAULT_DETECT_ROI: Roi = { x: 0, y: 0, width: 1, height: 1 }
+export const normalizeDetectRoi = (roi: Roi): Roi => {
+  const x = Math.min(1, Math.max(0, Number.isFinite(roi.x) ? roi.x : 0))
+  const y = Math.min(1, Math.max(0, Number.isFinite(roi.y) ? roi.y : 0))
+  const width = Math.min(1 - x, Math.max(0, Number.isFinite(roi.width) ? roi.width : 0))
+  const height = Math.min(1 - y, Math.max(0, Number.isFinite(roi.height) ? roi.height : 0))
+  return { x, y, width, height }
+}
+export const resetDetectRoi = (): Roi => ({ ...DEFAULT_DETECT_ROI })
+export const shouldReplaceDetectedHolds = (detected: Hold[] | null | undefined): detected is Hold[] => Boolean(detected?.length)
 
 const root = document.querySelector<HTMLElement>('#app')!
 const store = new PreviewStore()
@@ -42,7 +53,7 @@ let editorCtx: EditorCtx | null = null
 type DraftCtx = {
   wallId: string; layoutId: string; wallName: string; layoutName: string
   editor: LayoutEditor; mode: DraftMode; selectedId: string | null; kind: 'hold'|'volume'
-  dirty: boolean; canvas?: DraftCanvasView; toast?: string; published?: string; shellBuilt: boolean
+  dirty: boolean; roi: Roi; detecting: boolean; canvas?: DraftCanvasView; toast?: string; published?: string; shellBuilt: boolean
 }
 let draftCtx: DraftCtx | null = null
 
@@ -154,7 +165,7 @@ const openDraftEditor = async (wallId: string, layoutId: string) => {
   draftCtx = {
     wallId, layoutId, wallName: wall.name, layoutName: layout.name,
     editor: new LayoutEditor(layout.holds), mode: 'add', selectedId: null, kind: 'hold',
-    dirty: false, shellBuilt: false,
+    dirty: false, roi: resetDetectRoi(), detecting: false, shellBuilt: false,
   }
   await store.navigate({ name: 'draft-editor', wallId, layoutId })
 }
@@ -175,9 +186,10 @@ const draftEditorShell = (ctx: DraftCtx) => `<div class="device"><header><small>
 <span class="draft-hint">双指缩放 · 单指平移</span>
 </div>
 <div class="draft-toolbar">
-<button data-draft-autodetect>自动识别</button>
+<button data-draft-autodetect>自动识别</button><button data-draft-reset-roi>重置识别区域</button>
 <span class="draft-hint">启发式识别岩点/体积，结果可再手动修正</span>
 </div>
+<div class="field roi-controls"><label>识别区域（归一化坐标）</label><div class="roi-grid"><label>X<input data-roi="x" type="number" min="0" max="1" step="0.01"></label><label>Y<input data-roi="y" type="number" min="0" max="1" step="0.01"></label><label>宽<input data-roi="width" type="number" min="0" max="1" step="0.01"></label><label>高<input data-roi="height" type="number" min="0" max="1" step="0.01"></label></div></div>
 <div class="field"><label>在墙图上点按添加岩点；移动/删除模式点按岩点操作；空白处拖动平移，滚轮或双指缩放。</label><div id="draft-canvas"></div></div>
 <div class="field" id="radius-field" style="display:none"><label>半径（选中岩点后可调整）</label><input id="hold-radius" type="range" min="0.001" max="0.08" step="0.001"></div>
 <div class="editor-actions"><button data-save-draft>保存草稿</button><button class="save" data-publish-draft>发布</button></div>
@@ -199,6 +211,10 @@ const bindDraftEditorEvents = async (ctx: DraftCtx) => {
   root.querySelector('[data-save-draft]')!.addEventListener('click', () => { void saveDraft() })
   root.querySelector('[data-publish-draft]')!.addEventListener('click', () => { void publishDraft() })
   root.querySelector('[data-draft-autodetect]')!.addEventListener('click', () => { void autoDetectDraft() })
+  root.querySelector('[data-draft-reset-roi]')!.addEventListener('click', () => { ctx.roi = resetDetectRoi(); updateDraftEditorUI() })
+  root.querySelectorAll<HTMLInputElement>('[data-roi]').forEach(input => input.addEventListener('change', () => {
+    ctx.roi = normalizeDetectRoi({ ...ctx.roi, [input.dataset.roi!]: Number(input.value) }); updateDraftEditorUI()
+  }))
   const radiusSlider = root.querySelector('#hold-radius') as HTMLInputElement
   let radiusActive = false
   radiusSlider.addEventListener('pointerdown', () => { radiusActive = true; ctx.editor.beginChange() })
@@ -208,7 +224,7 @@ const bindDraftEditorEvents = async (ctx: DraftCtx) => {
   const layout = await store.session.getLayout(ctx.layoutId)
   ctx.canvas = new DraftCanvasView(holder, {
     imageUrl: layout.imageFileId, imageWidth: layout.imageWidth, imageHeight: layout.imageHeight,
-    holds: ctx.editor.value(), mode: ctx.mode, selectedId: ctx.selectedId, defaultRadius: ctx.kind === 'volume' ? 0.05 : 0.018,
+    holds: ctx.editor.value(), mode: ctx.mode, selectedId: ctx.selectedId,
     onAddHold: (point) => { ctx.editor.add({ x: point[0], y: point[1], radius: ctx.kind === 'volume' ? 0.05 : 0.018, kind: ctx.kind }); ctx.dirty = true; updateDraftEditorUI() },
     onMoveStart: () => { ctx.editor.beginChange() },
     onMoveHold: (id, point) => { ctx.editor.setPosition(id, point[0], point[1]); ctx.dirty = true; ctx.canvas?.setState(ctx.editor.value(), ctx.mode, ctx.selectedId) },
@@ -228,6 +244,9 @@ const updateDraftEditorUI = () => {
   if (saveBtn) saveBtn.disabled = holds.length === 0 || !!ctx.published
   const publishBtn = root.querySelector('[data-publish-draft]') as HTMLButtonElement | null
   if (publishBtn) publishBtn.disabled = holds.length < 2 || !!ctx.published
+  const detectBtn = root.querySelector('[data-draft-autodetect]') as HTMLButtonElement | null
+  if (detectBtn) { detectBtn.disabled = ctx.detecting; detectBtn.textContent = ctx.detecting ? '识别中…' : '自动识别' }
+  root.querySelectorAll<HTMLInputElement>('[data-roi]').forEach(input => { input.value = String(ctx.roi[input.dataset.roi as keyof Roi]) })
   const toast = root.querySelector('#draft-toast') as HTMLElement | null
   if (toast) { toast.style.display = ctx.toast ? 'block' : 'none'; if (ctx.toast) toast.textContent = ctx.toast }
   const head = root.querySelector('.editor-head p') as HTMLElement | null
@@ -277,12 +296,15 @@ const loadImage = (url: string) => new Promise<HTMLImageElement>((resolve, rejec
 
 const autoDetectDraft = async () => {
   const ctx = draftCtx!
+  if (ctx.detecting) return
   if (ctx.editor.value().length && !confirm('自动识别将替换当前已标注的岩点，继续？')) return
-  const layout = await store.session.getLayout(ctx.layoutId)
+  ctx.detecting = true
+  updateDraftEditorUI()
   try {
+    const layout = await store.session.getLayout(ctx.layoutId)
     const image = await loadImage(layout.imageFileId)
-    const detected = autoDetectHolds(image)
-    if (!detected.length) { ctx.toast = '未识别到岩点，可切换手动标注'; updateDraftEditorUI(); return }
+    const detected = autoDetectHolds(image, { roi: ctx.roi })
+    if (!shouldReplaceDetectedHolds(detected)) { ctx.toast = '未识别到岩点，可切换手动标注'; updateDraftEditorUI(); return }
     ctx.editor = new LayoutEditor(detected)
     ctx.dirty = true
     ctx.selectedId = null
@@ -292,6 +314,9 @@ const autoDetectDraft = async () => {
     updateDraftEditorUI()
   } catch (err) {
     ctx.toast = `自动识别失败：${(err as Error).message}`
+    updateDraftEditorUI()
+  } finally {
+    ctx.detecting = false
     updateDraftEditorUI()
   }
 }
