@@ -25,6 +25,8 @@
 .problem-row span { display: grid; gap: 2px; flex: 1; min-width: 0; }
 .problem-row b { font-size: 12px; color: #6046d6; }
 .problem-row em { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #4d4f66; font-size: 12px; font-style: normal; }
+button.problem-row { width: 100%; text-align: left; border: none; cursor: pointer; }
+button.problem-row strong { color: #9a9cb2; font-size: 15px; margin-left: auto; }
 /* Draft Layout annotation editor */
 .draft-toolbar { display: flex; flex-wrap: wrap; gap: 6px; margin: 13px 0; }
 .draft-toolbar button { padding: 8px 12px; border: 1px solid var(--line); border-radius: 12px; background: #fff; font-size: 13px; font-weight: 800; color: #4d4f66; }

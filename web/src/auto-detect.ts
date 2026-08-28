@@ -1,0 +1,200 @@
+import type { Hold, Point } from '../../miniprogram/domain/types.js'
+
+/**
+ * 墙图岩点/体积自动识别（启发式，非 ML）。
+ *
+ * 思路（参考 Sprai 式「拍照自动打点」的交互）：
+ * 1. 前景判据：像素「高饱和度」（彩色岩点）或「低明度」（黑色岩点）；
+ * 2. 对前景做十字形态学开运算（先腐蚀再膨胀），去除纹理噪点；
+ * 3. 4-连通域分析，过滤小噪点、过大背景块与细长噪声；
+ * 4. 每个连通域取边界像素，按质心角度取最外沿点形成轮廓（polygon，归一化）；
+ *    半径超过阈值自动归类为「体积」，否则为「岩点」。
+ *
+ * 纯函数部分（detectFromPixels）不依赖 DOM，便于单元测试；识别结果可用既有
+ * 移动/删除/半径工具继续手动修正（编辑后 polygon 会被清除、退回圆形渲染）。
+ */
+
+export interface AutoDetectOptions {
+  /** 分析用最大边像素，避免大图过慢。 */
+  maxDim?: number
+  /** 饱和度超过该值判为前景（彩色岩点）。 */
+  saturationThreshold?: number
+  /** 明度低于该值判为前景（黑色岩点）。 */
+  darkValueThreshold?: number
+  /** 组件面积 / 全图面积 低于该值视为噪点丢弃。 */
+  minAreaRatio?: number
+  /** 组件面积 / 全图面积 高于该值视为背景块丢弃。 */
+  maxAreaRatio?: number
+  /** 组件填充率低于该值视为细长噪声丢弃。 */
+  minFillRatio?: number
+  /** 组件最小边 / 全图短边 低于该值丢弃。 */
+  minSideFraction?: number
+  /** 归一化半径 ≥ 该值归类为体积。 */
+  volumeRadiusRatio?: number
+  /** 轮廓角度桶数（决定轮廓点数量上限）。 */
+  outlineBuckets?: number
+}
+
+export const AUTO_DETECT_DEFAULTS: Required<Omit<AutoDetectOptions, 'maxDim'>> = {
+  saturationThreshold: 0.5,
+  darkValueThreshold: 0.2,
+  minAreaRatio: 0.0009,
+  maxAreaRatio: 0.08,
+  minFillRatio: 0.42,
+  minSideFraction: 0.005,
+  volumeRadiusRatio: 0.04,
+  outlineBuckets: 36,
+}
+
+/** 十字形态学腐蚀：中心与上下左右均为前景才保留。 */
+const erodeCross = (src: Uint8Array, width: number, height: number): Uint8Array => {
+  const out = new Uint8Array(src.length)
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = y * width + x
+      if (!src[i]) continue
+      if ((y > 0 ? src[i - width] : 0) && (y < height - 1 ? src[i + width] : 0) && (x > 0 ? src[i - 1] : 0) && (x < width - 1 ? src[i + 1] : 0)) out[i] = 1
+    }
+  }
+  return out
+}
+
+/** 十字形态学膨胀：中心或任一上下左右为前景即保留。 */
+const dilateCross = (src: Uint8Array, width: number, height: number): Uint8Array => {
+  const out = new Uint8Array(src.length)
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = y * width + x
+      if (src[i] || (y > 0 ? src[i - width] : 0) || (y < height - 1 ? src[i + width] : 0) || (x > 0 ? src[i - 1] : 0) || (x < width - 1 ? src[i + 1] : 0)) out[i] = 1
+    }
+  }
+  return out
+}
+
+interface Component {
+  area: number; sx: number; sy: number; minX: number; maxX: number; minY: number; maxY: number
+  boundary: number[]
+}
+
+/** 由组件边界像素生成归一化轮廓：按质心角度分桶，每桶取最外沿点。 */
+const outlineOf = (c: Component, width: number, height: number, buckets: number): Point[] | undefined => {
+  if (!c.boundary.length) return undefined
+  const bx = c.sx / c.area
+  const by = c.sy / c.area
+  const best = new Array<[number, number]>(buckets)
+  let filled = 0
+  const step = (Math.PI * 2) / buckets
+  for (const idx of c.boundary) {
+    const px = idx % width
+    const py = (idx / width) | 0
+    const dx = px - bx
+    const dy = py - by
+    const d2 = dx * dx + dy * dy
+    let bucket = Math.floor((Math.atan2(dy, dx) + Math.PI) / step)
+    if (bucket >= buckets) bucket = buckets - 1
+    const current = best[bucket]
+    if (!current) { best[bucket] = [dx, dy]; filled++ }
+    else if (d2 > current[0] * current[0] + current[1] * current[1]) best[bucket] = [dx, dy]
+  }
+  if (!filled) return undefined
+  const points: Point[] = []
+  for (let i = 0; i < buckets; i++) {
+    const p = best[i]
+    if (p) points.push([(bx + p[0]) / width, (by + p[1]) / height])
+  }
+  return points.length >= 3 ? points : undefined
+}
+
+/** 对像素数据（RGBA）执行自动识别，返回归一化坐标 + 可选边缘轮廓的岩点/体积列表。 */
+export function detectFromPixels(width: number, height: number, data: Uint8ClampedArray, opts: AutoDetectOptions = {}): Hold[] {
+  const o = { ...AUTO_DETECT_DEFAULTS, ...opts }
+  if (width <= 0 || height <= 0) return []
+  const total = width * height
+
+  // 1) 前景掩码：高饱和（彩色岩点）或低明度（黑色岩点）
+  const mask = new Uint8Array(total)
+  for (let i = 0; i < total; i++) {
+    const r = data[i * 4]
+    const g = data[i * 4 + 1]
+    const b = data[i * 4 + 2]
+    const mx = Math.max(r, g, b)
+    const mn = Math.min(r, g, b)
+    const sat = mx > 0 ? (mx - mn) / mx : 0
+    const val = mx / 255
+    if (sat > o.saturationThreshold || val < o.darkValueThreshold) mask[i] = 1
+  }
+
+  // 2) 形态学开运算，去除纹理噪点
+  const fg = dilateCross(erodeCross(mask, width, height), width, height)
+
+  // 3) 4-连通域标注 + 统计（同时记录边界像素）
+  const label = new Int32Array(total).fill(-1)
+  const components: Component[] = []
+  let labelId = 0
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const idx = y * width + x
+      if (!fg[idx] || label[idx] !== -1) continue
+      let area = 0, sx = 0, sy = 0, minX = x, maxX = x, minY = y, maxY = y
+      const boundary: number[] = []
+      const queue = [idx]
+      label[idx] = labelId
+      for (let q = 0; q < queue.length; q++) {
+        const p = queue[q]
+        const px = p % width
+        const py = (p / width) | 0
+        area++
+        sx += px
+        sy += py
+        if (px < minX) minX = px
+        if (px > maxX) maxX = px
+        if (py < minY) minY = py
+        if (py > maxY) maxY = py
+        if (px === 0 || py === 0 || px === width - 1 || py === height - 1 || !fg[p - width] || !fg[p + width] || !fg[p - 1] || !fg[p + 1]) boundary.push(p)
+        if (px > 0) { const ni = p - 1; if (fg[ni] && label[ni] === -1) { label[ni] = labelId; queue.push(ni) } }
+        if (px < width - 1) { const ni = p + 1; if (fg[ni] && label[ni] === -1) { label[ni] = labelId; queue.push(ni) } }
+        if (py > 0) { const ni = p - width; if (fg[ni] && label[ni] === -1) { label[ni] = labelId; queue.push(ni) } }
+        if (py < height - 1) { const ni = p + width; if (fg[ni] && label[ni] === -1) { label[ni] = labelId; queue.push(ni) } }
+      }
+      components.push({ area, sx, sy, minX, maxX, minY, maxY, boundary })
+      labelId++
+    }
+  }
+
+  // 4) 过滤并生成岩点/体积（含边缘轮廓）
+  const result: Hold[] = []
+  for (const c of components) {
+    const areaRatio = c.area / total
+    if (areaRatio < o.minAreaRatio || areaRatio > o.maxAreaRatio) continue
+    const bw = c.maxX - c.minX + 1
+    const bh = c.maxY - c.minY + 1
+    if (Math.min(bw, bh) < o.minSideFraction * Math.min(width, height)) continue
+    if (c.area / (bw * bh) < o.minFillRatio) continue
+    const cx = c.sx / c.area
+    const cy = c.sy / c.area
+    const radius = Math.max(bw, bh) / 2 / width
+    const kind = radius >= o.volumeRadiusRatio ? 'volume' : 'hold'
+    const polygon = outlineOf(c, width, height, o.outlineBuckets)
+    const hold: Hold = { id: '', x: cx / width, y: cy / height, radius, kind }
+    if (polygon) hold.polygon = polygon
+    result.push(hold)
+  }
+  result.sort((a, b) => a.y - b.y || a.x - b.x)
+  result.forEach((hold, index) => { hold.id = `H${String(index + 1).padStart(3, '0')}` })
+  return result
+}
+
+/** DOM 包装：把 <img> 绘制到离屏画布后交给 detectFromPixels。 */
+export function autoDetectHolds(image: HTMLImageElement, opts: AutoDetectOptions = {}): Hold[] {
+  const maxDim = opts.maxDim ?? 768
+  const scale = Math.min(1, maxDim / Math.max(image.naturalWidth, image.naturalHeight))
+  const width = Math.max(1, Math.round(image.naturalWidth * scale))
+  const height = Math.max(1, Math.round(image.naturalHeight * scale))
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const context = canvas.getContext('2d', { willReadFrequently: true })!
+  context.drawImage(image, 0, 0, width, height)
+  const { data } = context.getImageData(0, 0, width, height)
+  return detectFromPixels(width, height, data, opts)
+}

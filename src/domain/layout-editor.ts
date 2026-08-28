@@ -9,9 +9,9 @@ export class LayoutEditor {
   /** 记录一次可撤销的变更起点；配合 setPosition/setRadius 在连续拖拽中只入栈一次。 */
   beginChange() { this.checkpoint() }
   /** 无检查点地移动岩点（拖拽过程中连续调用，不会刷满撤销历史）。 */
-  setPosition(id: string, x: number, y: number) { const hold = this.require(id); hold.x = Math.max(0, Math.min(1, x)); hold.y = Math.max(0, Math.min(1, y)) }
+  setPosition(id: string, x: number, y: number) { const hold = this.require(id); hold.x = Math.max(0, Math.min(1, x)); hold.y = Math.max(0, Math.min(1, y)); delete hold.polygon }
   /** 无检查点地调整半径（滑杆实时预览用）。 */
-  setRadius(id: string, radius: number) { this.require(id).radius = Math.max(.001, radius) }
+  setRadius(id: string, radius: number) { const hold = this.require(id); hold.radius = Math.max(.001, radius); delete hold.polygon }
   move(id: string, x: number, y: number) { this.checkpoint(); this.require(id); this.setPosition(id, x, y) }
   resize(id: string, radius: number) { this.checkpoint(); this.require(id); this.setRadius(id, radius) }
   remove(id: string) { this.checkpoint(); this.holds = this.holds.filter(hold => hold.id !== id) }

@@ -17,9 +17,9 @@ export interface DraftCanvasOptions {
   onSelectHold: (holdId: string | null) => void
 }
 
-const NEUTRAL = "#c6c8e0"
-const NEUTRAL_EDGE = "#a9accc"
-const ACCENT = "#6352e2"
+const NEON_HOLD = "#00e5ff"
+const NEON_VOLUME = "#ff3bd4"
+const NEON_SELECTED = "#ffffff"
 const SNAP_PX = 20
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value))
 const clamp01 = (value: number) => clamp(value, 0, 1)
@@ -232,16 +232,40 @@ export class DraftCanvasView {
     }
 
     for (const hold of this.opts.holds) {
-      const [sx, sy] = this.toScreen([hold.x, hold.y])
-      const radius = hold.radius * this.scale
       const selected = hold.id === this.opts.selectedId
-      ctx.beginPath()
-      ctx.arc(sx, sy, radius, 0, Math.PI * 2)
-      ctx.fillStyle = selected ? ACCENT : NEUTRAL
+      const color = selected ? NEON_SELECTED : hold.kind === 'volume' ? NEON_VOLUME : NEON_HOLD
+      const trace = () => {
+        ctx.beginPath()
+        if (hold.polygon && hold.polygon.length >= 3) {
+          hold.polygon.forEach((p, i) => {
+            const [sx, sy] = this.toScreen(p)
+            if (i === 0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy)
+          })
+          ctx.closePath()
+        } else {
+          const [sx, sy] = this.toScreen([hold.x, hold.y])
+          ctx.arc(sx, sy, Math.max(2, hold.radius * this.scale), 0, Math.PI * 2)
+        }
+      }
+      ctx.save()
+      ctx.globalAlpha = 0.1
+      trace()
+      ctx.fillStyle = color
       ctx.fill()
-      ctx.lineWidth = selected ? 2 : 1
-      ctx.strokeStyle = selected ? ACCENT : NEUTRAL_EDGE
+      ctx.restore()
+      trace()
+      ctx.save()
+      ctx.strokeStyle = color
+      ctx.lineWidth = selected ? 5 : 4
+      ctx.shadowColor = color
+      ctx.shadowBlur = selected ? 14 : 9
       ctx.stroke()
+      ctx.restore()
+      ctx.save()
+      ctx.strokeStyle = color
+      ctx.lineWidth = selected ? 2 : 1.5
+      ctx.stroke()
+      ctx.restore()
     }
   }
 

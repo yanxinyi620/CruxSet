@@ -1,5 +1,6 @@
 import { expect, it, vi } from 'vitest'
 import { ApiSession } from '../web/src/data/api-session.js'
+import type { Hold, ProblemHolds } from '../miniprogram/domain/types.js'
 
 const fixture = () => {
   const walls = [{ id: 'wall_1', name: 'Test wall', visibility: 'public', ownerId: 'usr_admin', angleOptions: [20, 25], activeLayoutId: '', description: '', createdAt: 0, updatedAt: 0 }]
@@ -17,7 +18,7 @@ const fixture = () => {
   return { api, session: new ApiSession(api as any) }
 }
 
-const holds = [{ id: 'H001', x: 0.1, y: 0.2, radius: 0.03, kind: 'hold' }]
+const holds: Hold[] = [{ id: 'H001', x: 0.1, y: 0.2, radius: 0.03, kind: 'hold' }]
 
 it('routes draft layout saves through the API instead of the Mock repository', async () => {
   const { api, session } = fixture()
@@ -35,7 +36,7 @@ it('routes draft layout publishing through the API and refreshes the cache', asy
 
 it('routes problem creation through the API with mapped fields', async () => {
   const { api, session } = fixture()
-  const result = await session.createProblem('wall_1', 'layout_1', { angle: 25, grade: 'V1', footRule: 'specified', holds: { start: ['H001'], finish: ['H002'] } })
+  const result = await session.createProblem('wall_1', 'layout_1', { angle: 25, grade: 'V1', footRule: 'specified', holds: { start: ['H001'], finish: ['H002'] } as ProblemHolds })
   expect(api.createProblem).toHaveBeenCalledWith({
     wallId: 'wall_1', layoutId: 'layout_1', angle: 25, grade: 'V1', footRule: 'specified',
     name: undefined, description: undefined, holds: { start: ['H001'], finish: ['H002'] },

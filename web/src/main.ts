@@ -5,13 +5,14 @@ import './styles/editor.css'
 import './styles/responsive.css'
 import { PreviewStore } from './preview-store.js'
 import ProblemEditor from '../../miniprogram/domain/editor.js'
-import type { FootRule, Grade, Hold, HoldRole } from '../../miniprogram/domain/types.js'
+import type { FootRule, Grade, Hold, HoldRole, Layout, Problem, Wall } from '../../miniprogram/domain/types.js'
 import { WallCanvasView } from './wall-canvas.js'
 import { ROLE_COLORS } from './wall-canvas.js'
 import { LocalApiClient } from './api.js'
 import { DraftCanvasView } from './draft-canvas.js'
 import { LayoutEditor } from '../../src/domain/layout-editor.js'
 import type { DraftMode } from './draft-canvas.js'
+import { autoDetectHolds } from './auto-detect.js'
 
 const root = document.querySelector<HTMLElement>('#app')!
 const store = new PreviewStore()
@@ -44,6 +45,12 @@ type DraftCtx = {
   dirty: boolean; canvas?: DraftCanvasView; toast?: string; published?: string; shellBuilt: boolean
 }
 let draftCtx: DraftCtx | null = null
+
+type DetailCtx = {
+  problem: Problem; wall: Wall; layout: Layout
+  canvas?: WallCanvasView; shellBuilt: boolean
+}
+let detailCtx: DetailCtx | null = null
 
 const loginShell = () => `<div class="device"><header><small>CRUXSET</small><i></i></header><main class="login-page"><div class="login-card"><p class="eyebrow">本地创作工作台</p><h1>管理员登录</h1><p class="lead">登录后管理本机的墙面、标注与线路。</p><label>邮箱<input id="login-email" type="email" autocomplete="username" placeholder="name@example.com"></label><label>密码<input id="login-password" type="password" autocomplete="current-password" placeholder="至少 8 位"></label><button class="login-submit" data-login>登录</button><p class="login-error">${loginError}</p></div></main></div>`
 
@@ -149,7 +156,7 @@ const openDraftEditor = async (wallId: string, layoutId: string) => {
     editor: new LayoutEditor(layout.holds), mode: 'add', selectedId: null, kind: 'hold',
     dirty: false, shellBuilt: false,
   }
-  await render()
+  await store.navigate({ name: 'draft-editor', wallId, layoutId })
 }
 
 const draftEditorShell = (ctx: DraftCtx) => `<div class="device"><header><small>CRUXSET</small><i></i></header><main>
@@ -166,6 +173,10 @@ const draftEditorShell = (ctx: DraftCtx) => `<div class="device"><header><small>
 <button class="draft-kind" data-kind="hold">岩点</button>
 <button class="draft-kind" data-kind="volume">体积</button>
 <span class="draft-hint">双指缩放 · 单指平移</span>
+</div>
+<div class="draft-toolbar">
+<button data-draft-autodetect>自动识别</button>
+<span class="draft-hint">启发式识别岩点/体积，结果可再手动修正</span>
 </div>
 <div class="field"><label>在墙图上点按添加岩点；移动/删除模式点按岩点操作；空白处拖动平移，滚轮或双指缩放。</label><div id="draft-canvas"></div></div>
 <div class="field" id="radius-field" style="display:none"><label>半径（选中岩点后可调整）</label><input id="hold-radius" type="range" min="0.001" max="0.08" step="0.001"></div>
@@ -187,6 +198,7 @@ const bindDraftEditorEvents = async (ctx: DraftCtx) => {
   root.querySelector('[data-draft-clear]')!.addEventListener('click', () => { if (ctx.editor.value().length && confirm('清除所有已标注岩点？')) { ctx.editor = new LayoutEditor([]); ctx.dirty = true; ctx.selectedId = null; updateDraftEditorUI() } })
   root.querySelector('[data-save-draft]')!.addEventListener('click', () => { void saveDraft() })
   root.querySelector('[data-publish-draft]')!.addEventListener('click', () => { void publishDraft() })
+  root.querySelector('[data-draft-autodetect]')!.addEventListener('click', () => { void autoDetectDraft() })
   const radiusSlider = root.querySelector('#hold-radius') as HTMLInputElement
   let radiusActive = false
   radiusSlider.addEventListener('pointerdown', () => { radiusActive = true; ctx.editor.beginChange() })
@@ -261,6 +273,72 @@ const publishDraft = async () => {
   }
 }
 
+const loadImage = (url: string) => new Promise<HTMLImageElement>((resolve, reject) => { const img = new Image(); img.onload = () => resolve(img); img.onerror = () => reject(new Error('墙图加载失败')); img.src = url })
+
+const autoDetectDraft = async () => {
+  const ctx = draftCtx!
+  if (ctx.editor.value().length && !confirm('自动识别将替换当前已标注的岩点，继续？')) return
+  const layout = await store.session.getLayout(ctx.layoutId)
+  try {
+    const image = await loadImage(layout.imageFileId)
+    const detected = autoDetectHolds(image)
+    if (!detected.length) { ctx.toast = '未识别到岩点，可切换手动标注'; updateDraftEditorUI(); return }
+    ctx.editor = new LayoutEditor(detected)
+    ctx.dirty = true
+    ctx.selectedId = null
+    const holds = detected.filter(h => h.kind === 'hold').length
+    const volumes = detected.length - holds
+    ctx.toast = `自动识别：${holds} 个岩点、${volumes} 个体积，可继续手动修正`
+    updateDraftEditorUI()
+  } catch (err) {
+    ctx.toast = `自动识别失败：${(err as Error).message}`
+    updateDraftEditorUI()
+  }
+}
+
+const FOOT_RULE_TEXT: Record<FootRule, [string, string]> = {
+  feet_follow: ['手脚同点', '手类点可踩，黄色 Foot 只能脚踩'],
+  specified: ['指定脚点', '脚只能踩线路中的黄色 Foot'],
+  all: ['全墙脚点', '当前 Layout 所有允许踩的岩点均可作为脚点'],
+}
+
+const openProblemDetail = async (problemId: string) => {
+  const problem = (await store.session.listProblems()).find(p => p.id === problemId)
+  if (!problem) { await store.navigate({ name: 'browse' }); return }
+  const wall = await store.session.getWall(problem.wallId)
+  const layout = await store.session.getLayout(problem.layoutId)
+  detailCtx = { problem, wall, layout, shellBuilt: false }
+  await store.navigate({ name: 'problem-detail', problemId })
+}
+
+const problemDetailShell = (ctx: DetailCtx) => {
+  const { problem, wall, layout } = ctx
+  const [footRuleLabel, footRuleHint] = FOOT_RULE_TEXT[problem.footRule] || FOOT_RULE_TEXT.feet_follow
+  return `<div class="device"><header><small>CRUXSET</small><i></i></header><main>
+<button class="back-button" data-detail-back aria-label="返回">‹</button>
+<div class="editor-head"><h1>${problem.number}</h1><p>${problem.name || '未命名线路'} · ${problem.grade} · ${problem.angle}° · ${wall.name}</p></div>
+<div class="field"><label>墙图 · ${layout.name}（已发布）</label><div id="detail-canvas"></div><div class="legend">${ROLE_ORDER.map(r=>`<span><i style="background:${ROLE_COLORS[r]}"></i>${ROLE_LABELS[r]}</span>`).join('')}</div></div>
+<div class="field"><label>脚点规则</label><p>${footRuleLabel} · ${footRuleHint}</p></div>
+${problem.description ? `<div class="field"><label>线路说明</label><p>${problem.description}</p></div>` : ''}
+</main></div>`
+}
+
+const renderProblemDetail = () => {
+  const ctx = detailCtx!
+  if (!ctx.shellBuilt) { ctx.shellBuilt = true; root.innerHTML = problemDetailShell(ctx); void bindProblemDetailEvents(ctx) }
+}
+
+const bindProblemDetailEvents = async (ctx: DetailCtx) => {
+  root.querySelector('[data-detail-back]')!.addEventListener('click', () => { ctx.canvas?.destroy(); detailCtx = null; panel = 'layout-problems'; void store.navigate({ name: 'browse' }) })
+  const holder = root.querySelector('#detail-canvas')! as HTMLElement
+  ctx.canvas = new WallCanvasView(holder, {
+    imageUrl: ctx.layout.imageFileId, imageWidth: ctx.layout.imageWidth, imageHeight: ctx.layout.imageHeight, holds: ctx.layout.holds,
+    getAssignments: () => ctx.problem.holds,
+    getSelectedRole: () => null,
+    onTapHold: () => {},
+  })
+}
+
 const render = async () => {
   if (!authenticated) { renderLogin(); return }
   if (editorCtx) { renderEditor(); return }
@@ -270,7 +348,13 @@ const render = async () => {
     renderDraftEditor()
     return
   }
+  if (route.name === 'problem-detail') {
+    if (!detailCtx || detailCtx.problem.id !== route.problemId) { await openProblemDetail(route.problemId); return }
+    renderProblemDetail()
+    return
+  }
   if (draftCtx) { draftCtx.canvas?.destroy(); draftCtx = null }
+  if (detailCtx) { detailCtx.canvas?.destroy(); detailCtx = null }
   const mine = await store.session.listMyWalls()
   const allProblems = await store.session.listProblems()
   let layoutProblemsHtml = ''
@@ -278,7 +362,7 @@ const render = async () => {
     const wall = await store.session.getWall(activeLayout.wallId)
     const layout = await store.session.getLayout(activeLayout.layoutId)
     const problems = await store.session.listProblems({ wallId: activeLayout.wallId, layoutId: activeLayout.layoutId })
-    layoutProblemsHtml = `${back}<h1>${wall.name}</h1><p class="lead">${layout.name} · 已发布 · 仅可查看，请到「创建」新建线路</p><h3>线路（${problems.length}）</h3>${problems.map(p=>`<article class="problem-row"><span><b>${p.number}</b><em>${p.name||'未命名线路'} · ${p.angle}° · ${p.grade}</em></span></article>`).join('')||'<p class="note">该 Layout 暂无线路</p>'}`
+    layoutProblemsHtml = `${back}<h1>${wall.name}</h1><p class="lead">${layout.name} · 已发布 · 仅可查看，请到「创建」新建线路</p><h3>线路（${problems.length}）</h3>${problems.map(p=>`<button class="problem-row" data-problem-id="${p.id}"><span><b>${p.number}</b><em>${p.name||'未命名线路'} · ${p.angle}° · ${p.grade}</em></span><strong>›</strong></button>`).join('')||'<p class="note">该 Layout 暂无线路</p>'}`
   }
   const published = (await Promise.all((await store.session.listWalls()).map(async wall => ({wall, layouts:(await store.session.listLayouts(wall.id)).filter(x=>x.published)})))).filter(x=>x.layouts.length)
   const drafts = (await Promise.all(mine.map(async wall => ({wall, layouts:(await store.session.listLayouts(wall.id)).filter(x=>!x.published)})))).filter(x=>x.layouts.length)
@@ -298,6 +382,7 @@ const render = async () => {
   root.querySelectorAll<HTMLButtonElement>('[data-expand]').forEach(b=>b.onclick=()=>{expandedLayout=expandedLayout===b.dataset.expand?'':b.dataset.expand!;void render()})
   root.querySelectorAll<HTMLButtonElement>('[data-back]').forEach(b=>b.onclick=()=>{panel='home';void render()})
   root.querySelectorAll<HTMLButtonElement>('[data-layout-id]').forEach(b=>b.onclick=async()=>{const wallId=b.getAttribute('data-wall-id')!,layoutId=b.getAttribute('data-layout-id')!;if(choiceMode==='create'){await openEditor(wallId,layoutId);return}activeLayout={wallId,layoutId};panel='layout-problems';void render()})
+  root.querySelectorAll<HTMLButtonElement>('[data-problem-id]').forEach(b=>b.onclick=()=>{void openProblemDetail(b.getAttribute('data-problem-id')!)})
   root.querySelectorAll<HTMLButtonElement>('[data-open-draft]').forEach(b=>b.onclick=()=>{void openDraftEditor(b.getAttribute('data-wall-id')!, b.getAttribute('data-open-draft')!)})
   root.querySelectorAll<HTMLButtonElement>('[data-delete-layout]').forEach(b=>b.onclick=async()=>{if(confirm('删除 Layout 及其关联线路？')){await store.session.deleteLayout(b.dataset.wallId!,b.dataset.deleteLayout!);void render()}})
   root.querySelectorAll<HTMLButtonElement>('[data-delete-problem]').forEach(b=>b.onclick=async()=>{if(confirm('删除这条线路？')){await store.session.deleteProblem?.(b.dataset.deleteProblem!);void render()}})
