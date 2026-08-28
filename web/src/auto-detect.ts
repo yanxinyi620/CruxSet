@@ -15,6 +15,8 @@ import type { Hold, Point } from '../../miniprogram/domain/types.js'
  */
 
 export interface AutoDetectOptions {
+  /** 检测区域，使用整张图片的归一化坐标。 */
+  roi?: Roi
   /** 分析用最大边像素，避免大图过慢。 */
   maxDim?: number
   /** 饱和度超过该值判为前景（彩色岩点）。 */
@@ -29,13 +31,23 @@ export interface AutoDetectOptions {
   minFillRatio?: number
   /** 组件最小边 / 全图短边 低于该值丢弃。 */
   minSideFraction?: number
+  /** 组件的最小像素面积；设置后与比例阈值取更宽松者。 */
+  minComponentPixels?: number
+  /** 组件包围盒短边的最小像素数。 */
+  minSidePixels?: number
   /** 归一化半径 ≥ 该值归类为体积。 */
   volumeRadiusRatio?: number
   /** 轮廓角度桶数（决定轮廓点数量上限）。 */
   outlineBuckets?: number
 }
 
-export const AUTO_DETECT_DEFAULTS: Required<Omit<AutoDetectOptions, 'maxDim'>> = {
+export interface Roi { x: number; y: number; width: number; height: number }
+
+type AutoDetectDefaults = Required<Pick<AutoDetectOptions,
+  'saturationThreshold' | 'darkValueThreshold' | 'minAreaRatio' | 'maxAreaRatio' |
+  'minFillRatio' | 'minSideFraction' | 'volumeRadiusRatio' | 'outlineBuckets'>>
+
+export const AUTO_DETECT_DEFAULTS: AutoDetectDefaults = {
   saturationThreshold: 0.5,
   darkValueThreshold: 0.2,
   minAreaRatio: 0.0009,
@@ -109,6 +121,11 @@ const outlineOf = (c: Component, width: number, height: number, buckets: number)
 export function detectFromPixels(width: number, height: number, data: Uint8ClampedArray, opts: AutoDetectOptions = {}): Hold[] {
   const o = { ...AUTO_DETECT_DEFAULTS, ...opts }
   if (width <= 0 || height <= 0) return []
+  const roi = opts.roi ?? { x: 0, y: 0, width: 1, height: 1 }
+  const roiX = Math.max(0, Math.min(1, roi.x))
+  const roiY = Math.max(0, Math.min(1, roi.y))
+  const roiW = Math.max(0, Math.min(1 - roiX, roi.width))
+  const roiH = Math.max(0, Math.min(1 - roiY, roi.height))
   const total = width * height
 
   // 1) 前景掩码：高饱和（彩色岩点）或低明度（黑色岩点）
@@ -165,17 +182,30 @@ export function detectFromPixels(width: number, height: number, data: Uint8Clamp
   const result: Hold[] = []
   for (const c of components) {
     const areaRatio = c.area / total
-    if (areaRatio < o.minAreaRatio || areaRatio > o.maxAreaRatio) continue
+    const minArea = opts.minComponentPixels === undefined
+      ? o.minAreaRatio * total
+      : Math.min(o.minAreaRatio * total, opts.minComponentPixels)
+    if (c.area < minArea || areaRatio > o.maxAreaRatio) continue
     const bw = c.maxX - c.minX + 1
     const bh = c.maxY - c.minY + 1
-    if (Math.min(bw, bh) < o.minSideFraction * Math.min(width, height)) continue
+    const minSide = opts.minSidePixels ?? o.minSideFraction * Math.min(width, height)
+    if (Math.min(bw, bh) < minSide) continue
     if (c.area / (bw * bh) < o.minFillRatio) continue
     const cx = c.sx / c.area
     const cy = c.sy / c.area
-    const radius = Math.max(bw, bh) / 2 / width
+    const x = roiX + (cx / width) * roiW
+    const y = roiY + (cy / height) * roiH
+    const radius = Math.max((bw / width) * roiW, (bh / height) * roiH) / 2
     const kind = radius >= o.volumeRadiusRatio ? 'volume' : 'hold'
-    const polygon = outlineOf(c, width, height, o.outlineBuckets)
-    const hold: Hold = { id: '', x: cx / width, y: cy / height, radius, kind }
+    const localPolygon = outlineOf(c, width, height, o.outlineBuckets)
+    const polygon = localPolygon?.map(([px, py]) => [roiX + px * roiW, roiY + py * roiH] as Point)
+    const bbox: readonly [number, number, number, number] = [
+      roiX + (c.minX / width) * roiW,
+      roiY + (c.minY / height) * roiH,
+      roiX + ((c.maxX + 1) / width) * roiW,
+      roiY + ((c.maxY + 1) / height) * roiH,
+    ]
+    const hold: Hold = { id: '', x, y, radius, kind, bbox }
     if (polygon) hold.polygon = polygon
     result.push(hold)
   }
@@ -187,14 +217,21 @@ export function detectFromPixels(width: number, height: number, data: Uint8Clamp
 /** DOM 包装：把 <img> 绘制到离屏画布后交给 detectFromPixels。 */
 export function autoDetectHolds(image: HTMLImageElement, opts: AutoDetectOptions = {}): Hold[] {
   const maxDim = opts.maxDim ?? 768
-  const scale = Math.min(1, maxDim / Math.max(image.naturalWidth, image.naturalHeight))
-  const width = Math.max(1, Math.round(image.naturalWidth * scale))
-  const height = Math.max(1, Math.round(image.naturalHeight * scale))
+  const roi = opts.roi ?? { x: 0, y: 0, width: 1, height: 1 }
+  const roiX = Math.max(0, Math.min(1, roi.x))
+  const roiY = Math.max(0, Math.min(1, roi.y))
+  const roiW = Math.max(0, Math.min(1 - roiX, roi.width))
+  const roiH = Math.max(0, Math.min(1 - roiY, roi.height))
+  const sourceWidth = Math.max(1, Math.round(image.naturalWidth * roiW))
+  const sourceHeight = Math.max(1, Math.round(image.naturalHeight * roiH))
+  const scale = Math.min(1, maxDim / Math.max(sourceWidth, sourceHeight))
+  const width = Math.max(1, Math.round(sourceWidth * scale))
+  const height = Math.max(1, Math.round(sourceHeight * scale))
   const canvas = document.createElement('canvas')
   canvas.width = width
   canvas.height = height
   const context = canvas.getContext('2d', { willReadFrequently: true })!
-  context.drawImage(image, 0, 0, width, height)
+  context.drawImage(image, Math.round(image.naturalWidth * roiX), Math.round(image.naturalHeight * roiY), sourceWidth, sourceHeight, 0, 0, width, height)
   const { data } = context.getImageData(0, 0, width, height)
-  return detectFromPixels(width, height, data, opts)
+  return detectFromPixels(width, height, data, { ...opts, roi: { x: roiX, y: roiY, width: roiW, height: roiH } })
 }

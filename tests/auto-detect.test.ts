@@ -23,6 +23,18 @@ const makeImage = (w: number, h: number, draws: ((x: number, y: number) => Rgb |
 const circle = (cx: number, cy: number, r: number, color: Rgb) => (x: number, y: number): Rgb | null =>
   (x - cx) ** 2 + (y - cy) ** 2 <= r * r ? color : null
 
+const rectangle = (cx: number, cy: number, halfWidth: number, halfHeight: number, color: Rgb) =>
+  (x: number, y: number): Rgb | null => Math.abs(x - cx) <= halfWidth && Math.abs(y - cy) <= halfHeight ? color : null
+
+const cropPixels = (data: Uint8ClampedArray, imageWidth: number, x: number, y: number, width: number, height: number) => {
+  const cropped = new Uint8ClampedArray(width * height * 4)
+  for (let row = 0; row < height; row++) {
+    const sourceStart = ((y + row) * imageWidth + x) * 4
+    cropped.set(data.subarray(sourceStart, sourceStart + width * 4), row * width * 4)
+  }
+  return cropped
+}
+
 describe('auto hold/volume detection', () => {
   it('returns nothing for a plain wall background', () => {
     const data = makeImage(100, 100, [])
@@ -62,6 +74,29 @@ describe('auto hold/volume detection', () => {
   it('ignores tiny specks below the minimum area', () => {
     const data = makeImage(100, 100, [circle(50, 50, 1, [220, 60, 60])])
     expect(detectFromPixels(100, 100, data)).toEqual([])
+  })
+
+  it('maps detections from an ROI back to full-image coordinates', () => {
+    const data = makeImage(100, 100, [circle(60, 50, 6, [220, 60, 60])])
+    const [hold] = detectFromPixels(50, 50, cropPixels(data, 100, 50, 25, 50, 50), {
+      roi: { x: 0.5, y: 0.25, width: 0.5, height: 0.5 },
+      minComponentPixels: 10,
+    })
+    expect(hold.x).toBeCloseTo(0.6, 1)
+    expect(hold.y).toBeCloseTo(0.5, 1)
+    expect(hold.bbox).toEqual(expect.arrayContaining([expect.any(Number), expect.any(Number), expect.any(Number), expect.any(Number)]))
+    expect(hold.polygon?.every(([x, y]) => x >= 0.5 && x <= 1 && y >= 0.25 && y <= 0.75)).toBe(true)
+  })
+
+  it('uses equivalent width and height for normalized radius', () => {
+    const data = makeImage(200, 100, [rectangle(100, 50, 20, 10, [220, 60, 60])])
+    const [hold] = detectFromPixels(200, 100, data, { minComponentPixels: 20 })
+    expect(hold.radius).toBeCloseTo(0.1, 1)
+  })
+
+  it('retains a component that meets the pixel threshold despite a small area ratio', () => {
+    const data = makeImage(200, 200, [circle(100, 100, 4, [220, 60, 60])])
+    expect(detectFromPixels(200, 200, data, { minAreaRatio: 0.01, minComponentPixels: 20 })).toHaveLength(1)
   })
 })
 
