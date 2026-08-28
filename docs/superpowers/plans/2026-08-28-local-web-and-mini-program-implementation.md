@@ -23,7 +23,7 @@ miniprogram/                            independent native client
 cloudfunctions/                         Mini Program Node functions
 ```
 
-`dev-preview/` is user-owned experimental work and must not be modified by this plan unless the user explicitly requests migration of a specific file.
+`web/` is the formal local Web client. The earlier `dev-preview/` prototype has been migrated into this directory.
 
 ### Task 1: Reset the Web backend boundary to SQLite
 

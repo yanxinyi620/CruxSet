@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { PreviewSession } from '../dev-preview/src/data/preview-session.js'
+import { PreviewSession } from '../web/src/data/preview-session.js'
 
 describe('PreviewSession', () => {
   it('creates a wall and restores seeded data after reset', async () => {

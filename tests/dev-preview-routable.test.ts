@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { PreviewSession } from '../dev-preview/src/data/preview-session.js'
-import { listRoutableLayouts } from '../dev-preview/src/data/preview-repository.js'
+import { PreviewSession } from '../web/src/data/preview-session.js'
+import { listRoutableLayouts } from '../web/src/data/preview-repository.js'
 
 describe('listRoutableLayouts', () => {
   it('excludes unpublished zero-hold drafts', async () => {

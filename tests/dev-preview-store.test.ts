@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { PreviewStore } from '../dev-preview/src/preview-store.js'
+import { PreviewStore } from '../web/src/preview-store.js'
 
 describe('PreviewStore', () => {
   it('requires two explicit confirmations before a wall is deleted', async () => {
