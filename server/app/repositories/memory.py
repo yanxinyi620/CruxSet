@@ -62,6 +62,10 @@ class MemoryRepository:
     def insert_problem(self, problem: Document) -> None:
         self._problems[str(problem["id"])] = deepcopy(problem)
 
+    def find_problem(self, problem_id: str) -> Document | None:
+        problem = self._problems.get(problem_id)
+        return deepcopy(problem) if problem else None
+
     def list_problems(self) -> list[Document]:
         return [deepcopy(problem) for problem in self._problems.values()]
 
@@ -70,6 +74,16 @@ class MemoryRepository:
 
     def delete_problems_for_layout(self, layout_id: str) -> None:
         self._problems = {key: value for key, value in self._problems.items() if value.get("layoutId") != layout_id}
+
+    def delete_problem(self, problem_id: str) -> None:
+        self._problems.pop(problem_id, None)
+
+    def delete_wall(self, wall_id: str) -> None:
+        for layout in self._layouts:
+            if layout.get("wallId") == wall_id:
+                self.delete_problems_for_layout(layout["id"])
+        self._layouts = [layout for layout in self._layouts if layout.get("wallId") != wall_id]
+        self._walls.pop(wall_id, None)
 
     def list_layouts(self, wall_id: str) -> list[Document]:
         latest: dict[str, Document] = {}

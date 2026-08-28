@@ -51,6 +51,36 @@ def _now() -> int:
     return int(time.time() * 1000)
 
 
+def _validate_hold_shape(holds: list[dict]) -> None:
+    """Reject structurally invalid holds; require 0-1 normalized coordinates and a sane radius."""
+    known: set[str] = set()
+    for hold in holds:
+        hold_id = hold.get("id")
+        if not isinstance(hold_id, str) or not hold_id:
+            raise ApiError("INVALID_INPUT", "Hold requires a string id", 422)
+        if hold_id in known:
+            raise ApiError("INVALID_INPUT", "Hold ids must be unique", 422)
+        known.add(hold_id)
+        x, y, radius = hold.get("x"), hold.get("y"), hold.get("radius")
+        if not all(isinstance(value, (int, float)) and not isinstance(value, bool) for value in (x, y, radius)):
+            raise ApiError("INVALID_INPUT", "Hold coordinates must be numbers", 422)
+        if not (0 <= x <= 1 and 0 <= y <= 1):
+            raise ApiError("INVALID_INPUT", "Hold coordinates must be normalized to 0-1", 422)
+        if radius <= 0:
+            raise ApiError("INVALID_INPUT", "Hold radius must be positive", 422)
+        if radius > 0.5:
+            raise ApiError("INVALID_INPUT", "Hold radius must be normalized (0-0.5)", 422)
+        if hold.get("kind", "hold") not in ("hold", "volume"):
+            raise ApiError("INVALID_INPUT", "Invalid hold kind", 422)
+
+
+def _validate_publishable_holds(holds: list[dict]) -> None:
+    """Publish requires at least two holds; drafts may be saved incrementally (0+)."""
+    _validate_hold_shape(holds)
+    if len(holds) < 2:
+        raise ApiError("LAYOUT_NOT_ROUTABLE", "Published layout requires at least two holds", 409)
+
+
 @router.get("/walls")
 async def list_walls(request: Request):
     return {"walls": _repo(request).list_walls()}
@@ -99,9 +129,22 @@ async def publish_layout(layout_id: str, payload: HoldsInput, request: Request, 
     if layout["published"]:
         raise ApiError("LAYOUT_LOCKED", "Layout is already published", 409)
     holds = payload.holds
-    if len(holds) < 2:
-        raise ApiError("LAYOUT_NOT_ROUTABLE", "Published layout requires at least two holds", 409)
+    _validate_publishable_holds(holds)
     layout = {**layout, "holds": holds, "published": True, "version": int(layout["version"]) + 1, "updatedAt": _now()}
+    _repo(request).replace_layout(layout)
+    return {"layout": layout}
+
+
+@router.put("/layouts/{layout_id}/holds")
+async def save_draft_holds(layout_id: str, payload: HoldsInput, request: Request, _=Depends(require_admin)):
+    """Persist annotation holds on an unpublished (draft) Layout without publishing it."""
+    layout = _repo(request).find_layout(layout_id)
+    if not layout:
+        raise ApiError("NOT_FOUND", "Resource not found", 404)
+    if layout["published"]:
+        raise ApiError("LAYOUT_LOCKED", "Layout is already published", 409)
+    _validate_hold_shape(payload.holds)
+    layout = {**layout, "holds": payload.holds, "version": int(layout["version"]) + 1, "updatedAt": _now()}
     _repo(request).replace_layout(layout)
     return {"layout": layout}
 
@@ -115,6 +158,24 @@ async def delete_layout(layout_id: str, request: Request, confirmCascade: bool =
         raise ApiError("INVALID_INPUT", "Cascade deletion requires confirmation", 422)
     _repo(request).delete_problems_for_layout(layout_id)
     _repo(request).delete_layout(layout_id)
+    return {"ok": True}
+
+
+@router.delete("/problems/{problem_id}")
+async def delete_problem(problem_id: str, request: Request, _=Depends(require_admin)):
+    if not _repo(request).find_problem(problem_id):
+        raise ApiError("NOT_FOUND", "Resource not found", 404)
+    _repo(request).delete_problem(problem_id)
+    return {"ok": True}
+
+
+@router.delete("/walls/{wall_id}")
+async def delete_wall(wall_id: str, request: Request, confirmCascade: bool = False, _=Depends(require_admin)):
+    if not _repo(request).find_wall(wall_id):
+        raise ApiError("NOT_FOUND", "Resource not found", 404)
+    if not confirmCascade:
+        raise ApiError("INVALID_INPUT", "Cascade deletion requires confirmation", 422)
+    _repo(request).delete_wall(wall_id)
     return {"ok": True}
 
 

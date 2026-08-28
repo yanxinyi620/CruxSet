@@ -1,32 +1,31 @@
-import type { Hold, HoldRole, Point, ViewTransform } from "../../miniprogram/domain/types.js"
+import type { Hold, Point } from "../../miniprogram/domain/types.js"
 import { clampTransform, screenToImage, zoomAroundAnchor } from "../../miniprogram/domain/transform.js"
-import { nearestHold } from "../../miniprogram/domain/geometry.js"
 
-/** 统一角色配色：Start 绿、Foot 黄、Hand 蓝、Assist 橙、Finish 紫。 */
-export const ROLE_COLORS: Record<HoldRole, string> = {
-  start: "#3fb96a",
-  foot: "#f0c24b",
-  hand: "#3f7bd9",
-  assist: "#f08e63",
-  finish: "#8f5fd9",
-}
-const NEUTRAL = "#c6c8e0"
-const NEUTRAL_EDGE = "#a9accc"
-const SNAP_PX = 20
+export type DraftMode = 'add' | 'move' | 'delete'
 
-export interface WallCanvasOptions {
+export interface DraftCanvasOptions {
   imageUrl: string
   imageWidth: number
   imageHeight: number
   holds: Hold[]
-  getAssignments: () => Record<HoldRole, readonly string[]>
-  getSelectedRole: () => HoldRole | null
-  onTapHold: (holdId: string) => void
+  mode: DraftMode
+  selectedId: string | null
+  onAddHold: (point: Point) => void
+  onMoveStart: (holdId: string) => void
+  onMoveHold: (holdId: string, point: Point) => void
+  onDeleteHold: (holdId: string) => void
+  onSelectHold: (holdId: string | null) => void
 }
 
+const NEUTRAL = "#c6c8e0"
+const NEUTRAL_EDGE = "#a9accc"
+const ACCENT = "#6352e2"
+const SNAP_PX = 20
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value))
+const clamp01 = (value: number) => clamp(value, 0, 1)
 
-export class WallCanvasView {
+/** 草稿 Layout 岩点标注画布：添加、移动、删除、平移、滚轮/双指缩放。 */
+export class DraftCanvasView {
   private canvas: HTMLCanvasElement
   private ctx: CanvasRenderingContext2D
   private image?: HTMLImageElement
@@ -42,11 +41,14 @@ export class WallCanvasView {
   private downTime = 0
   private lastX = 0
   private lastY = 0
+  private draggingId: string | null = null
+  private dragOffsetX = 0
+  private dragOffsetY = 0
   private pointers = new Map<number, { x: number; y: number }>()
   private pinch: { dist: number; scale: number } | null = null
   private pinchHappened = false
 
-  constructor(private container: HTMLElement, private opts: WallCanvasOptions) {
+  constructor(private container: HTMLElement, private opts: DraftCanvasOptions) {
     this.canvas = document.createElement("canvas")
     this.canvas.className = "wall-canvas"
     this.container.appendChild(this.canvas)
@@ -68,6 +70,22 @@ export class WallCanvasView {
     img.onload = () => { this.image = img; this.redraw() }
     img.onerror = () => { this.imageError = true; this.redraw() }
     img.src = opts.imageUrl
+  }
+
+  private toImage(e: PointerEvent): Point {
+    const rect = this.canvas.getBoundingClientRect()
+    return screenToImage([e.clientX - rect.left, e.clientY - rect.top], { scale: this.scale, offsetX: this.offsetX, offsetY: this.offsetY })
+  }
+
+  private hitTest(point: Point): Hold | null {
+    const tolerance = SNAP_PX / this.scale
+    let best: Hold | null = null
+    let bestDistance = tolerance
+    for (const hold of this.opts.holds) {
+      const distance = Math.hypot(hold.x - point[0], hold.y - point[1])
+      if (distance <= bestDistance) { bestDistance = distance; best = hold }
+    }
+    return best
   }
 
   private updatePinch() {
@@ -97,6 +115,15 @@ export class WallCanvasView {
       this.downTime = Date.now()
       this.lastX = e.clientX
       this.lastY = e.clientY
+      const image = this.toImage(e)
+      const hit = this.hitTest(image)
+      this.draggingId = null
+      if (hit && this.opts.mode === 'move') {
+        this.draggingId = hit.id
+        this.dragOffsetX = image[0] - hit.x
+        this.dragOffsetY = image[1] - hit.y
+        this.opts.onMoveStart(hit.id)
+      }
     })
     this.canvas.addEventListener("pointermove", (e) => {
       if (this.pointers.has(e.pointerId)) this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
@@ -107,9 +134,14 @@ export class WallCanvasView {
       this.lastX = e.clientX
       this.lastY = e.clientY
       if (Math.hypot(dx, dy) > 2) this.moved = true
+      if (this.draggingId) {
+        const image = this.toImage(e)
+        this.opts.onMoveHold(this.draggingId, [clamp01(image[0] - this.dragOffsetX), clamp01(image[1] - this.dragOffsetY)])
+        return
+      }
       this.offsetX += dx
       this.offsetY += dy
-      this.clampTransform()
+      this.applyTransform(clampTransform({ scale: this.scale, offsetX: this.offsetX, offsetY: this.offsetY }, this.canvas.width, this.canvas.height, 1, this.aspect))
       this.redraw()
     })
     const up = (e: PointerEvent) => {
@@ -124,6 +156,7 @@ export class WallCanvasView {
           this.downTime = Date.now()
           this.lastX = rest.x
           this.lastY = rest.y
+          this.draggingId = null
         }
         return
       }
@@ -131,13 +164,19 @@ export class WallCanvasView {
         const wasPinch = this.pinchHappened
         const wasDown = this.down
         this.down = false
+        this.draggingId = null
         this.pinchHappened = false
         if (!wasDown || wasPinch) return
-        const elapsed = Date.now() - this.downTime
-        if (!this.moved && elapsed <= 300) {
-          const rect = this.canvas.getBoundingClientRect()
-          this.tap(e.clientX - rect.left, e.clientY - rect.top)
+        if (this.moved) return
+        if (Date.now() - this.downTime > 300) return
+        const image = this.toImage(e)
+        const hit = this.hitTest(image)
+        if (hit) {
+          if (this.opts.mode === 'delete') this.opts.onDeleteHold(hit.id)
+          else this.opts.onSelectHold(hit.id)
+          return
         }
+        if (this.opts.mode === 'add') this.opts.onAddHold([clamp01(image[0]), clamp01(image[1])])
       }
     }
     this.canvas.addEventListener("pointerup", up)
@@ -153,28 +192,17 @@ export class WallCanvasView {
     }, { passive: false })
   }
 
-  private applyTransform(next: ViewTransform) {
+  private applyTransform(next: { scale: number; offsetX: number; offsetY: number }) {
     this.scale = next.scale
     this.offsetX = next.offsetX
     this.offsetY = next.offsetY
   }
 
-  private clampTransform() {
-    this.applyTransform(clampTransform({ scale: this.scale, offsetX: this.offsetX, offsetY: this.offsetY }, this.canvas.width, this.canvas.height, 1, this.aspect))
-  }
-
-  private tap(screenX: number, screenY: number) {
-    const point = screenToImage([screenX, screenY], { scale: this.scale, offsetX: this.offsetX, offsetY: this.offsetY })
-    const hold = nearestHold(point, this.opts.holds, SNAP_PX / this.scale)
-    if (hold) this.opts.onTapHold(hold.id)
-  }
-
-  private roleOf(holdId: string): HoldRole | null {
-    const assignments = this.opts.getAssignments()
-    for (const role of Object.keys(assignments) as HoldRole[]) {
-      if (assignments[role].includes(holdId)) return role
-    }
-    return null
+  setState(holds: Hold[], mode: DraftMode, selectedId: string | null) {
+    this.opts.holds = holds
+    this.opts.mode = mode
+    this.opts.selectedId = selectedId
+    this.redraw()
   }
 
   toScreen(point: Point): Point {
@@ -203,25 +231,17 @@ export class WallCanvasView {
       ctx.fillText("加载墙图中…", w / 2, h / 2)
     }
 
-    const selected = this.opts.getSelectedRole()
     for (const hold of this.opts.holds) {
       const [sx, sy] = this.toScreen([hold.x, hold.y])
       const radius = hold.radius * this.scale
-      const role = this.roleOf(hold.id)
+      const selected = hold.id === this.opts.selectedId
       ctx.beginPath()
       ctx.arc(sx, sy, radius, 0, Math.PI * 2)
-      ctx.fillStyle = role ? ROLE_COLORS[role] : NEUTRAL
+      ctx.fillStyle = selected ? ACCENT : NEUTRAL
       ctx.fill()
-      ctx.lineWidth = role ? 2 : 1
-      ctx.strokeStyle = role ? ROLE_COLORS[role] : NEUTRAL_EDGE
+      ctx.lineWidth = selected ? 2 : 1
+      ctx.strokeStyle = selected ? ACCENT : NEUTRAL_EDGE
       ctx.stroke()
-      if (selected && role !== selected) {
-        ctx.beginPath()
-        ctx.arc(sx, sy, radius + 2.5, 0, Math.PI * 2)
-        ctx.lineWidth = 1.5
-        ctx.strokeStyle = "rgba(99,82,226,.45)"
-        ctx.stroke()
-      }
     }
   }
 

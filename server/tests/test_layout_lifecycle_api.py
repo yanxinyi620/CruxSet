@@ -28,7 +28,7 @@ def test_admin_can_publish_multiple_layouts_but_draft_is_not_routable():
 
     published = client.post(
         f"/api/v1/layouts/{layout['id']}/publish",
-        json={"holds": [{"id": "H001", "x": 1, "y": 2, "radius": 3, "kind": "hold"}, {"id": "H002", "x": 4, "y": 5, "radius": 3, "kind": "hold"}]},
+        json={"holds": [{"id": "H001", "x": 0.1, "y": 0.2, "radius": 0.03, "kind": "hold"}, {"id": "H002", "x": 0.4, "y": 0.5, "radius": 0.03, "kind": "hold"}]},
         cookies=cookie,
     )
     assert published.status_code == 200

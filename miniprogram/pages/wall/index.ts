@@ -44,5 +44,4 @@ Page({
   setQuery(e) { this.setData({ query: e.detail.value }, () => { this.persistContext(); this.refresh() }) },
   openProblem(e) { wx.navigateTo({ url: `/pages/problem/detail/index?id=${e.currentTarget.dataset.id}` }) },
   randomProblem() { if (this.data.problems.length) wx.navigateTo({ url: `/pages/problem/detail/index?id=${randomSession.next().id}` }) },
-  createProblem() { wx.navigateTo({ url: `/pages/problem/editor/index?wallId=${this.data.wallId}&layoutId=${this.data.layoutId}` }) }
 })
