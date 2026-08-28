@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import jpeg from 'jpeg-js'
 import { describe, expect, it, vi } from 'vitest'
 import { AUTO_DETECT_DEFAULTS, DETECT_ROI_FALLBACK_MESSAGE, detectFromPixels } from '../web/src/auto-detect.js'
+import type { Hold } from '../miniprogram/domain/types.js'
 import { RITAN_SPRAYWALL_FIXTURE, RITAN_SPRAYWALL_FIXTURE_METADATA } from './fixtures/ritan-spraywall-rgba.js'
 
 vi.mock('../web/src/preview-store.js', () => ({ PreviewStore: class { subscribe() {} } }))
@@ -10,6 +11,7 @@ vi.mock('../web/src/api.js', () => ({ LocalApiClient: class { currentUser() { re
 const fakeRoot = { innerHTML: '', querySelector: () => ({ style: {}, classList: { toggle() {} }, set onclick(_: unknown) {} }), querySelectorAll: () => [] }
 vi.stubGlobal('document', { querySelector: () => fakeRoot })
 const { normalizeDetectRoi, resetDetectRoi, shouldReplaceDetectedHolds, createAutoDetectController, detectRoiValidationMessage } = await import('../web/src/main.js')
+const { replaceCandidates } = await import('../web/src/candidate-editor.js')
 
 type Rgb = [number, number, number]
 
@@ -79,6 +81,26 @@ describe('draft detection ROI helpers', () => {
     await expect(run).resolves.toBe(false)
     expect(replace).not.toHaveBeenCalled()
     expect(notify).not.toHaveBeenCalled()
+  })
+  it('replaces candidates on subsequent success while preserving confirmed holds', async () => {
+    const confirmed = [{ id: 'H001', x: .1, y: .1, radius: .02, kind: 'hold' as const }]
+    let state: { confirmed: Hold[]; candidates: Hold[] } = { confirmed, candidates: [{ id: 'old', x: .2, y: .2, radius: .03, kind: 'hold' }] }
+    const controller = createAutoDetectController(
+      async () => [{ id: 'new', x: .3, y: .3, radius: .04, kind: 'volume' as const }],
+      detected => { state = replaceCandidates(state, detected) },
+    )
+    await expect(controller.run()).resolves.toBe(true)
+    expect(state.confirmed).toEqual(confirmed)
+    expect(state.candidates.map(hold => hold.id)).toEqual(['new'])
+  })
+  it('keeps candidates when a subsequent detection is empty or fails', async () => {
+    const candidates = [{ id: 'old', x: .2, y: .2, radius: .03, kind: 'hold' as const }]
+    for (const detect of [async () => [], async () => { throw new Error('camera failed') }]) {
+      let state: { confirmed: Hold[]; candidates: Hold[] } = { confirmed: [], candidates }
+      const controller = createAutoDetectController(detect, detected => { state = replaceCandidates(state, detected) })
+      await expect(controller.run()).resolves.toBe(false)
+      expect(state.candidates).toEqual(candidates)
+    }
   })
 })
 

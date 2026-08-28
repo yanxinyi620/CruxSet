@@ -23,6 +23,13 @@ describe('candidate editor', () => {
   it('builds persistence payload from confirmed holds only', () => {
     expect(holdsForPersistence(confirmed, [candidate])).toEqual(confirmed)
   })
+  it('keeps candidates out of the save and reload payload', () => {
+    const state = replaceCandidates({ confirmed, candidates: [] }, [candidate])
+    const saved = holdsForPersistence(state.confirmed, state.candidates)
+    const reloaded = JSON.parse(JSON.stringify(saved)) as Hold[]
+    expect(reloaded).toEqual(confirmed)
+    expect(reloaded).not.toContainEqual(candidate)
+  })
 
   it('hits an overlapping candidate before a confirmed hold', () => {
     const confirmed = { id: 'H001', x: .5, y: .5, radius: .1, kind: 'hold' as const }
