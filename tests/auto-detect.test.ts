@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
+import jpeg from 'jpeg-js'
 import { describe, expect, it, vi } from 'vitest'
 import { AUTO_DETECT_DEFAULTS, DETECT_ROI_FALLBACK_MESSAGE, detectFromPixels } from '../web/src/auto-detect.js'
 import { RITAN_SPRAYWALL_FIXTURE, RITAN_SPRAYWALL_FIXTURE_METADATA } from './fixtures/ritan-spraywall-rgba.js'
@@ -298,4 +299,27 @@ it('pins the real JPEG source and sampling metadata for the RGBA fixture', () =>
   expect(createHash('sha256').update(source).digest('hex')).toBe(RITAN_SPRAYWALL_FIXTURE_METADATA.sourceSha256)
   expect(RITAN_SPRAYWALL_FIXTURE_METADATA.sampleSize).toEqual({ width: RITAN_SPRAYWALL_FIXTURE.width, height: RITAN_SPRAYWALL_FIXTURE.height })
   expect(RITAN_SPRAYWALL_FIXTURE.data).toHaveLength(RITAN_SPRAYWALL_FIXTURE.width * RITAN_SPRAYWALL_FIXTURE.height * 4)
+})
+
+it('runs detection on the repository JPEG after fixed ROI extraction and scaling', () => {
+  const decoded = jpeg.decode(readFileSync(RITAN_SPRAYWALL_FIXTURE_METADATA.sourcePath), { useTArray: true })
+  const roi = { x: 0.05, y: 0.12, width: 0.9, height: 0.72 }
+  const sourceX = Math.floor(decoded.width * roi.x)
+  const sourceY = Math.floor(decoded.height * roi.y)
+  const sourceWidth = Math.floor(decoded.width * roi.width)
+  const sourceHeight = Math.floor(decoded.height * roi.height)
+  const scale = Math.min(1, 160 / Math.max(sourceWidth, sourceHeight))
+  const width = Math.max(1, Math.round(sourceWidth * scale))
+  const height = Math.max(1, Math.round(sourceHeight * scale))
+  const pixels = new Uint8ClampedArray(width * height * 4)
+  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+    const sx = Math.min(decoded.width - 1, sourceX + Math.floor(x / scale))
+    const sy = Math.min(decoded.height - 1, sourceY + Math.floor(y / scale))
+    const source = (sy * decoded.width + sx) * 4
+    const target = (y * width + x) * 4
+    pixels.set(decoded.data.subarray(source, source + 4), target)
+  }
+  const holds = detectFromPixels(width, height, pixels, { roi, roiAlreadyApplied: true })
+  expect(holds.length).toBeGreaterThan(0)
+  expect(holds.every(hold => hold.x >= roi.x && hold.x < roi.x + roi.width && hold.y >= roi.y && hold.y < roi.y + roi.height)).toBe(true)
 })
