@@ -37,3 +37,15 @@ it('loads walls, layouts, and problems from the local API', async () => {
 
   await expect(api.loadBrowseData()).resolves.toEqual({ walls: [{ id: 'wall_demo' }], layouts: [{ id: 'layout_demo', published: true }], problems: [{ id: 'problem_1' }] })
 })
+
+it('creates a local wall and its draft layout after uploading an image', async () => {
+  const fetcher = vi.fn()
+    .mockResolvedValueOnce(new Response(JSON.stringify({ media: { url: '/api/v1/media/media_1.jpg' } }), { status: 201 }))
+    .mockResolvedValueOnce(new Response(JSON.stringify({ wall: { id: 'wall_1' } }), { status: 201 }))
+    .mockResolvedValueOnce(new Response(JSON.stringify({ layout: { id: 'layout_1', published: false } }), { status: 201 }))
+  const api = new LocalApiClient('http://localhost:8000', fetcher)
+  const image = new File(['image'], 'wall.jpg', { type: 'image/jpeg' })
+
+  await expect(api.createWallWithDraft({ name: '测试墙', layoutName: '首次标注', image, imageWidth: 100, imageHeight: 200 })).resolves.toEqual({ id: 'layout_1', published: false })
+  expect(fetcher).toHaveBeenCalledTimes(3)
+})
