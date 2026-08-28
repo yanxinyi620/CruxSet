@@ -25,7 +25,9 @@ server/
     main.py                         FastAPI application and router registration
   scripts/create_admin.py           controlled administrator bootstrap command
   tests/                            API, authorization, and service tests
-  requirements.txt
+  pyproject.toml                    uv-managed Python dependencies
+  uv.lock
+  .python-version
   Dockerfile
 web/
   src/                              formal administrator Web application
@@ -88,11 +90,13 @@ git commit -m "refactor: share domain rules across clients"
 
 **Files:**
 - Create: `src/contracts/api.ts`
+- Create: `server/pyproject.toml`
+- Create: `server/.python-version`
 - Create: `server/app/api/errors.py`
 - Create: `server/app/api/schemas.py`
 - Create: `server/tests/test_error_envelope.py`
 
-- [ ] **Step 1: Write failing error-envelope tests**
+- [x] **Step 1: Write failing error-envelope tests**
 
 ```py
 from fastapi.testclient import TestClient
@@ -104,23 +108,23 @@ def test_unknown_route_uses_stable_error_shape():
     assert response.json() == {'error': {'code': 'NOT_FOUND', 'message': 'Resource not found'}}
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `cd server && pytest tests/test_error_envelope.py -q`
 
 Expected: FAIL because no FastAPI application exists.
 
-- [ ] **Step 3: Add contract types and FastAPI base application**
+- [x] **Step 3: Add contract types and FastAPI base application**
 
 Define `ApiError`, `ApiResult`, `CurrentUser`, `WallSummary`, `LayoutSummary`, and `ProblemSummary` in `src/contracts/api.ts`. Create FastAPI at `server/app/main.py` with `/healthz`, `/api/v1`, CORS restricted to the configured Web origin, and exception handlers that map domain exceptions to `AUTH_REQUIRED`, `FORBIDDEN`, `NOT_FOUND`, `LAYOUT_LOCKED`, `LAYOUT_NOT_ROUTABLE`, `INVALID_INPUT`, and `RATE_LIMITED`.
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run: `cd server && pytest tests/test_error_envelope.py -q`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/contracts server

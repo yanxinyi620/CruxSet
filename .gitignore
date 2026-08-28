@@ -7,4 +7,7 @@ project.private.config.json
 cloudfunctions/**/node_modules/
 tools/annotator/.venv/
 tools/annotator/data/
+server/.venv/
+server/.pytest_cache/
+server/**/__pycache__/
 .worktrees/
