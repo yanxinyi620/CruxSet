@@ -53,6 +53,25 @@ describe('draft detection ROI helpers', () => {
     resolve([])
     await expect(first).resolves.toBe(false)
   })
+  it('does not replace or notify after the draft context is cancelled', async () => {
+    let resolve!: (value: any[]) => void
+    let active = true
+    const replace = vi.fn()
+    const notify = vi.fn()
+    const controller = createAutoDetectController(
+      () => new Promise<any[]>(r => { resolve = r }),
+      replace,
+      () => active,
+      notify,
+    )
+    const run = controller.run()
+    active = false
+    controller.cancel()
+    resolve([{ id: 'H003', x: 0, y: 0, radius: 0.02, kind: 'hold' }])
+    await expect(run).resolves.toBe(false)
+    expect(replace).not.toHaveBeenCalled()
+    expect(notify).not.toHaveBeenCalled()
+  })
 })
 
 /** 在 (w×h) 画布上叠加若干绘制函数（返回颜色或 null），生成 RGBA 像素。 */

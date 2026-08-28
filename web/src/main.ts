@@ -24,17 +24,21 @@ export const normalizeDetectRoi = (roi: Roi): Roi => {
 }
 export const resetDetectRoi = (): Roi => ({ ...DEFAULT_DETECT_ROI })
 export const shouldReplaceDetectedHolds = (detected: Hold[] | null | undefined): detected is Hold[] => Boolean(detected?.length)
-export const createAutoDetectController = (detect: () => Promise<Hold[]>, replace: (holds: Hold[]) => void) => {
+export const createAutoDetectController = (detect: () => Promise<Hold[]>, replace: (holds: Hold[]) => void, isActive: () => boolean = () => true, onComplete?: () => void) => {
   let processing = false
+  let generation = 0
   return {
     get processing() { return processing },
+    cancel() { generation++; processing = false },
     async run(): Promise<boolean> {
       if (processing) return false
       processing = true
+      const runGeneration = generation
       try {
         const detected = await detect()
-        if (!shouldReplaceDetectedHolds(detected)) return false
+        if (runGeneration !== generation || !isActive() || !shouldReplaceDetectedHolds(detected)) return false
         replace(detected)
+        if (onComplete) onComplete()
         return true
       } catch {
         return false
@@ -319,6 +323,7 @@ const autoDetectDraft = async () => {
   if (ctx.detecting) return
   if (ctx.editor.value().length && !confirm('自动识别将替换当前已标注的岩点，继续？')) return
   ctx.detecting = true
+  if (draftCtx !== ctx) return
   updateDraftEditorUI()
   try {
     const layout = await store.session.getLayout(ctx.layoutId)
@@ -329,6 +334,7 @@ const autoDetectDraft = async () => {
       holds => { detected = holds },
     )
     const replaced = await controller.run()
+    if (draftCtx !== ctx) return
     if (!replaced || !detected) { ctx.toast = '未识别到岩点，可切换手动标注'; updateDraftEditorUI(); return }
     ctx.editor = new LayoutEditor(detected)
     ctx.dirty = true
@@ -338,11 +344,14 @@ const autoDetectDraft = async () => {
     ctx.toast = `自动识别：${holds} 个岩点、${volumes} 个体积，可继续手动修正`
     updateDraftEditorUI()
   } catch (err) {
+    if (draftCtx !== ctx) return
     ctx.toast = `自动识别失败：${(err as Error).message}`
     updateDraftEditorUI()
   } finally {
-    ctx.detecting = false
-    updateDraftEditorUI()
+    if (draftCtx === ctx) {
+      ctx.detecting = false
+      updateDraftEditorUI()
+    }
   }
 }
 
