@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.errors import ApiError, api_error_handler, http_error_handler
@@ -18,6 +19,13 @@ Path(database_path).parent.mkdir(parents=True, exist_ok=True)
 app.state.repository = SQLiteRepository(database_path)
 seed_demo_workspace(app.state.repository)
 app.state.login_rate_limiter = LoginRateLimiter()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[os.environ.get("WEB_ORIGIN", "http://localhost:5173")],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type"],
+)
 app.add_exception_handler(ApiError, api_error_handler)
 app.add_exception_handler(StarletteHTTPException, http_error_handler)
 app.include_router(auth_router)
