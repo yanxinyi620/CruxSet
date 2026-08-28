@@ -124,16 +124,24 @@ const xInRoi = (coordinate: number, size: number, start: number, span: number): 
   return normalized >= start && normalized < start + span
 }
 
+const isValidRoi = (roi: Roi): boolean =>
+  Number.isFinite(roi.x) && Number.isFinite(roi.y) && Number.isFinite(roi.width) && Number.isFinite(roi.height) &&
+  roi.x >= 0 && roi.y >= 0 && roi.width > 0 && roi.height > 0 && roi.x + roi.width <= 1 && roi.y + roi.height <= 1
+
 /** 对像素数据（RGBA）执行自动识别，返回归一化坐标 + 可选边缘轮廓的岩点/体积列表。 */
 export function detectFromPixels(width: number, height: number, data: Uint8ClampedArray, opts: AutoDetectOptions = {}): Hold[] {
   const o = { ...AUTO_DETECT_DEFAULTS, ...opts }
   if (width <= 0 || height <= 0) return []
   const roi = opts.roi ?? { x: 0, y: 0, width: 1, height: 1 }
+  if (!isValidRoi(roi)) return []
   const roiX = Math.max(0, Math.min(1, roi.x))
   const roiY = Math.max(0, Math.min(1, roi.y))
   const roiW = Math.max(0, Math.min(1 - roiX, roi.width))
   const roiH = Math.max(0, Math.min(1 - roiY, roi.height))
   const total = width * height
+  const analysisWidth = o.roiAlreadyApplied ? width : width * roiW
+  const analysisHeight = o.roiAlreadyApplied ? height : height * roiH
+  const analysisArea = analysisWidth * analysisHeight
 
   // 1) 前景掩码：高饱和（彩色岩点）或低明度（黑色岩点）
   const mask = new Uint8Array(total)
@@ -192,14 +200,14 @@ export function detectFromPixels(width: number, height: number, data: Uint8Clamp
   // 4) 过滤并生成岩点/体积（含边缘轮廓）
   const result: Hold[] = []
   for (const c of components) {
-    const areaRatio = c.area / total
+    const areaRatio = c.area / analysisArea
     const minArea = opts.minComponentPixels === undefined
-      ? o.minAreaRatio * total
-      : Math.min(o.minAreaRatio * total, opts.minComponentPixels)
+      ? o.minAreaRatio * analysisArea
+      : Math.min(o.minAreaRatio * analysisArea, opts.minComponentPixels)
     if (c.area < minArea || areaRatio > o.maxAreaRatio) continue
     const bw = c.maxX - c.minX + 1
     const bh = c.maxY - c.minY + 1
-    const minSide = opts.minSidePixels ?? o.minSideFraction * Math.min(width, height)
+    const minSide = opts.minSidePixels ?? o.minSideFraction * Math.min(analysisWidth, analysisHeight)
     if (Math.min(bw, bh) < minSide) continue
     if (c.area / (bw * bh) < o.minFillRatio) continue
     const cx = c.sx / c.area
@@ -233,6 +241,7 @@ export function detectFromPixels(width: number, height: number, data: Uint8Clamp
 export function autoDetectHolds(image: HTMLImageElement, opts: AutoDetectOptions = {}): Hold[] {
   const maxDim = opts.maxDim ?? 768
   const roi = opts.roi ?? { x: 0, y: 0, width: 1, height: 1 }
+  if (!isValidRoi(roi)) return []
   const roiX = Math.max(0, Math.min(1, roi.x))
   const roiY = Math.max(0, Math.min(1, roi.y))
   const roiW = Math.max(0, Math.min(1 - roiX, roi.width))

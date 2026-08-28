@@ -117,6 +117,30 @@ describe('auto hold/volume detection', () => {
     const data = makeImage(200, 200, [circle(100, 100, 4, [220, 60, 60])])
     expect(detectFromPixels(200, 200, data, { minAreaRatio: 0.01, minComponentPixels: 20 })).toHaveLength(1)
   })
+
+  it('returns no detections for an invalid or zero-sized ROI', () => {
+    const data = makeImage(100, 100, [circle(50, 50, 8, [220, 60, 60])])
+    for (const roi of [
+      { x: Number.NaN, y: 0, width: 1, height: 1 },
+      { x: 0, y: 0, width: 0, height: 1 },
+      { x: 0.5, y: 0.5, width: 0.6, height: 0.5 },
+    ]) {
+      expect(detectFromPixels(100, 100, data, { roi })).toEqual([])
+    }
+  })
+
+  it('uses the same area and side filters for full and cropped ROI input', () => {
+    const data = makeImage(100, 100, [circle(60, 50, 4, [220, 60, 60])])
+    const options = { roi: { x: 0.5, y: 0.25, width: 0.5, height: 0.5 }, minAreaRatio: 0.01, minSideFraction: 0.1 }
+    const fullImageResult = detectFromPixels(100, 100, data, options)
+    const croppedResult = detectFromPixels(50, 50, cropPixels(data, 100, 50, 25, 50, 50), {
+      ...options,
+      roiAlreadyApplied: true,
+    })
+    expect(fullImageResult).toHaveLength(1)
+    expect(croppedResult).toHaveLength(1)
+    expect(croppedResult[0].kind).toBe(fullImageResult[0].kind)
+  })
 })
 
 it('produces an edge contour (polygon) tracing the hold boundary', () => {
