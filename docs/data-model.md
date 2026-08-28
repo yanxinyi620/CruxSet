@@ -1,4 +1,6 @@
-# CruxSet Phase 1 数据模型
+# CruxSet 双存储数据模型
+
+本地 Web SQLite 与 CloudBase 使用相同的 Wall、Layout、Hold、Problem 字段语义，但保存独立数据集。Web 草稿仅存 SQLite；只有已发布 Layout、关联 Problems 和图片可作为发布包导入 CloudBase。
 
 CloudBase 集合：`users`、`walls`、`layouts`、`problems`、`admins`、`counters`。
 

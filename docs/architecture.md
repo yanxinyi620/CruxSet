@@ -1,4 +1,14 @@
-# CruxSet Phase 1 架构
+# CruxSet 双客户端架构
+
+```text
+本地 Web：web/ → FastAPI → SQLite + 本地图片
+                         ↓ 仅显式发布
+                    已发布数据包 → CloudBase
+
+微信小程序：miniprogram/ → Node 云函数 → CloudBase
+```
+
+Web 与小程序共享 Wall、Layout、Hold、Problem 的字段语义，但不共享草稿、会话或运行期后端。小程序不依赖 FastAPI 在线；Web 未发布草稿也不会写入 CloudBase。
 
 ```text
 微信原生小程序

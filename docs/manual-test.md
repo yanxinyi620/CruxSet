@@ -1,5 +1,14 @@
 # Phase 1 人工测试清单
 
+## 本地 Web（SQLite）
+
+- [ ] 启动 FastAPI 与 `npm run web`，管理员可以登录。
+- [ ] 手机与电脑在同一 Wi-Fi 时，使用电脑局域网 IP 打开 Web；不得使用手机的 `localhost`。
+- [ ] 默认显示一面墙、一个公开 Layout、一个草稿 Layout 和四条线路。
+- [ ] 新建墙面上传 JPEG/PNG/WebP 后，创建私有 Wall 与草稿 Layout。
+- [ ] 重启 FastAPI 后本地创建内容仍存在。
+- [ ] 草稿 Layout 不可定线；发布后锁定且可定线。
+
 ## 本地 Mock 模式
 
 - [ ] 保持 `runtimeMode = 'mock'`，不部署云函数也可编译并打开小程序。

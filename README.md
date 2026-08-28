@@ -1,5 +1,14 @@
 # CruxSet
 
+CruxSet 现有两条独立产品路径：
+
+```text
+本地 Web：web/ → FastAPI → SQLite + 本地图片
+微信小程序：miniprogram/ → Node 云函数 → CloudBase
+```
+
+Web 是管理员的本地创作工作台；小程序独立运行。Web 草稿不与 CloudBase 自动同步，只有已发布内容可通过验证后的发布包导入 CloudBase。
+
 CruxSet 是用于数字化真实攀岩墙的微信原生小程序，目标是在真实岩馆完成：选墙、选 Layout、按角度和难度找线路、查看或随机线路、创建线路并微信分享。
 
 ## 当前进度
@@ -42,13 +51,14 @@ npm run verify:phase1
 
 当前开发默认使用本地 Mock 数据，不需要部署 CloudBase。固定数据为一面日坛 Spraywall、两个 Layout（一个公开、一个草稿）和四条示例线路；创建、标注、发布等操作只保留到本次运行结束，重新编译即恢复初始数据。
 
-浏览器页面镜像可用于日常布局检查：
+本地 Web：
 
 ```bash
-npm run preview
+cd server && PYTHONPATH=. uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
+# 另开终端：npm run web
 ```
 
-打开 `http://localhost:5173`。它用于高保真页面与流程预览，最终仍以微信开发者工具编译结果为准。
+电脑打开 `http://localhost:5173`；手机使用电脑局域网 IP，例如 `http://192.168.x.x:5173`。首次创建本地管理员：`cd server && PYTHONPATH=. uv run python scripts/create_local_admin.py name@example.com`。
 
 运行模式配置位于 [runtime.ts](miniprogram/config/runtime.ts)：
 
@@ -81,8 +91,10 @@ export const runtimeMode: RuntimeMode = 'mock'
 ## 目录概览
 
 ```text
-miniprogram/       微信原生小程序
-cloudfunctions/    CloudBase 云函数入口
+web/               本地 Web 创作工作台
+server/            FastAPI、SQLite、本地图片与发布工具
+miniprogram/       微信原生小程序（独立运行）
+cloudfunctions/    小程序 CloudBase 云函数入口
 src/domain/        可测试的共享领域规则
 src/repository/    数据访问边界
 tests/             自动测试
