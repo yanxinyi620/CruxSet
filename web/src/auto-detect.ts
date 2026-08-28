@@ -15,6 +15,8 @@ import type { Hold, Point } from '../../miniprogram/domain/types.js'
  */
 
 export interface AutoDetectOptions {
+  /** 形态学开运算配置；默认执行一次。 */
+  morphology?: { enabled?: boolean; iterations?: number }
   /** 检测区域，使用整张图片的归一化坐标。 */
   roi?: Roi
   /** DOM 入口已将像素裁剪到 ROI，仅用于避免重复裁剪。 */
@@ -53,6 +55,7 @@ type AutoDetectDefaults = Required<Pick<AutoDetectOptions,
   maxDim: number
   minComponentPixels: number
   minSidePixels: number
+  morphology: { enabled: boolean; iterations: number }
 }
 
 export const AUTO_DETECT_DEFAULTS: AutoDetectDefaults = {
@@ -67,10 +70,11 @@ export const AUTO_DETECT_DEFAULTS: AutoDetectDefaults = {
   outlineBuckets: 36,
   minComponentPixels: 20,
   minSidePixels: 3,
+  morphology: { enabled: true, iterations: 1 },
 }
 
 /** 十字形态学腐蚀：中心与上下左右均为前景才保留。 */
-const erodeCross = (src: Uint8Array, width: number, height: number): Uint8Array => {
+const erodeCross = (src: Uint8Array<ArrayBufferLike>, width: number, height: number): Uint8Array<ArrayBufferLike> => {
   const out = new Uint8Array(src.length)
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
@@ -83,7 +87,7 @@ const erodeCross = (src: Uint8Array, width: number, height: number): Uint8Array 
 }
 
 /** 十字形态学膨胀：中心或任一上下左右为前景即保留。 */
-const dilateCross = (src: Uint8Array, width: number, height: number): Uint8Array => {
+const dilateCross = (src: Uint8Array<ArrayBufferLike>, width: number, height: number): Uint8Array<ArrayBufferLike> => {
   const out = new Uint8Array(src.length)
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
@@ -174,7 +178,19 @@ export function detectFromPixels(width: number, height: number, data: Uint8Clamp
   }
 
   // 2) 形态学开运算，去除纹理噪点
-  const fg = dilateCross(erodeCross(mask, width, height), width, height)
+  const morphology = { ...AUTO_DETECT_DEFAULTS.morphology, ...opts.morphology }
+  const iterations = Math.max(0, Math.floor(morphology.iterations))
+  let fg: Uint8Array<ArrayBufferLike> = mask
+  if (morphology.enabled) {
+    for (let i = 0; i < iterations; i++) fg = dilateCross(erodeCross(fg, width, height), width, height)
+  }
+  if (!o.roiAlreadyApplied) {
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        if (x < roiLeft || x > roiRight || y < roiTop || y > roiBottom) fg[y * width + x] = 0
+      }
+    }
+  }
 
   // 3) 4-连通域标注 + 统计（同时记录边界像素）
   const label = new Int32Array(total).fill(-1)
@@ -239,10 +255,10 @@ export function detectFromPixels(width: number, height: number, data: Uint8Clamp
       ? [roiX + px * roiW, roiY + py * roiH] as Point
       : [px, py] as Point)
     const bbox: readonly [number, number, number, number] = [
-      o.roiAlreadyApplied ? roiX + (c.minX / width) * roiW : c.minX / width,
-      o.roiAlreadyApplied ? roiY + (c.minY / height) * roiH : c.minY / height,
-      o.roiAlreadyApplied ? roiX + ((c.maxX + 1) / width) * roiW : (c.maxX + 1) / width,
-      o.roiAlreadyApplied ? roiY + ((c.maxY + 1) / height) * roiH : (c.maxY + 1) / height,
+      o.roiAlreadyApplied ? roiX + (c.minX / width) * roiW : Math.max(roiX, c.minX / width),
+      o.roiAlreadyApplied ? roiY + (c.minY / height) * roiH : Math.max(roiY, c.minY / height),
+      o.roiAlreadyApplied ? roiX + ((c.maxX + 1) / width) * roiW : Math.min(roiX + roiW, (c.maxX + 1) / width),
+      o.roiAlreadyApplied ? roiY + ((c.maxY + 1) / height) * roiH : Math.min(roiY + roiH, (c.maxY + 1) / height),
     ]
     const hold: Hold = { id: '', x, y, radius, kind, bbox }
     if (polygon) hold.polygon = polygon

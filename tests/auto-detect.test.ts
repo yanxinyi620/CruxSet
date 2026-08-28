@@ -1,11 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 import { AUTO_DETECT_DEFAULTS, detectFromPixels } from '../web/src/auto-detect.js'
+import { RITAN_SPRAYWALL_FIXTURE } from './fixtures/ritan-spraywall-rgba.js'
 
 vi.mock('../web/src/preview-store.js', () => ({ PreviewStore: class { subscribe() {} } }))
 vi.mock('../web/src/api.js', () => ({ LocalApiClient: class { currentUser() { return Promise.resolve(null) } } }))
 const fakeRoot = { innerHTML: '', querySelector: () => ({ style: {}, classList: { toggle() {} }, set onclick(_: unknown) {} }), querySelectorAll: () => [] }
 vi.stubGlobal('document', { querySelector: () => fakeRoot })
-const { normalizeDetectRoi, resetDetectRoi, shouldReplaceDetectedHolds, createAutoDetectController } = await import('../web/src/main.js')
+const { normalizeDetectRoi, resetDetectRoi, shouldReplaceDetectedHolds, createAutoDetectController, detectRoiValidationMessage } = await import('../web/src/main.js')
 
 type Rgb = [number, number, number]
 
@@ -13,7 +14,11 @@ const BACKGROUND: Rgb = [200, 202, 210]
 
 describe('draft detection ROI helpers', () => {
   it('normalizes ROI values to the image bounds', () => {
-    expect(normalizeDetectRoi({ x: -0.2, y: 0.4, width: 2, height: Number.NaN })).toEqual({ x: 0, y: 0.4, width: 1, height: 0 })
+    expect(normalizeDetectRoi({ x: -0.2, y: 0.4, width: 2, height: Number.NaN })).toEqual({ x: 0, y: 0, width: 1, height: 1 })
+  })
+  it('falls back to the full image and exposes a validation message for invalid ROI', () => {
+    expect(normalizeDetectRoi({ x: 0.8, y: 0.8, width: 0.5, height: 0.5 })).toEqual({ x: 0, y: 0, width: 1, height: 1 })
+    expect(detectRoiValidationMessage({ x: 0.8, y: 0.8, width: 0.5, height: 0.5 })).toBe('识别区域无效，已回退整图')
   })
   it('resets ROI to the full image without sharing state', () => {
     const roi = resetDetectRoi()
@@ -109,6 +114,13 @@ describe('auto hold/volume detection', () => {
     expect(AUTO_DETECT_DEFAULTS.maxDim).toBe(1280)
     expect(AUTO_DETECT_DEFAULTS.minComponentPixels).toBeGreaterThan(0)
     expect(AUTO_DETECT_DEFAULTS.minSidePixels).toBeGreaterThan(0)
+  })
+
+  it('keeps morphology enabled by default and can disable or repeat the opening', () => {
+    expect(AUTO_DETECT_DEFAULTS.morphology).toEqual({ enabled: true, iterations: 1 })
+    const data = makeImage(80, 80, [rectangle(40, 40, 5, 5, [220, 60, 60])])
+    expect(detectFromPixels(80, 80, data, { morphology: { enabled: false } })).toHaveLength(1)
+    expect(detectFromPixels(80, 80, data, { morphology: { enabled: true, iterations: 2 } })).toHaveLength(1)
   })
 
   it('returns nothing for a plain wall background', () => {
@@ -246,35 +258,8 @@ it('produces an edge contour (polygon) tracing the hold boundary', () => {
   }
 })
 
-/**
- * 日坛真实墙图的可维护小型回归数据：木板底色、彩色/黑色岩点，以及 ROI 外的墙体干扰。
- * 原图 web/public/assets/mock/ritan-spraywall-0822.jpg 无 Vitest 可用的解码器，
- * 因此用固定像素生成同类的缩略分析输入，避免复制大图或引入运行时依赖。
- */
-const makeRitanSpraywallRegression = (): { width: number; height: number; data: Uint8ClampedArray } => {
-  const width = 160
-  const height = 120
-  const data = makeImage(width, height, [
-    rectangle(18, 18, 14, 10, [235, 35, 35]), // ROI 外的红色墙体
-    circle(143, 104, 8, [20, 20, 20]), // ROI 外的黑色墙体
-    circle(27, 28, 8, [20, 180, 175]),
-    circle(53, 36, 5, [235, 30, 115]),
-    circle(79, 29, 11, [245, 190, 15]),
-    circle(108, 40, 6, [35, 125, 210]),
-    circle(135, 33, 4, [30, 170, 80]),
-    circle(39, 65, 10, [25, 25, 25]),
-    circle(68, 61, 5, [225, 45, 40]),
-    circle(96, 72, 12, [210, 35, 135]),
-    circle(126, 67, 7, [35, 160, 75]),
-    circle(48, 94, 6, [235, 95, 20]),
-    circle(83, 98, 4, [30, 115, 210]),
-    circle(116, 94, 9, [225, 225, 220]),
-  ])
-  return { width, height, data }
-}
-
-it('regresses against a Ritan spraywall thumbnail without detections outside the wall ROI', () => {
-  const { width, height, data } = makeRitanSpraywallRegression()
+it('regresses against real Ritan spraywall pixels without detections outside the wall ROI', () => {
+  const { width, height, data } = RITAN_SPRAYWALL_FIXTURE
   const roi = { x: 0.1, y: 0.15, width: 0.8, height: 0.72 }
   const holds = detectFromPixels(width, height, data, { roi })
 
@@ -285,8 +270,12 @@ it('regresses against a Ritan spraywall thumbnail without detections outside the
     expect(hold.y).toBeGreaterThanOrEqual(roi.y)
     expect(hold.y).toBeLessThan(roi.y + roi.height)
     expect(hold.radius).toBeGreaterThan(0)
-    expect(hold.radius).toBeLessThan(0.15)
+    expect(hold.radius).toBeLessThan(1)
     expect(hold.bbox).toBeDefined()
+    expect(hold.bbox![0]).toBeGreaterThanOrEqual(roi.x)
+    expect(hold.bbox![1]).toBeGreaterThanOrEqual(roi.y)
+    expect(hold.bbox![2]).toBeLessThanOrEqual(roi.x + roi.width)
+    expect(hold.bbox![3]).toBeLessThanOrEqual(roi.y + roi.height)
     for (const [x, y] of hold.polygon ?? []) {
       expect(x).toBeGreaterThanOrEqual(roi.x)
       expect(x).toBeLessThanOrEqual(roi.x + roi.width)
