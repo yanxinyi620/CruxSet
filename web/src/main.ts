@@ -42,7 +42,7 @@ const renderLogin = () => {
   root.querySelector<HTMLButtonElement>('[data-login]')!.onclick = async () => {
     const email = (root.querySelector('#login-email') as HTMLInputElement).value
     const password = (root.querySelector('#login-password') as HTMLInputElement).value
-    try { await api.login(email, password); authenticated = true; loginError = ''; await render() }
+    try { await api.login(email, password); await store.useApi(api); authenticated = true; loginError = ''; await render() }
     catch (error) { loginError = (error as Error).message; renderLogin() }
   }
 }
@@ -167,4 +167,4 @@ const render = async () => {
   root.querySelectorAll<HTMLButtonElement>('[data-delete-problem]').forEach(b=>b.onclick=async()=>{if(confirm('删除这条线路？')){await store.session.deleteProblem?.(b.dataset.deleteProblem!);void render()}})
 }
 store.subscribe(()=>void render())
-void api.currentUser().then(user => { authenticated = Boolean(user); void render() }).catch(() => { loginError = '本地服务未启动，请先启动 FastAPI。'; void render() })
+void api.currentUser().then(async user => { authenticated = Boolean(user); if (user) await store.useApi(api); await render() }).catch(() => { loginError = '本地服务未启动，请先启动 FastAPI。'; void render() })

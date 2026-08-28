@@ -27,3 +27,13 @@ it('does not bind a supplied fetch function to the API client instance', async (
 it('uses the current LAN host instead of phone localhost for the local API', () => {
   expect(localApiBaseUrl({ protocol: 'http:', hostname: '192.168.43.179' })).toBe('http://192.168.43.179:8000')
 })
+
+it('loads walls, layouts, and problems from the local API', async () => {
+  const fetcher = vi.fn()
+    .mockResolvedValueOnce(new Response(JSON.stringify({ walls: [{ id: 'wall_demo' }] })))
+    .mockResolvedValueOnce(new Response(JSON.stringify({ layouts: [{ id: 'layout_demo', published: true }] })))
+    .mockResolvedValueOnce(new Response(JSON.stringify({ problems: [{ id: 'problem_1' }] })))
+  const api = new LocalApiClient('http://localhost:8000', fetcher)
+
+  await expect(api.loadBrowseData()).resolves.toEqual({ walls: [{ id: 'wall_demo' }], layouts: [{ id: 'layout_demo', published: true }], problems: [{ id: 'problem_1' }] })
+})
