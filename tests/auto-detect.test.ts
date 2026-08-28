@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { detectFromPixels } from '../web/src/auto-detect.js'
+import { AUTO_DETECT_DEFAULTS, detectFromPixels } from '../web/src/auto-detect.js'
 
 type Rgb = [number, number, number]
 
@@ -36,6 +36,12 @@ const cropPixels = (data: Uint8ClampedArray, imageWidth: number, x: number, y: n
 }
 
 describe('auto hold/volume detection', () => {
+  it('uses the higher analysis resolution and pixel-based default filters', () => {
+    expect(AUTO_DETECT_DEFAULTS.maxDim).toBe(1280)
+    expect(AUTO_DETECT_DEFAULTS.minComponentPixels).toBeGreaterThan(0)
+    expect(AUTO_DETECT_DEFAULTS.minSidePixels).toBeGreaterThan(0)
+  })
+
   it('returns nothing for a plain wall background', () => {
     const data = makeImage(100, 100, [])
     expect(detectFromPixels(100, 100, data)).toEqual([])
@@ -140,6 +146,16 @@ describe('auto hold/volume detection', () => {
     expect(fullImageResult).toHaveLength(1)
     expect(croppedResult).toHaveLength(1)
     expect(croppedResult[0].kind).toBe(fullImageResult[0].kind)
+  })
+
+  it('can drop components touching the ROI boundary', () => {
+    const data = makeImage(100, 100, [rectangle(50, 40, 8, 8, [220, 60, 60])])
+    expect(detectFromPixels(100, 100, data, {
+      roi: { x: 0.5, y: 0.25, width: 0.5, height: 0.5 },
+      minAreaRatio: 0,
+      minComponentPixels: 10,
+      dropBoundaryComponents: true,
+    })).toEqual([])
   })
 })
 

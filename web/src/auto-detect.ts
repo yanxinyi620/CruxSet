@@ -37,6 +37,8 @@ export interface AutoDetectOptions {
   minComponentPixels?: number
   /** 组件包围盒短边的最小像素数。 */
   minSidePixels?: number
+  /** 是否丢弃接触检测区域边界的组件。 */
+  dropBoundaryComponents?: boolean
   /** 归一化半径 ≥ 该值归类为体积。 */
   volumeRadiusRatio?: number
   /** 轮廓角度桶数（决定轮廓点数量上限）。 */
@@ -47,9 +49,14 @@ export interface Roi { x: number; y: number; width: number; height: number }
 
 type AutoDetectDefaults = Required<Pick<AutoDetectOptions,
   'saturationThreshold' | 'darkValueThreshold' | 'minAreaRatio' | 'maxAreaRatio' |
-  'minFillRatio' | 'minSideFraction' | 'volumeRadiusRatio' | 'outlineBuckets'>>
+  'minFillRatio' | 'minSideFraction' | 'volumeRadiusRatio' | 'outlineBuckets'>> & {
+  maxDim: number
+  minComponentPixels: number
+  minSidePixels: number
+}
 
 export const AUTO_DETECT_DEFAULTS: AutoDetectDefaults = {
+  maxDim: 1280,
   saturationThreshold: 0.5,
   darkValueThreshold: 0.2,
   minAreaRatio: 0.0009,
@@ -58,6 +65,8 @@ export const AUTO_DETECT_DEFAULTS: AutoDetectDefaults = {
   minSideFraction: 0.005,
   volumeRadiusRatio: 0.04,
   outlineBuckets: 36,
+  minComponentPixels: 20,
+  minSidePixels: 3,
 }
 
 /** 十字形态学腐蚀：中心与上下左右均为前景才保留。 */
@@ -142,6 +151,10 @@ export function detectFromPixels(width: number, height: number, data: Uint8Clamp
   const analysisWidth = o.roiAlreadyApplied ? width : width * roiW
   const analysisHeight = o.roiAlreadyApplied ? height : height * roiH
   const analysisArea = analysisWidth * analysisHeight
+  const roiLeft = o.roiAlreadyApplied ? 0 : Math.floor(roiX * width)
+  const roiTop = o.roiAlreadyApplied ? 0 : Math.floor(roiY * height)
+  const roiRight = o.roiAlreadyApplied ? width - 1 : Math.ceil((roiX + roiW) * width) - 1
+  const roiBottom = o.roiAlreadyApplied ? height - 1 : Math.ceil((roiY + roiH) * height) - 1
 
   // 1) 前景掩码：高饱和（彩色岩点）或低明度（黑色岩点）
   const mask = new Uint8Array(total)
@@ -200,14 +213,17 @@ export function detectFromPixels(width: number, height: number, data: Uint8Clamp
   // 4) 过滤并生成岩点/体积（含边缘轮廓）
   const result: Hold[] = []
   for (const c of components) {
+    if (opts.dropBoundaryComponents &&
+      (c.minX <= roiLeft || c.minY <= roiTop || c.maxX >= roiRight || c.maxY >= roiBottom)) continue
     const areaRatio = c.area / analysisArea
-    const minArea = opts.minComponentPixels === undefined
-      ? o.minAreaRatio * analysisArea
-      : Math.min(o.minAreaRatio * analysisArea, opts.minComponentPixels)
+    const minArea = Math.min(
+      o.minAreaRatio * analysisArea,
+      opts.minComponentPixels ?? o.minComponentPixels,
+    )
     if (c.area < minArea || areaRatio > o.maxAreaRatio) continue
     const bw = c.maxX - c.minX + 1
     const bh = c.maxY - c.minY + 1
-    const minSide = opts.minSidePixels ?? o.minSideFraction * Math.min(analysisWidth, analysisHeight)
+    const minSide = opts.minSidePixels ?? Math.max(o.minSidePixels, o.minSideFraction * Math.min(analysisWidth, analysisHeight))
     if (Math.min(bw, bh) < minSide) continue
     if (c.area / (bw * bh) < o.minFillRatio) continue
     const cx = c.sx / c.area
@@ -239,7 +255,7 @@ export function detectFromPixels(width: number, height: number, data: Uint8Clamp
 
 /** DOM 包装：把 <img> 绘制到离屏画布后交给 detectFromPixels。 */
 export function autoDetectHolds(image: HTMLImageElement, opts: AutoDetectOptions = {}): Hold[] {
-  const maxDim = opts.maxDim ?? 768
+  const maxDim = opts.maxDim ?? AUTO_DETECT_DEFAULTS.maxDim
   const roi = opts.roi ?? { x: 0, y: 0, width: 1, height: 1 }
   if (!isValidRoi(roi)) return []
   const roiX = Math.max(0, Math.min(1, roi.x))
