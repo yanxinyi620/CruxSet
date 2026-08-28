@@ -1,5 +1,7 @@
 # CruxSet 开发实施计划
 
+> **当前架构调整（2026-08-28）：** 本地 Web 创作工作台与小程序创作端分离；权威设计见 [本地 Web 创作工作台与小程序创作端设计](./superpowers/specs/2026-08-28-local-web-and-miniprogram-creation-design.md)，新的执行顺序见 [Local Web and Mini Program Creation Implementation Plan](./superpowers/plans/2026-08-28-local-web-and-mini-program-implementation.md)。本文件保留既有小程序 Phase 1 进度记录。
+
 > 权威需求：[CruxSet 微信小程序完整开发实施方案 v1.0](./CruxSet-微信小程序完整开发实施方案-v1.0.md)。本文件只记录开发顺序、当前进度与验证门槛；如有冲突，以权威需求为准。
 
 ## 状态说明
