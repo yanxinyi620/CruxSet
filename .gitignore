@@ -11,3 +11,4 @@ server/.venv/
 server/.pytest_cache/
 server/**/__pycache__/
 .worktrees/
+server/data/
