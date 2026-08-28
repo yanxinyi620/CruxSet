@@ -190,7 +190,7 @@ git commit -m "feat: add CloudBase API repository boundary"
 - Create: `server/scripts/create_admin.py`
 - Create: `server/tests/test_admin_auth.py`
 
-- [ ] **Step 1: Write failing authentication tests**
+- [x] **Step 1: Write failing authentication tests**
 
 ```py
 def test_admin_login_sets_http_only_session(client, admin_record):
@@ -203,25 +203,25 @@ def test_non_admin_and_wrong_password_get_identical_failure(client, user_record)
     assert client.post('/api/v1/auth/admin/login', json={'email': user_record.email, 'password': 'wrong'}).json()['error']['code'] == 'AUTH_REQUIRED'
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `cd server && pytest tests/test_admin_auth.py -q`
 
 Expected: FAIL because login routes do not exist.
 
-- [ ] **Step 3: Implement admin-only login**
+- [x] **Step 3: Implement admin-only login**
 
 Add `emailNormalized` and `passwordHash` to server-only `admins` records. `create_admin.py` normalizes an email, creates or links a `users.id`, generates an Argon2id hash using `ADMIN_BOOTSTRAP_PASSWORD`, and writes `{userId, role: 'admin', emailNormalized, passwordHash}`. It must refuse to overwrite an existing credential unless `--reset-password` is passed interactively.
 
 `POST /api/v1/auth/admin/login` uses a constant-time password verifier, applies per-email and per-IP rate limiting, returns a generic `AUTH_REQUIRED` failure for all invalid credentials, and sets a signed short-lived `HttpOnly; Secure; SameSite=Lax` cookie. Add `GET /api/v1/auth/me` and `POST /api/v1/auth/logout`.
 
-- [ ] **Step 4: Run authentication tests**
+- [x] **Step 4: Run authentication tests**
 
 Run: `cd server && pytest tests/test_admin_auth.py -q`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server

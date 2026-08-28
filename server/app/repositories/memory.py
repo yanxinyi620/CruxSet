@@ -6,6 +6,34 @@ from app.repositories.protocols import Document
 class MemoryRepository:
     def __init__(self) -> None:
         self._layouts: list[Document] = []
+        self._users: dict[str, Document] = {}
+        self._admins: dict[str, Document] = {}
+
+    def insert_user(self, user: Document) -> None:
+        self._users[str(user["id"])] = deepcopy(user)
+
+    def insert_admin(self, admin: Document) -> None:
+        self._admins[str(admin["emailNormalized"])] = deepcopy(admin)
+
+    def find_admin_by_email(self, email: str) -> Document | None:
+        admin = self._admins.get(email)
+        return deepcopy(admin) if admin else None
+
+    def find_admin_by_user_id(self, user_id: str) -> Document | None:
+        for admin in self._admins.values():
+            if admin.get("userId") == user_id:
+                return deepcopy(admin)
+        return None
+
+    def update_admin_password(self, email: str, password_hash: str, updated_at: int) -> None:
+        if email not in self._admins:
+            raise ValueError("Administrator not found")
+        self._admins[email]["passwordHash"] = password_hash
+        self._admins[email]["updatedAt"] = updated_at
+
+    def find_user(self, user_id: str) -> Document | None:
+        user = self._users.get(user_id)
+        return deepcopy(user) if user else None
 
     def insert_layout(self, layout: Document) -> None:
         self._layouts.append(deepcopy(layout))
