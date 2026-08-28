@@ -8,3 +8,8 @@ it('sends login requests with browser credentials and parses the current user', 
   await expect(api.login('admin@example.com', 'correct horse')).resolves.toEqual({ id: 'usr_1', isAdmin: true })
   expect(fetcher).toHaveBeenCalledWith('http://localhost:8000/api/v1/auth/admin/login', expect.objectContaining({ credentials: 'include', method: 'POST' }))
 })
+
+it('returns null when no local administrator session exists', async () => {
+  const api = new LocalApiClient('http://localhost:8000', vi.fn().mockResolvedValue(new Response('', { status: 401 })))
+  await expect(api.currentUser()).resolves.toBeNull()
+})

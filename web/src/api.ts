@@ -10,4 +10,11 @@ export class LocalApiClient {
     if (!response.ok) throw new Error('登录失败，请检查邮箱和密码')
     return (await response.json()).user as LocalUser
   }
+
+  async currentUser(): Promise<LocalUser | null> {
+    const response = await this.fetcher(`${this.baseUrl}/api/v1/auth/me`, { credentials: 'include' })
+    if (response.status === 401) return null
+    if (!response.ok) throw new Error('无法检查登录状态')
+    return (await response.json()).user as LocalUser
+  }
 }

@@ -8,9 +8,13 @@ import ProblemEditor from '../../miniprogram/domain/editor.js'
 import type { FootRule, Grade, HoldRole } from '../../miniprogram/domain/types.js'
 import { WallCanvasView } from './wall-canvas.js'
 import { ROLE_COLORS } from './wall-canvas.js'
+import { LocalApiClient } from './api.js'
 
 const root = document.querySelector<HTMLElement>('#app')!
 const store = new PreviewStore()
+const api = new LocalApiClient()
+let authenticated = false
+let loginError = ''
 let panel: 'home'|'drafts'|'my-walls'|'my-problems'|'layout-choice'|'layout-problems' = 'home'
 let choiceMode: 'browse'|'create' = 'browse'
 let expandedLayout = ''
@@ -30,6 +34,18 @@ type EditorCtx = {
   canvas?: WallCanvasView; shellBuilt: boolean; saved?: string; toast?: string
 }
 let editorCtx: EditorCtx | null = null
+
+const loginShell = () => `<div class="device"><header><small>CRUXSET</small><i></i></header><main class="login-page"><div class="login-card"><p class="eyebrow">本地创作工作台</p><h1>管理员登录</h1><p class="lead">登录后管理本机的墙面、标注与线路。</p><label>邮箱<input id="login-email" type="email" autocomplete="username" placeholder="name@example.com"></label><label>密码<input id="login-password" type="password" autocomplete="current-password" placeholder="至少 8 位"></label><button class="login-submit" data-login>登录</button><p class="login-error">${loginError}</p></div></main></div>`
+
+const renderLogin = () => {
+  root.innerHTML = loginShell()
+  root.querySelector<HTMLButtonElement>('[data-login]')!.onclick = async () => {
+    const email = (root.querySelector('#login-email') as HTMLInputElement).value
+    const password = (root.querySelector('#login-password') as HTMLInputElement).value
+    try { await api.login(email, password); authenticated = true; loginError = ''; await render() }
+    catch (error) { loginError = (error as Error).message; renderLogin() }
+  }
+}
 
 const openEditor = async (wallId: string, layoutId: string) => {
   const wall = await store.session.getWall(wallId)
@@ -116,6 +132,7 @@ const saveProblem = async () => {
   }
 }
 const render = async () => {
+  if (!authenticated) { renderLogin(); return }
   if (editorCtx) { renderEditor(); return }
   const route = store.state.route
   const mine = await store.session.listMyWalls()
@@ -149,4 +166,5 @@ const render = async () => {
   root.querySelectorAll<HTMLButtonElement>('[data-delete-layout]').forEach(b=>b.onclick=async()=>{if(confirm('删除 Layout 及其关联线路？')){await store.session.deleteLayout(b.dataset.wallId!,b.dataset.deleteLayout!);void render()}})
   root.querySelectorAll<HTMLButtonElement>('[data-delete-problem]').forEach(b=>b.onclick=async()=>{if(confirm('删除这条线路？')){await store.session.deleteProblem?.(b.dataset.deleteProblem!);void render()}})
 }
-store.subscribe(()=>void render());void render()
+store.subscribe(()=>void render())
+void api.currentUser().then(user => { authenticated = Boolean(user); void render() }).catch(() => { loginError = '本地服务未启动，请先启动 FastAPI。'; void render() })
