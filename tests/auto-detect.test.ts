@@ -78,7 +78,7 @@ describe('auto hold/volume detection', () => {
 
   it('maps detections from an ROI back to full-image coordinates', () => {
     const data = makeImage(100, 100, [circle(60, 50, 6, [220, 60, 60])])
-    const [hold] = detectFromPixels(50, 50, cropPixels(data, 100, 50, 25, 50, 50), {
+    const [hold] = detectFromPixels(100, 100, data, {
       roi: { x: 0.5, y: 0.25, width: 0.5, height: 0.5 },
       minComponentPixels: 10,
     })
@@ -86,6 +86,20 @@ describe('auto hold/volume detection', () => {
     expect(hold.y).toBeCloseTo(0.5, 1)
     expect(hold.bbox).toEqual(expect.arrayContaining([expect.any(Number), expect.any(Number), expect.any(Number), expect.any(Number)]))
     expect(hold.polygon?.every(([x, y]) => x >= 0.5 && x <= 1 && y >= 0.25 && y <= 0.75)).toBe(true)
+  })
+
+  it('ignores foreground outside the ROI when given a full image', () => {
+    const data = makeImage(100, 100, [
+      circle(20, 20, 6, [220, 60, 60]),
+      circle(60, 50, 6, [60, 120, 220]),
+    ])
+    const holds = detectFromPixels(100, 100, data, {
+      roi: { x: 0.5, y: 0.25, width: 0.5, height: 0.5 },
+      minComponentPixels: 10,
+    })
+    expect(holds).toHaveLength(1)
+    expect(holds[0].x).toBeCloseTo(0.6, 1)
+    expect(holds[0].y).toBeCloseTo(0.5, 1)
   })
 
   it('uses equivalent width and height for normalized radius', () => {

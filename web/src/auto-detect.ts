@@ -17,6 +17,8 @@ import type { Hold, Point } from '../../miniprogram/domain/types.js'
 export interface AutoDetectOptions {
   /** 检测区域，使用整张图片的归一化坐标。 */
   roi?: Roi
+  /** DOM 入口已将像素裁剪到 ROI，仅用于避免重复裁剪。 */
+  roiAlreadyApplied?: boolean
   /** 分析用最大边像素，避免大图过慢。 */
   maxDim?: number
   /** 饱和度超过该值判为前景（彩色岩点）。 */
@@ -117,6 +119,11 @@ const outlineOf = (c: Component, width: number, height: number, buckets: number)
   return points.length >= 3 ? points : undefined
 }
 
+const xInRoi = (coordinate: number, size: number, start: number, span: number): boolean => {
+  const normalized = coordinate / size
+  return normalized >= start && normalized < start + span
+}
+
 /** 对像素数据（RGBA）执行自动识别，返回归一化坐标 + 可选边缘轮廓的岩点/体积列表。 */
 export function detectFromPixels(width: number, height: number, data: Uint8ClampedArray, opts: AutoDetectOptions = {}): Hold[] {
   const o = { ...AUTO_DETECT_DEFAULTS, ...opts }
@@ -138,7 +145,11 @@ export function detectFromPixels(width: number, height: number, data: Uint8Clamp
     const mn = Math.min(r, g, b)
     const sat = mx > 0 ? (mx - mn) / mx : 0
     const val = mx / 255
-    if (sat > o.saturationThreshold || val < o.darkValueThreshold) mask[i] = 1
+    const inRoi = o.roiAlreadyApplied || (
+      xInRoi(i % width, width, roiX, roiW) &&
+      xInRoi((i / width) | 0, height, roiY, roiH)
+    )
+    if (inRoi && (sat > o.saturationThreshold || val < o.darkValueThreshold)) mask[i] = 1
   }
 
   // 2) 形态学开运算，去除纹理噪点
@@ -193,17 +204,19 @@ export function detectFromPixels(width: number, height: number, data: Uint8Clamp
     if (c.area / (bw * bh) < o.minFillRatio) continue
     const cx = c.sx / c.area
     const cy = c.sy / c.area
-    const x = roiX + (cx / width) * roiW
-    const y = roiY + (cy / height) * roiH
-    const radius = Math.max((bw / width) * roiW, (bh / height) * roiH) / 2
+    const x = o.roiAlreadyApplied ? roiX + (cx / width) * roiW : cx / width
+    const y = o.roiAlreadyApplied ? roiY + (cy / height) * roiH : cy / height
+    const radius = o.roiAlreadyApplied
+      ? Math.max((bw / width) * roiW, (bh / height) * roiH) / 2
+      : Math.max(bw / width, bh / height) / 2
     const kind = radius >= o.volumeRadiusRatio ? 'volume' : 'hold'
     const localPolygon = outlineOf(c, width, height, o.outlineBuckets)
     const polygon = localPolygon?.map(([px, py]) => [roiX + px * roiW, roiY + py * roiH] as Point)
     const bbox: readonly [number, number, number, number] = [
-      roiX + (c.minX / width) * roiW,
-      roiY + (c.minY / height) * roiH,
-      roiX + ((c.maxX + 1) / width) * roiW,
-      roiY + ((c.maxY + 1) / height) * roiH,
+      o.roiAlreadyApplied ? roiX + (c.minX / width) * roiW : c.minX / width,
+      o.roiAlreadyApplied ? roiY + (c.minY / height) * roiH : c.minY / height,
+      o.roiAlreadyApplied ? roiX + ((c.maxX + 1) / width) * roiW : (c.maxX + 1) / width,
+      o.roiAlreadyApplied ? roiY + ((c.maxY + 1) / height) * roiH : (c.maxY + 1) / height,
     ]
     const hold: Hold = { id: '', x, y, radius, kind, bbox }
     if (polygon) hold.polygon = polygon
@@ -233,5 +246,5 @@ export function autoDetectHolds(image: HTMLImageElement, opts: AutoDetectOptions
   const context = canvas.getContext('2d', { willReadFrequently: true })!
   context.drawImage(image, Math.round(image.naturalWidth * roiX), Math.round(image.naturalHeight * roiY), sourceWidth, sourceHeight, 0, 0, width, height)
   const { data } = context.getImageData(0, 0, width, height)
-  return detectFromPixels(width, height, data, { ...opts, roi: { x: roiX, y: roiY, width: roiW, height: roiH } })
+  return detectFromPixels(width, height, data, { ...opts, roi: { x: roiX, y: roiY, width: roiW, height: roiH }, roiAlreadyApplied: true })
 }
