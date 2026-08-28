@@ -9,6 +9,7 @@ import {
   replaceCandidates,
   type CandidateState,
 } from '../web/src/candidate-editor.js'
+import { candidateHitTest, candidateStyle } from '../web/src/draft-canvas.js'
 
 const confirmed: Hold[] = [{ id: 'H001', x: .1, y: .2, radius: .02, kind: 'hold' }]
 const candidate: Hold = {
@@ -18,6 +19,17 @@ const candidate: Hold = {
 const state = (): CandidateState => ({ confirmed, candidates: [] })
 
 describe('candidate editor', () => {
+  it('hits an overlapping candidate before a confirmed hold', () => {
+    const confirmed = { id: 'H001', x: .5, y: .5, radius: .1, kind: 'hold' as const }
+    const candidate = { id: 'detected-1', x: .5, y: .5, radius: .1, kind: 'hold' as const }
+
+    expect(candidateHitTest([.5, .5], [confirmed], [candidate])).toEqual(candidate)
+  })
+
+  it('uses a translucent amber dashed style for candidates', () => {
+    expect(candidateStyle(false)).toEqual({ color: '#f59e0b', alpha: 0.55, dashed: true })
+  })
+
   it('replaces candidates without modifying confirmed or input arrays', () => {
     const next = replaceCandidates(state(), [candidate])
 

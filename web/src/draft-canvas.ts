@@ -15,6 +15,26 @@ export interface DraftCanvasOptions {
   onMoveHold: (holdId: string, point: Point) => void
   onDeleteHold: (holdId: string) => void
   onSelectHold: (holdId: string | null) => void
+  candidates?: Hold[]
+  selectedCandidateId?: string | null
+  onSelectCandidate?: (candidateId: string | null) => void
+  onConfirmCandidate?: (candidateId: string) => void
+  onDeleteCandidate?: (candidateId: string) => void
+}
+
+export const candidateStyle = (_selected: boolean) => ({ color: '#f59e0b', alpha: 0.55, dashed: true })
+
+export const candidateHitTest = (point: Point, holds: Hold[], candidates: Hold[], tolerance = 0.05): Hold | null => {
+  const hit = (items: Hold[]) => {
+    let best: Hold | null = null
+    let bestDistance = tolerance
+    for (const hold of items) {
+      const distance = Math.hypot(hold.x - point[0], hold.y - point[1])
+      if (distance <= bestDistance) { bestDistance = distance; best = hold }
+    }
+    return best
+  }
+  return hit(candidates) ?? hit(holds)
 }
 
 const NEON_HOLD = "#00e5ff"
@@ -72,20 +92,14 @@ export class DraftCanvasView {
     img.src = opts.imageUrl
   }
 
-  private toImage(e: PointerEvent): Point {
+  private toImage(e: Pick<MouseEvent, 'clientX' | 'clientY'>): Point {
     const rect = this.canvas.getBoundingClientRect()
     return screenToImage([e.clientX - rect.left, e.clientY - rect.top], { scale: this.scale, offsetX: this.offsetX, offsetY: this.offsetY })
   }
 
   private hitTest(point: Point): Hold | null {
     const tolerance = SNAP_PX / this.scale
-    let best: Hold | null = null
-    let bestDistance = tolerance
-    for (const hold of this.opts.holds) {
-      const distance = Math.hypot(hold.x - point[0], hold.y - point[1])
-      if (distance <= bestDistance) { bestDistance = distance; best = hold }
-    }
-    return best
+    return candidateHitTest(point, this.opts.holds, this.opts.candidates ?? [], tolerance)
   }
 
   private updatePinch() {
@@ -172,7 +186,10 @@ export class DraftCanvasView {
         const image = this.toImage(e)
         const hit = this.hitTest(image)
         if (hit) {
-          if (this.opts.mode === 'delete') this.opts.onDeleteHold(hit.id)
+          const isCandidate = (this.opts.candidates ?? []).some(candidate => candidate.id === hit.id)
+          if (isCandidate && this.opts.mode === 'delete') this.opts.onDeleteCandidate?.(hit.id)
+          else if (isCandidate) this.opts.onSelectCandidate?.(hit.id)
+          else if (this.opts.mode === 'delete') this.opts.onDeleteHold(hit.id)
           else this.opts.onSelectHold(hit.id)
           return
         }
@@ -181,6 +198,10 @@ export class DraftCanvasView {
     }
     this.canvas.addEventListener("pointerup", up)
     this.canvas.addEventListener("pointercancel", up)
+    this.canvas.addEventListener("dblclick", (e) => {
+      const hit = this.hitTest(this.toImage(e))
+      if (hit && (this.opts.candidates ?? []).some(candidate => candidate.id === hit.id)) this.opts.onConfirmCandidate?.(hit.id)
+    })
     this.canvas.addEventListener("wheel", (e) => {
       e.preventDefault()
       const rect = this.canvas.getBoundingClientRect()
@@ -198,10 +219,12 @@ export class DraftCanvasView {
     this.offsetY = next.offsetY
   }
 
-  setState(holds: Hold[], mode: DraftMode, selectedId: string | null) {
+  setState(holds: Hold[], mode: DraftMode, selectedId: string | null, candidates: Hold[] = this.opts.candidates ?? [], selectedCandidateId = this.opts.selectedCandidateId ?? null) {
     this.opts.holds = holds
     this.opts.mode = mode
     this.opts.selectedId = selectedId
+    this.opts.candidates = candidates
+    this.opts.selectedCandidateId = selectedCandidateId
     this.redraw()
   }
 
@@ -264,6 +287,27 @@ export class DraftCanvasView {
       ctx.save()
       ctx.strokeStyle = color
       ctx.lineWidth = selected ? 2 : 1.5
+      ctx.stroke()
+      ctx.restore()
+    }
+    for (const candidate of this.opts.candidates ?? []) {
+      const selected = candidate.id === this.opts.selectedCandidateId
+      const trace = () => {
+        ctx.beginPath()
+        if (candidate.polygon && candidate.polygon.length >= 3) {
+          candidate.polygon.forEach((p, i) => { const [sx, sy] = this.toScreen(p); if (i === 0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy) })
+          ctx.closePath()
+        } else {
+          const [sx, sy] = this.toScreen([candidate.x, candidate.y])
+          ctx.arc(sx, sy, Math.max(2, candidate.radius * this.scale), 0, Math.PI * 2)
+        }
+      }
+      ctx.save()
+      ctx.globalAlpha = candidateStyle(selected).alpha
+      ctx.setLineDash([8, 5])
+      trace()
+      ctx.strokeStyle = candidateStyle(selected).color
+      ctx.lineWidth = selected ? 4 : 3
       ctx.stroke()
       ctx.restore()
     }
