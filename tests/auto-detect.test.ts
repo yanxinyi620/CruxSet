@@ -5,7 +5,7 @@ vi.mock('../web/src/preview-store.js', () => ({ PreviewStore: class { subscribe(
 vi.mock('../web/src/api.js', () => ({ LocalApiClient: class { currentUser() { return Promise.resolve(null) } } }))
 const fakeRoot = { innerHTML: '', querySelector: () => ({ style: {}, classList: { toggle() {} }, set onclick(_: unknown) {} }), querySelectorAll: () => [] }
 vi.stubGlobal('document', { querySelector: () => fakeRoot })
-const { normalizeDetectRoi, resetDetectRoi, shouldReplaceDetectedHolds } = await import('../web/src/main.js')
+const { normalizeDetectRoi, resetDetectRoi, shouldReplaceDetectedHolds, createAutoDetectController } = await import('../web/src/main.js')
 
 type Rgb = [number, number, number]
 
@@ -24,6 +24,34 @@ describe('draft detection ROI helpers', () => {
     expect(shouldReplaceDetectedHolds([])).toBe(false)
     expect(shouldReplaceDetectedHolds(undefined)).toBe(false)
     expect(shouldReplaceDetectedHolds([{ id: 'H001', x: 0, y: 0, radius: 0.02, kind: 'hold' }])).toBe(true)
+  })
+  it('replaces annotations only after a successful non-empty detection', async () => {
+    const replaced: string[] = []
+    const controller = createAutoDetectController(async () => [{ id: 'H002', x: 0, y: 0, radius: 0.02, kind: 'hold' }], holds => replaced.push(holds[0].id))
+    await expect(controller.run()).resolves.toBe(true)
+    expect(replaced).toEqual(['H002'])
+  })
+  it('keeps annotations when detection returns no results', async () => {
+    const replace = vi.fn()
+    const controller = createAutoDetectController(async () => [], replace)
+    await expect(controller.run()).resolves.toBe(false)
+    expect(replace).not.toHaveBeenCalled()
+  })
+  it('keeps annotations when detection throws', async () => {
+    const replace = vi.fn()
+    const controller = createAutoDetectController(async () => { throw new Error('camera failed') }, replace)
+    await expect(controller.run()).resolves.toBe(false)
+    expect(replace).not.toHaveBeenCalled()
+  })
+  it('rejects a repeated call while detection is processing', async () => {
+    let resolve!: (value: never[]) => void
+    const detect = vi.fn(() => new Promise<never[]>(r => { resolve = r }))
+    const controller = createAutoDetectController(detect, vi.fn())
+    const first = controller.run()
+    await expect(controller.run()).resolves.toBe(false)
+    expect(detect).toHaveBeenCalledTimes(1)
+    resolve([])
+    await expect(first).resolves.toBe(false)
   })
 })
 

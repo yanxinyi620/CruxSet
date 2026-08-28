@@ -24,6 +24,26 @@ export const normalizeDetectRoi = (roi: Roi): Roi => {
 }
 export const resetDetectRoi = (): Roi => ({ ...DEFAULT_DETECT_ROI })
 export const shouldReplaceDetectedHolds = (detected: Hold[] | null | undefined): detected is Hold[] => Boolean(detected?.length)
+export const createAutoDetectController = (detect: () => Promise<Hold[]>, replace: (holds: Hold[]) => void) => {
+  let processing = false
+  return {
+    get processing() { return processing },
+    async run(): Promise<boolean> {
+      if (processing) return false
+      processing = true
+      try {
+        const detected = await detect()
+        if (!shouldReplaceDetectedHolds(detected)) return false
+        replace(detected)
+        return true
+      } catch {
+        return false
+      } finally {
+        processing = false
+      }
+    },
+  }
+}
 
 const root = document.querySelector<HTMLElement>('#app')!
 const store = new PreviewStore()
@@ -303,8 +323,13 @@ const autoDetectDraft = async () => {
   try {
     const layout = await store.session.getLayout(ctx.layoutId)
     const image = await loadImage(layout.imageFileId)
-    const detected = autoDetectHolds(image, { roi: ctx.roi })
-    if (!shouldReplaceDetectedHolds(detected)) { ctx.toast = '未识别到岩点，可切换手动标注'; updateDraftEditorUI(); return }
+    let detected: Hold[] | undefined
+    const controller = createAutoDetectController(
+      async () => autoDetectHolds(image, { roi: ctx.roi }),
+      holds => { detected = holds },
+    )
+    const replaced = await controller.run()
+    if (!replaced || !detected) { ctx.toast = '未识别到岩点，可切换手动标注'; updateDraftEditorUI(); return }
     ctx.editor = new LayoutEditor(detected)
     ctx.dirty = true
     ctx.selectedId = null
