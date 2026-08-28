@@ -23,3 +23,13 @@ def test_sqlite_repository_persists_administrator_identity(tmp_path):
 
     assert repository.find_user("usr_admin") == {"id": "usr_admin"}
     assert repository.find_admin_by_email("admin@example.com") == {"id": "admin_1", "userId": "usr_admin", "emailNormalized": "admin@example.com"}
+
+
+def test_sqlite_repository_can_create_an_administrator_without_an_id_field(tmp_path):
+    from app.auth.passwords import create_admin_account
+    from app.repositories.sqlite import SQLiteRepository
+
+    repository = SQLiteRepository(tmp_path / "cruxset.db")
+    account = create_admin_account(repository, "admin@example.com", "correct horse")
+
+    assert repository.find_admin_by_user_id(account["userId"])["emailNormalized"] == "admin@example.com"

@@ -18,9 +18,12 @@ class SQLiteRepository:
         self._connection.close()
 
     def _put(self, collection: str, document: Document) -> None:
+        document_id = document.get("id") or document.get("userId") or document.get("emailNormalized")
+        if not document_id:
+            raise ValueError("Document requires id, userId, or emailNormalized")
         self._connection.execute(
             "INSERT OR REPLACE INTO documents (collection_name, document_id, body) VALUES (?, ?, ?)",
-            (collection, str(document["id"]), json.dumps(document, ensure_ascii=False, separators=(",", ":"))),
+            (collection, str(document_id), json.dumps(document, ensure_ascii=False, separators=(",", ":"))),
         )
         self._connection.commit()
 
