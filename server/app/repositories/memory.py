@@ -5,7 +5,9 @@ from app.repositories.protocols import Document
 
 class MemoryRepository:
     def __init__(self) -> None:
+        self._walls: dict[str, Document] = {}
         self._layouts: list[Document] = []
+        self._problems: dict[str, Document] = {}
         self._users: dict[str, Document] = {}
         self._admins: dict[str, Document] = {}
 
@@ -37,6 +39,31 @@ class MemoryRepository:
 
     def insert_layout(self, layout: Document) -> None:
         self._layouts.append(deepcopy(layout))
+
+    def insert_wall(self, wall: Document) -> None:
+        self._walls[str(wall["id"])] = deepcopy(wall)
+
+    def find_wall(self, wall_id: str) -> Document | None:
+        wall = self._walls.get(wall_id)
+        return deepcopy(wall) if wall else None
+
+    def list_walls(self) -> list[Document]:
+        return [deepcopy(wall) for wall in self._walls.values()]
+
+    def find_layout(self, layout_id: str) -> Document | None:
+        snapshots = [layout for layout in self._layouts if layout.get("id") == layout_id]
+        if not snapshots:
+            return None
+        return deepcopy(max(snapshots, key=lambda item: int(item.get("version", 0))))
+
+    def replace_layout(self, layout: Document) -> None:
+        self._layouts.append(deepcopy(layout))
+
+    def insert_problem(self, problem: Document) -> None:
+        self._problems[str(problem["id"])] = deepcopy(problem)
+
+    def list_problems(self) -> list[Document]:
+        return [deepcopy(problem) for problem in self._problems.values()]
 
     def list_layouts(self, wall_id: str) -> list[Document]:
         latest: dict[str, Document] = {}

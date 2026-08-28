@@ -33,6 +33,10 @@ def _current_admin(request: Request):
     return user
 
 
+def require_admin(request: Request):
+    return _current_admin(request)
+
+
 @router.post("/admin/login")
 async def login(payload: AdminLoginRequest, request: Request, response: Response):
     try:
