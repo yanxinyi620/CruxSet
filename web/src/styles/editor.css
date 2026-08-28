@@ -34,6 +34,13 @@ button.problem-row strong { color: #9a9cb2; font-size: 15px; margin-left: auto; 
 .draft-toolbar button:disabled { opacity: .45; cursor: not-allowed; }
 .draft-toolbar button.draft-kind.active { background: var(--ink); border-color: var(--ink); color: #fff; }
 .draft-hint { align-self: center; margin-left: auto; font-size: 12px; color: #9a9cb2; }
+.candidate-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:10px 0; font-size:13px; color:#6f7187; }
+.candidate-toolbar button, .candidate-row button { padding:6px 9px; border:1px solid var(--line); border-radius:9px; background:#fff; font-size:12px; font-weight:700; color:#4d4f66; }
+.candidate-toolbar button { margin-left:auto; }
+.candidate-list { display:grid; gap:5px; }
+.candidate-row { display:flex; align-items:center; gap:5px; padding:5px 7px; border-radius:10px; background:#fff8e8; border:1px solid #f7d58a; }
+.candidate-row.active { box-shadow:0 0 0 2px #f59e0b; }
+.candidate-row button:first-child { flex:1; text-align:left; border:0; background:transparent; }
 .roi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
 .roi-grid label { color: #6f7187; font-size: 11px; font-weight: 800; }
 .roi-grid input { margin-top: 4px; padding: 7px 6px; font-size: 12px; }

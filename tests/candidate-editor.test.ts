@@ -8,6 +8,7 @@ import {
   removeCandidate,
   replaceCandidates,
   type CandidateState,
+  holdsForPersistence,
 } from '../web/src/candidate-editor.js'
 import { candidateHitTest, candidateStyle, drawCandidateOverlay, moveCandidatePoint } from '../web/src/draft-canvas.js'
 
@@ -19,6 +20,10 @@ const candidate: Hold = {
 const state = (): CandidateState => ({ confirmed, candidates: [] })
 
 describe('candidate editor', () => {
+  it('builds persistence payload from confirmed holds only', () => {
+    expect(holdsForPersistence(confirmed, [candidate])).toEqual(confirmed)
+  })
+
   it('hits an overlapping candidate before a confirmed hold', () => {
     const confirmed = { id: 'H001', x: .5, y: .5, radius: .1, kind: 'hold' as const }
     const candidate = { id: 'detected-1', x: .5, y: .5, radius: .1, kind: 'hold' as const }

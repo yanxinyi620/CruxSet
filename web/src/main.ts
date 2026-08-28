@@ -13,6 +13,7 @@ import { DraftCanvasView } from './draft-canvas.js'
 import { LayoutEditor } from '../../src/domain/layout-editor.js'
 import type { DraftMode } from './draft-canvas.js'
 import { autoDetectHolds, DETECT_ROI_FALLBACK_MESSAGE, type Roi } from './auto-detect.js'
+import { changeCandidateKind, clearCandidates, confirmCandidate, confirmCandidates, removeCandidate, replaceCandidates, holdsForPersistence } from './candidate-editor.js'
 
 export const DEFAULT_DETECT_ROI: Roi = { x: 0, y: 0, width: 1, height: 1 }
 const isValidDetectRoi = (roi: Roi): boolean =>
@@ -82,7 +83,7 @@ let editorCtx: EditorCtx | null = null
 type DraftCtx = {
   wallId: string; layoutId: string; wallName: string; layoutName: string
   editor: LayoutEditor; mode: DraftMode; selectedId: string | null; kind: 'hold'|'volume'
-  dirty: boolean; roi: Roi; detecting: boolean; canvas?: DraftCanvasView; toast?: string; published?: string; shellBuilt: boolean
+  candidates: Hold[]; selectedCandidateId: string | null; dirty: boolean; roi: Roi; detecting: boolean; canvas?: DraftCanvasView; toast?: string; published?: string; shellBuilt: boolean
 }
 let draftCtx: DraftCtx | null = null
 
@@ -194,7 +195,7 @@ const openDraftEditor = async (wallId: string, layoutId: string) => {
   draftCtx = {
     wallId, layoutId, wallName: wall.name, layoutName: layout.name,
     editor: new LayoutEditor(layout.holds), mode: 'add', selectedId: null, kind: 'hold',
-    dirty: false, roi: resetDetectRoi(), detecting: false, shellBuilt: false,
+    candidates: [], selectedCandidateId: null, dirty: false, roi: resetDetectRoi(), detecting: false, shellBuilt: false,
   }
   await store.navigate({ name: 'draft-editor', wallId, layoutId })
 }
@@ -218,6 +219,7 @@ const draftEditorShell = (ctx: DraftCtx) => `<div class="device"><header><small>
 <button data-draft-autodetect>自动识别</button><button data-draft-reset-roi>重置识别区域</button>
 <span class="draft-hint">启发式识别岩点/体积，结果可再手动修正</span>
 </div>
+<div class="candidate-toolbar"><span>候选标注：<b data-candidate-count>0</b></span><button data-confirm-candidates>确认全部</button><button data-clear-candidates>清空候选</button></div><div data-candidate-list class="candidate-list"></div>
 <div class="field roi-controls"><label>识别区域（归一化坐标）</label><div class="roi-grid"><label>X<input data-roi="x" type="number" min="0" max="1" step="0.01"></label><label>Y<input data-roi="y" type="number" min="0" max="1" step="0.01"></label><label>宽<input data-roi="width" type="number" min="0" max="1" step="0.01"></label><label>高<input data-roi="height" type="number" min="0" max="1" step="0.01"></label></div></div>
 <div class="field"><label>在墙图上点按添加岩点；移动/删除模式点按岩点操作；空白处拖动平移，滚轮或双指缩放。</label><div id="draft-canvas"></div></div>
 <div class="field" id="radius-field" style="display:none"><label>半径（选中岩点后可调整）</label><input id="hold-radius" type="range" min="0.001" max="0.08" step="0.001"></div>
@@ -240,6 +242,8 @@ const bindDraftEditorEvents = async (ctx: DraftCtx) => {
   root.querySelector('[data-save-draft]')!.addEventListener('click', () => { void saveDraft() })
   root.querySelector('[data-publish-draft]')!.addEventListener('click', () => { void publishDraft() })
   root.querySelector('[data-draft-autodetect]')!.addEventListener('click', () => { void autoDetectDraft() })
+  root.querySelector('[data-confirm-candidates]')!.addEventListener('click', () => { ctx.editor = new LayoutEditor(confirmCandidates({ confirmed: ctx.editor.value(), candidates: ctx.candidates }).confirmed); ctx.candidates = []; ctx.selectedCandidateId = null; ctx.dirty = true; updateDraftEditorUI() })
+  root.querySelector('[data-clear-candidates]')!.addEventListener('click', () => { ctx.candidates = clearCandidates({ confirmed: ctx.editor.value(), candidates: ctx.candidates }).candidates; ctx.selectedCandidateId = null; updateDraftEditorUI() })
   root.querySelector('[data-draft-reset-roi]')!.addEventListener('click', () => { ctx.roi = resetDetectRoi(); updateDraftEditorUI() })
   root.querySelectorAll<HTMLInputElement>('[data-roi]').forEach(input => input.addEventListener('change', () => {
     const next = { ...ctx.roi, [input.dataset.roi!]: Number(input.value) }
@@ -257,12 +261,16 @@ const bindDraftEditorEvents = async (ctx: DraftCtx) => {
   const layout = await store.session.getLayout(ctx.layoutId)
   ctx.canvas = new DraftCanvasView(holder, {
     imageUrl: layout.imageFileId, imageWidth: layout.imageWidth, imageHeight: layout.imageHeight,
-    holds: ctx.editor.value(), mode: ctx.mode, selectedId: ctx.selectedId,
+    holds: ctx.editor.value(), candidates: ctx.candidates, selectedCandidateId: ctx.selectedCandidateId, mode: ctx.mode, selectedId: ctx.selectedId,
     onAddHold: (point) => { ctx.editor.add({ x: point[0], y: point[1], radius: ctx.kind === 'volume' ? 0.05 : 0.018, kind: ctx.kind }); ctx.dirty = true; updateDraftEditorUI() },
     onMoveStart: () => { ctx.editor.beginChange() },
-    onMoveHold: (id, point) => { ctx.editor.setPosition(id, point[0], point[1]); ctx.dirty = true; ctx.canvas?.setState(ctx.editor.value(), ctx.mode, ctx.selectedId) },
+    onMoveHold: (id, point) => { ctx.editor.setPosition(id, point[0], point[1]); ctx.dirty = true; ctx.canvas?.setState(ctx.editor.value(), ctx.mode, ctx.selectedId, ctx.candidates, ctx.selectedCandidateId) },
+    onMoveCandidate: (id, point) => { ctx.candidates = ctx.candidates.map(h => h.id === id ? { ...h, x: point[0], y: point[1] } : h); updateDraftEditorUI() },
     onDeleteHold: (id) => { ctx.editor.remove(id); ctx.dirty = true; ctx.selectedId = null; updateDraftEditorUI() },
     onSelectHold: (id) => { ctx.selectedId = id; updateDraftEditorUI() },
+    onSelectCandidate: (id) => { ctx.selectedCandidateId = id; updateDraftEditorUI() },
+    onConfirmCandidate: (id) => { const next = confirmCandidate({ confirmed: ctx.editor.value(), candidates: ctx.candidates }, id); ctx.editor = new LayoutEditor(next.confirmed); ctx.candidates = next.candidates; ctx.selectedCandidateId = null; ctx.dirty = true; updateDraftEditorUI() },
+    onDeleteCandidate: (id) => { ctx.candidates = removeCandidate({ confirmed: ctx.editor.value(), candidates: ctx.candidates }, id).candidates; ctx.selectedCandidateId = null; updateDraftEditorUI() },
   })
 }
 
@@ -271,6 +279,16 @@ const updateDraftEditorUI = () => {
   root.querySelectorAll<HTMLElement>('[data-mode]').forEach(el => el.classList.toggle('active', el.getAttribute('data-mode') === ctx.mode))
   root.querySelectorAll<HTMLElement>('[data-kind]').forEach(el => el.classList.toggle('active', el.getAttribute('data-kind') === ctx.kind))
   const holds = ctx.editor.value()
+  const count = root.querySelector('[data-candidate-count]')
+  if (count) count.textContent = String(ctx.candidates.length)
+  const candidateList = root.querySelector<HTMLElement>('[data-candidate-list]')
+  if (candidateList) {
+    candidateList.innerHTML = ctx.candidates.map(candidate => `<div class="candidate-row ${candidate.id === ctx.selectedCandidateId ? 'active' : ''}"><button data-candidate-select="${candidate.id}">${candidate.kind === 'volume' ? '体积' : '岩点'} · ${candidate.id}</button><button data-candidate-kind="${candidate.id}" title="切换类型">切换类型</button><button data-candidate-confirm="${candidate.id}">确认</button><button data-candidate-delete="${candidate.id}">删除</button></div>`).join('')
+    candidateList.querySelectorAll<HTMLElement>('[data-candidate-select]').forEach(el => el.addEventListener('click', () => { ctx.selectedCandidateId = el.dataset.candidateSelect ?? null; updateDraftEditorUI() }))
+    candidateList.querySelectorAll<HTMLElement>('[data-candidate-kind]').forEach(el => el.addEventListener('click', () => { const id = el.dataset.candidateKind!; ctx.candidates = changeCandidateKind({ confirmed: ctx.editor.value(), candidates: ctx.candidates }, id, ctx.candidates.find(h => h.id === id)?.kind === 'volume' ? 'hold' : 'volume').candidates; updateDraftEditorUI() }))
+    candidateList.querySelectorAll<HTMLElement>('[data-candidate-confirm]').forEach(el => el.addEventListener('click', () => { const next = confirmCandidate({ confirmed: ctx.editor.value(), candidates: ctx.candidates }, el.dataset.candidateConfirm!); ctx.editor = new LayoutEditor(next.confirmed); ctx.candidates = next.candidates; ctx.selectedCandidateId = null; ctx.dirty = true; updateDraftEditorUI() }))
+    candidateList.querySelectorAll<HTMLElement>('[data-candidate-delete]').forEach(el => el.addEventListener('click', () => { ctx.candidates = removeCandidate({ confirmed: ctx.editor.value(), candidates: ctx.candidates }, el.dataset.candidateDelete!).candidates; ctx.selectedCandidateId = null; updateDraftEditorUI() }))
+  }
   const undoBtn = root.querySelector('[data-draft-undo]') as HTMLButtonElement | null
   if (undoBtn) undoBtn.disabled = !ctx.editor.canUndo()
   const saveBtn = root.querySelector('[data-save-draft]') as HTMLButtonElement | null
@@ -291,14 +309,14 @@ const updateDraftEditorUI = () => {
     radiusField.style.display = selected ? 'block' : 'none'
     if (selected) radiusSlider.value = String(selected.radius)
   }
-  ctx.canvas?.setState(holds, ctx.mode, ctx.selectedId)
+  ctx.canvas?.setState(holds, ctx.mode, ctx.selectedId, ctx.candidates, ctx.selectedCandidateId)
 }
 
 const saveDraft = async () => {
   const ctx = draftCtx!
   if (ctx.published) return
   try {
-    await store.session.updateLayout(ctx.wallId, ctx.layoutId, ctx.editor.value())
+    await store.session.updateLayout(ctx.wallId, ctx.layoutId, holdsForPersistence(ctx.editor.value(), ctx.candidates))
     ctx.dirty = false
     ctx.toast = `草稿已保存（${ctx.editor.value().length} 个岩点）`
     updateDraftEditorUI()
@@ -313,7 +331,7 @@ const publishDraft = async () => {
   const holds = ctx.editor.value()
   if (holds.length < 2) { ctx.toast = '发布至少需要两个岩点'; updateDraftEditorUI(); return }
   try {
-    const layout = await store.session.publishLayout(ctx.wallId, ctx.layoutId, holds)
+    const layout = await store.session.publishLayout(ctx.wallId, ctx.layoutId, holdsForPersistence(holds, ctx.candidates))
     ctx.published = layout.id
     ctx.canvas?.destroy()
     draftCtx = null
@@ -330,7 +348,7 @@ const loadImage = (url: string) => new Promise<HTMLImageElement>((resolve, rejec
 const autoDetectDraft = async () => {
   const ctx = draftCtx!
   if (ctx.detecting) return
-  if (ctx.editor.value().length && !confirm('自动识别将替换当前已标注的岩点，继续？')) return
+  if (ctx.candidates.length && !confirm('自动识别将替换当前候选标注，继续？')) return
   ctx.detecting = true
   if (draftCtx !== ctx) return
   updateDraftEditorUI()
@@ -345,9 +363,10 @@ const autoDetectDraft = async () => {
     const replaced = await controller.run()
     if (draftCtx !== ctx) return
     if (!replaced || !detected) { ctx.toast = '未识别到岩点，可切换手动标注'; updateDraftEditorUI(); return }
-    ctx.editor = new LayoutEditor(detected)
+    ctx.candidates = replaceCandidates({ confirmed: ctx.editor.value(), candidates: ctx.candidates }, detected).candidates
     ctx.dirty = true
     ctx.selectedId = null
+    ctx.selectedCandidateId = null
     const holds = detected.filter(h => h.kind === 'hold').length
     const volumes = detected.length - holds
     ctx.toast = `自动识别：${holds} 个岩点、${volumes} 个体积，可继续手动修正`

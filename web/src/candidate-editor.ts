@@ -5,6 +5,8 @@ export interface CandidateState {
   candidates: Hold[]
 }
 
+export const holdsForPersistence = (confirmed: readonly Hold[], _candidates: readonly Hold[] = []): Hold[] => cloneHolds(confirmed)
+
 const cloneHold = (hold: Hold): Hold => ({
   ...hold,
   bbox: hold.bbox ? [...hold.bbox] as Hold['bbox'] : undefined,
