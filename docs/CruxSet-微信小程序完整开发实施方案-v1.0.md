@@ -1004,7 +1004,7 @@ CruxSet
 
 ┌──────────────────────┐
 │ 日坛 Spraywall        │
-│ Active Layout         │
+│ 2 个公开 Layout        │
 └──────────────────────┘
 
 ┌──────────────────────┐
@@ -1018,19 +1018,20 @@ CruxSet
 
 # 32. Layout 选择
 
-进入 Wall 后允许选择：
+进入 Wall 后显示并允许选择该 Wall 的全部公开 Layout：
 
 ```text
-Active Layout
+2026-09 调整版
+2026-08 Layout
 ```
 
-未来也允许查看：
+按发布时间倒序排列；草稿 Layout 不出现在这里，只能从：
 
 ```text
-历史 Layout
+创建 → 我的草稿
 ```
 
-Phase 1 至少保证数据模型支持。
+任一公开 Layout 都可被浏览和定线，不存在 Active Layout 的特殊业务含义。
 
 ---
 
