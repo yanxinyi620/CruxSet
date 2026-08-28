@@ -245,3 +245,53 @@ it('produces an edge contour (polygon) tracing the hold boundary', () => {
     expect(distance).toBeLessThan(9)
   }
 })
+
+/**
+ * 日坛真实墙图的可维护小型回归数据：木板底色、彩色/黑色岩点，以及 ROI 外的墙体干扰。
+ * 原图 web/public/assets/mock/ritan-spraywall-0822.jpg 无 Vitest 可用的解码器，
+ * 因此用固定像素生成同类的缩略分析输入，避免复制大图或引入运行时依赖。
+ */
+const makeRitanSpraywallRegression = (): { width: number; height: number; data: Uint8ClampedArray } => {
+  const width = 160
+  const height = 120
+  const data = makeImage(width, height, [
+    rectangle(18, 18, 14, 10, [235, 35, 35]), // ROI 外的红色墙体
+    circle(143, 104, 8, [20, 20, 20]), // ROI 外的黑色墙体
+    circle(27, 28, 8, [20, 180, 175]),
+    circle(53, 36, 5, [235, 30, 115]),
+    circle(79, 29, 11, [245, 190, 15]),
+    circle(108, 40, 6, [35, 125, 210]),
+    circle(135, 33, 4, [30, 170, 80]),
+    circle(39, 65, 10, [25, 25, 25]),
+    circle(68, 61, 5, [225, 45, 40]),
+    circle(96, 72, 12, [210, 35, 135]),
+    circle(126, 67, 7, [35, 160, 75]),
+    circle(48, 94, 6, [235, 95, 20]),
+    circle(83, 98, 4, [30, 115, 210]),
+    circle(116, 94, 9, [225, 225, 220]),
+  ])
+  return { width, height, data }
+}
+
+it('regresses against a Ritan spraywall thumbnail without detections outside the wall ROI', () => {
+  const { width, height, data } = makeRitanSpraywallRegression()
+  const roi = { x: 0.1, y: 0.15, width: 0.8, height: 0.72 }
+  const holds = detectFromPixels(width, height, data, { roi })
+
+  expect(holds.length).toBeGreaterThanOrEqual(10)
+  for (const hold of holds) {
+    expect(hold.x).toBeGreaterThanOrEqual(roi.x)
+    expect(hold.x).toBeLessThan(roi.x + roi.width)
+    expect(hold.y).toBeGreaterThanOrEqual(roi.y)
+    expect(hold.y).toBeLessThan(roi.y + roi.height)
+    expect(hold.radius).toBeGreaterThan(0)
+    expect(hold.radius).toBeLessThan(0.15)
+    expect(hold.bbox).toBeDefined()
+    for (const [x, y] of hold.polygon ?? []) {
+      expect(x).toBeGreaterThanOrEqual(roi.x)
+      expect(x).toBeLessThanOrEqual(roi.x + roi.width)
+      expect(y).toBeGreaterThanOrEqual(roi.y)
+      expect(y).toBeLessThanOrEqual(roi.y + roi.height)
+    }
+  }
+})

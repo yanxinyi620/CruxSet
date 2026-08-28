@@ -8,6 +8,7 @@
 - [ ] 新建墙面上传 JPEG/PNG/WebP 后，创建私有 Wall 与草稿 Layout。
 - [ ] 重启 FastAPI 后本地创建内容仍存在。
 - [ ] 草稿 Layout 不可定线；发布后锁定且可定线。
+- [ ] 在日坛真实墙图 `web/public/assets/mock/ritan-spraywall-0822.jpg` 上运行自动识别：选择完整墙面 ROI 后结果非空，岩点/体积均落在 ROI 内，编号与坐标合法，墙外背景和 ROI 边界没有误检；刷新或重新进入草稿后可继续手工修正识别结果。
 
 ## 本地 Mock 模式
 
