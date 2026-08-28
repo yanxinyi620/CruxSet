@@ -140,7 +140,7 @@ git commit -m "feat: add versioned API contract and errors"
 - Create: `server/tests/test_repository_contract.py`
 - Create: `server/.env.example`
 
-- [ ] **Step 1: Write the repository contract tests**
+- [x] **Step 1: Write the repository contract tests**
 
 ```py
 def test_memory_repository_returns_only_latest_layout_snapshot(repository):
@@ -149,13 +149,13 @@ def test_memory_repository_returns_only_latest_layout_snapshot(repository):
     assert repository.list_layouts('wall_1') == [{'id': 'layout_1', 'version': 2, 'published': True}]
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `cd server && pytest tests/test_repository_contract.py -q`
 
 Expected: FAIL because repository types do not exist.
 
-- [ ] **Step 3: Implement repository protocol and adapters**
+- [x] **Step 3: Implement repository protocol and adapters**
 
 `CruxRepository` must expose typed operations for users/admins, walls, layouts, problems and media metadata. `MemoryRepository` is only for deterministic API tests. `CloudBaseRepository` uses the Tencent Cloud TCB `RunCommands` API with credentials read exclusively from server environment variables:
 
@@ -168,13 +168,13 @@ CLOUDBASE_ENV_ID
 
 Never expose these values to a Web bundle, Mini Program bundle, logs, or API response. Validate all collection and command names in code; never accept an arbitrary database command from a request.
 
-- [ ] **Step 4: Run repository tests**
+- [x] **Step 4: Run repository tests**
 
 Run: `cd server && pytest tests/test_repository_contract.py -q`
 
 Expected: PASS with `MemoryRepository`; CloudBase calls are covered by adapter request-shape unit tests, not live credentials.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server
