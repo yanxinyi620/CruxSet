@@ -32,7 +32,7 @@ def create_app(settings: Settings, adapters: Mapping[str, SegmentationAdapter] |
     def health() -> dict[str, str]:
         return {"status": "ok", "device": settings.device, "dataDir": str(settings.data_dir)}
 
-    active_adapters = adapters or {"sam2": Sam2Adapter(), "sam3": Sam3Adapter()}
+    active_adapters = adapters or {"sam2": Sam2Adapter(), "sam2_tiled": Sam2Adapter(tiled=True), "sam3": Sam3Adapter()}
 
     @app.get("/api/models")
     def models() -> dict[str, list[dict[str, object]]]:
