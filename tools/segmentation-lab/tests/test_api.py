@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 from segmentation_lab.api import create_app
 from segmentation_lab.config import Settings
 from segmentation_lab.errors import SegmentationLabError
+from segmentation_lab.adapters.base import ModelAvailability
 
 
 def test_health_exposes_cpu_and_storage(tmp_path):
@@ -33,3 +34,15 @@ def test_domain_error_has_stable_json_envelope(tmp_path):
         "message": "Polygon must have three points",
         "retryable": False,
     }
+
+
+def test_models_reports_availability_without_starting_inference(tmp_path):
+    class Adapter:
+        def available(self):
+            return ModelAvailability(available=False, reason="checkpoint_not_found", device="cpu")
+
+    client = TestClient(create_app(Settings(data_dir=tmp_path), adapters={"sam3": Adapter()}))
+
+    response = client.get("/api/models")
+
+    assert response.json() == {"items": [{"name": "sam3", "available": False, "reason": "checkpoint_not_found", "device": "cpu"}]}
