@@ -1,5 +1,6 @@
 import json
 import os
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from uuid import uuid4
@@ -26,14 +27,19 @@ class ExperimentStore:
             "imageSha256": image_sha256,
             "width": width,
             "height": height,
+            "createdAt": time.time(),
             "runs": {},
         })
         return experiment
 
-    def finish_run(self, experiment_id: str, source: str, status: str, candidate_count: int = 0, error: dict[str, str] | None = None) -> None:
+    def list_experiments(self) -> list[dict[str, object]]:
+        items = [json.loads(path.read_text()) for path in self.root.glob("*/experiment.json")]
+        return sorted(items, key=lambda item: item["id"], reverse=True)
+
+    def finish_run(self, experiment_id: str, source: str, status: str, candidate_count: int = 0, error: dict[str, str] | None = None, parameters: dict[str, object] | None = None) -> None:
         path = self.root / experiment_id / "experiment.json"
         payload = json.loads(path.read_text())
-        payload["runs"][source] = {"status": status, "candidateCount": candidate_count, "error": error}
+        payload["runs"][source] = {"status": status, "candidateCount": candidate_count, "error": error, "parameters": parameters or {}, "updatedAt": time.time()}
         self._write_json(path, payload)
 
     def latest_success(self, image_sha256: str, source: str) -> ExperimentRecord:

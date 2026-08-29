@@ -69,4 +69,4 @@ def test_root_serves_upload_workbench(tmp_path):
     response = TestClient(create_app(Settings(data_dir=tmp_path))).get("/")
 
     assert response.status_code == 200
-    assert "上传并创建实验" in response.text
+    assert "导入图片" in response.text
