@@ -93,9 +93,9 @@ def create_app(settings: Settings, adapters: Mapping[str, SegmentationAdapter] |
         if not isinstance(parameters, dict):
             raise SegmentationLabError("invalid_parameters", "Parameters must be an object")
         image = next((store.root / experiment_id / "input").glob("original.*"))
-        store.finish_run(experiment_id, source, "running", parameters=parameters)
-        tasks.add_task(BenchmarkService(store, active_adapters).run_existing, experiment_id, image, item["width"], item["height"], source, parameters)
-        return {"status": "running"}
+        task_id = store.start_run(experiment_id, source, parameters)
+        tasks.add_task(BenchmarkService(store, active_adapters).run_existing, experiment_id, image, item["width"], item["height"], task_id, source, parameters)
+        return {"status": "running", "taskId": task_id}
 
     @app.get("/")
     def workbench() -> FileResponse:

@@ -50,14 +50,14 @@ class BenchmarkService:
                 self.store.finish_run(experiment.id, source, "failed", error=error)
         return BenchmarkResult(experiment.id, runs)
 
-    def run_existing(self, experiment_id: str, image_path: Path, width: int, height: int, source: str, parameters: dict[str, object]) -> None:
+    def run_existing(self, experiment_id: str, image_path: Path, width: int, height: int, task_id: str, source: str, parameters: dict[str, object]) -> None:
         adapter = self.adapters[source]
         masks = adapter.generate(GenerateRequest(str(image_path), width, height, parameters), lambda *_: None)
         for index, item in enumerate(masks, 1):
             binary = (item.mask > 0).astype("uint8")
-            candidate_id = f"{source}-{index:04d}"
+            candidate_id = f"{task_id}-{index:04d}"
             path = self.store.root / experiment_id / "masks" / f"{candidate_id}.png"
             path.parent.mkdir(exist_ok=True)
             cv2.imwrite(str(path), binary * 255)
-            self.store.save_candidate(experiment_id, source, {"id": candidate_id, "maskPath": str(path.relative_to(self.store.root / experiment_id)), "bbox": bbox_from_mask(binary), "area": int(binary.sum()), "score": item.score, "polygon": polygon_from_mask(binary, 1.0), "metadata": item.metadata})
-        self.store.finish_run(experiment_id, source, "succeeded", len(masks), parameters=parameters)
+            self.store.save_candidate(experiment_id, task_id, {"id": candidate_id, "maskPath": str(path.relative_to(self.store.root / experiment_id)), "bbox": bbox_from_mask(binary), "area": int(binary.sum()), "score": item.score, "polygon": polygon_from_mask(binary, 1.0), "metadata": item.metadata})
+        self.store.finish_run(experiment_id, task_id, "succeeded", len(masks), parameters=parameters)

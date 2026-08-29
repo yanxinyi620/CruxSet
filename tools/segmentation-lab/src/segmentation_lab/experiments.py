@@ -38,22 +38,33 @@ class ExperimentStore:
             item = json.loads(path.read_text())
             timestamp = path.stat().st_mtime
             item.setdefault("createdAt", timestamp)
-            for run in item.get("runs", {}).values():
+            for run_id, run in item.get("runs", {}).items():
+                run.setdefault("id", run_id)
+                run.setdefault("model", run_id)
                 run.setdefault("updatedAt", timestamp)
             items.append(item)
         return sorted(items, key=lambda item: item["id"], reverse=True)
 
-    def finish_run(self, experiment_id: str, source: str, status: str, candidate_count: int = 0, error: dict[str, str] | None = None, parameters: dict[str, object] | None = None) -> None:
+    def start_run(self, experiment_id: str, model: str, parameters: dict[str, object]) -> str:
+        task_id = str(uuid4())
         path = self.root / experiment_id / "experiment.json"
         payload = json.loads(path.read_text())
-        payload["runs"][source] = {"status": status, "candidateCount": candidate_count, "error": error, "parameters": parameters or {}, "updatedAt": time.time()}
+        payload["runs"][task_id] = {"id": task_id, "model": model, "status": "running", "candidateCount": 0, "error": None, "parameters": parameters, "updatedAt": time.time()}
+        self._write_json(path, payload)
+        return task_id
+
+    def finish_run(self, experiment_id: str, task_id: str, status: str, candidate_count: int = 0, error: dict[str, str] | None = None, parameters: dict[str, object] | None = None) -> None:
+        path = self.root / experiment_id / "experiment.json"
+        payload = json.loads(path.read_text())
+        existing = payload["runs"].get(task_id, {})
+        payload["runs"][task_id] = {"id": task_id, "model": existing.get("model", task_id), "status": status, "candidateCount": candidate_count, "error": error, "parameters": parameters if parameters is not None else existing.get("parameters", {}), "updatedAt": time.time()}
         self._write_json(path, payload)
 
     def latest_success(self, image_sha256: str, source: str) -> ExperimentRecord:
         matches: list[ExperimentRecord] = []
         for path in self.root.glob("*/experiment.json"):
             payload = json.loads(path.read_text())
-            if payload["imageSha256"] == image_sha256 and payload["runs"].get(source, {}).get("status") == "succeeded":
+            if payload["imageSha256"] == image_sha256 and any(run.get("model", run_id) == source and run.get("status") == "succeeded" for run_id, run in payload["runs"].items()):
                 matches.append(ExperimentRecord(id=payload["id"], image_sha256=image_sha256))
         if not matches:
             raise LookupError("no successful experiment")
