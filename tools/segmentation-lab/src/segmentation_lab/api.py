@@ -78,6 +78,10 @@ def create_app(settings: Settings, adapters: Mapping[str, SegmentationAdapter] |
     def results(experiment_id: str) -> FileResponse:
         return FileResponse(Path(__file__).parents[2] / "static" / "results.html")
 
+    @app.get("/calibrations")
+    def calibration_workbench() -> FileResponse:
+        return FileResponse(Path(__file__).parents[2] / "static" / "calibration.html")
+
     @app.get("/api/experiments/{experiment_id}/candidates")
     def candidates(experiment_id: str, source: str = "sam2") -> dict[str, list[dict[str, object]]]:
         return {"items": store.list_candidates(experiment_id, source=source)}
