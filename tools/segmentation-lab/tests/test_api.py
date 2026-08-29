@@ -1,4 +1,7 @@
+from io import BytesIO
+
 from fastapi.testclient import TestClient
+from PIL import Image
 
 from segmentation_lab.api import create_app
 from segmentation_lab.config import Settings
@@ -46,3 +49,24 @@ def test_models_reports_availability_without_starting_inference(tmp_path):
     response = client.get("/api/models")
 
     assert response.json() == {"items": [{"name": "sam3", "available": False, "reason": "checkpoint_not_found", "device": "cpu"}]}
+
+
+def test_upload_creates_an_experiment_with_image_metadata(tmp_path):
+    client = TestClient(create_app(Settings(data_dir=tmp_path)))
+    image = BytesIO()
+    Image.new("RGB", (20, 10), "white").save(image, format="PNG")
+
+    response = client.post(
+        "/api/experiments",
+        files={"image": ("wall.png", image.getvalue(), "image/png")},
+    )
+
+    assert response.status_code == 201
+    assert response.json()["image"] == {"name": "wall.png", "width": 20, "height": 10}
+
+
+def test_root_serves_upload_workbench(tmp_path):
+    response = TestClient(create_app(Settings(data_dir=tmp_path))).get("/")
+
+    assert response.status_code == 200
+    assert "上传并创建实验" in response.text

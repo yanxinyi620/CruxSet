@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Spraywall Segmentation Lab</title>
+  <style>
+    body{margin:0;background:#101827;color:#e5e7eb;font:16px system-ui,sans-serif}.shell{max-width:1120px;margin:0 auto;padding:42px 24px}.card{background:#1f2937;border:1px solid #334155;border-radius:16px;padding:24px;margin-top:22px}h1{margin:0;font-size:28px}p{color:#94a3b8}.row{display:flex;gap:16px;align-items:center;flex-wrap:wrap}button,label.file{border:0;border-radius:9px;padding:11px 16px;background:#38bdf8;color:#082f49;font-weight:700;cursor:pointer}.file input{display:none}button:disabled{opacity:.55;cursor:wait}#preview{max-width:100%;max-height:520px;display:none;border-radius:10px;margin-top:20px}.status{padding:12px;background:#0f172a;border-radius:8px;white-space:pre-wrap}.model{display:inline-block;margin:5px;padding:7px 10px;border-radius:999px;background:#0f172a}.ok{color:#86efac}.bad{color:#fca5a5}</style>
+</head>
+<body><main class="shell"><h1>Spraywall Segmentation Lab</h1><p>先上传一张固定墙面的正视照片；模型将仅在你点击运行后加载。</p>
+  <section class="card"><div class="row"><label class="file">选择墙图<input id="image" type="file" accept="image/png,image/jpeg"></label><button id="upload" disabled>上传并创建实验</button></div><p id="filename">尚未选择图片</p><img id="preview" alt="墙图预览"><pre id="status" class="status">正在检查模型环境…</pre></section>
+  <section class="card"><h2>模型状态</h2><div id="models"></div><p>缺少权重时仍可上传和保存实验；安装模型后即可从该实验启动识别。</p></section>
+</main><script>
+const input=document.querySelector('#image'),upload=document.querySelector('#upload'),preview=document.querySelector('#preview'),filename=document.querySelector('#filename'),status=document.querySelector('#status'),models=document.querySelector('#models');
+let selected;
+input.onchange=()=>{selected=input.files[0];upload.disabled=!selected;if(!selected)return;filename.textContent=`已选择：${selected.name}（${Math.round(selected.size/1024)} KB）`;preview.src=URL.createObjectURL(selected);preview.style.display='block'};
+async function showModels(){const response=await fetch('/api/models');const payload=await response.json();models.innerHTML=payload.items.map(item=>`<span class="model ${item.available?'ok':'bad'}">${item.name}: ${item.available?'可用':'不可用'}${item.reason?`（${item.reason}）`:''}</span>`).join('')}
+upload.onclick=async()=>{upload.disabled=true;status.textContent='正在上传…';const form=new FormData();form.append('image',selected);try{const response=await fetch('/api/experiments',{method:'POST',body:form});const payload=await response.json();if(!response.ok)throw new Error(payload.message||'上传失败');status.textContent=`实验已创建\nID: ${payload.id}\n图片: ${payload.image.name} (${payload.image.width} × ${payload.image.height})`}catch(error){status.textContent=`上传失败：${error.message}`}finally{upload.disabled=false}};
+showModels().catch(error=>status.textContent=`无法连接本机服务：${error.message}`);
+</script></body></html>
