@@ -1,4 +1,8 @@
 from segmentation_lab.experiments import ExperimentStore
+from fastapi.testclient import TestClient
+
+from segmentation_lab.api import create_app
+from segmentation_lab.config import Settings
 
 
 def test_calibration_is_saved_separately_from_source_task(tmp_path):
@@ -12,3 +16,19 @@ def test_calibration_is_saved_separately_from_source_task(tmp_path):
     assert calibration["sourceTaskId"] == source_task
     assert store.list_experiments()[0]["runs"][source_task]["status"] == "succeeded"
     assert store.list_calibrations(experiment.id)[0]["id"] == calibration["id"]
+
+
+def test_calibration_api_saves_and_exports_svg(tmp_path):
+    store = ExperimentStore(tmp_path)
+    experiment = store.create("wall.jpg", "abc", 100, 80)
+    task_id = store.start_run(experiment.id, "sam2", {})
+    client = TestClient(create_app(Settings(data_dir=tmp_path)))
+    payload = {"sourceTaskId": task_id, "candidates": [{"id": "manual-1", "polygon": [[1, 1], [9, 1], [1, 9]]}], "changes": {"added": 1}}
+
+    created = client.post(f"/api/experiments/{experiment.id}/calibrations", json=payload)
+    calibration_id = created.json()["id"]
+
+    assert created.status_code == 201
+    assert client.get(f"/api/experiments/{experiment.id}/calibrations/{calibration_id}").json()["items"] == payload["candidates"]
+    assert "manual-1" in client.get(f"/api/experiments/{experiment.id}/calibrations/{calibration_id}/export.svg").text
+    assert store.list_experiments()[0]["runs"][task_id]["status"] == "running"
