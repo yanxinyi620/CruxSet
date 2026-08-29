@@ -1,0 +1,35 @@
+[project]
+name = "cruxset-segmentation-lab"
+version = "0.1.0"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+  "fastapi>=0.116,<1",
+  "uvicorn>=0.35,<1",
+  "numpy>=1.26,<2",
+  "pillow>=11,<13",
+  "opencv-python-headless>=4.10,<5",
+  "python-multipart>=0.0.20,<1",
+]
+
+[project.optional-dependencies]
+models = [
+  "torch>=2.7,<3",
+  "torchvision>=0.22,<1",
+  "transformers>=4.56,<6",
+  "sam3 @ git+https://github.com/facebookresearch/sam3.git",
+]
+test = ["pytest>=8,<9", "httpx>=0.28,<1"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/segmentation_lab"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
