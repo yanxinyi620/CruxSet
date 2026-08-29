@@ -33,7 +33,14 @@ class ExperimentStore:
         return experiment
 
     def list_experiments(self) -> list[dict[str, object]]:
-        items = [json.loads(path.read_text()) for path in self.root.glob("*/experiment.json")]
+        items = []
+        for path in self.root.glob("*/experiment.json"):
+            item = json.loads(path.read_text())
+            timestamp = path.stat().st_mtime
+            item.setdefault("createdAt", timestamp)
+            for run in item.get("runs", {}).values():
+                run.setdefault("updatedAt", timestamp)
+            items.append(item)
         return sorted(items, key=lambda item: item["id"], reverse=True)
 
     def finish_run(self, experiment_id: str, source: str, status: str, candidate_count: int = 0, error: dict[str, str] | None = None, parameters: dict[str, object] | None = None) -> None:
