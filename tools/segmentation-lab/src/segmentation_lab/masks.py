@@ -35,6 +35,13 @@ def mask_iou(left: np.ndarray, right: np.ndarray) -> float:
     return float(np.logical_and(left_bool, right_bool).sum() / union)
 
 
+def bbox_from_mask(mask: np.ndarray) -> dict[str, int]:
+    rows, columns = np.where(mask > 0)
+    if not len(rows):
+        raise ValueError("mask is empty")
+    return {"x1": int(columns.min()), "y1": int(rows.min()), "x2": int(columns.max() + 1), "y2": int(rows.max() + 1)}
+
+
 def polygon_from_mask(mask: np.ndarray, epsilon_pixels: float) -> tuple[Point, ...]:
     contours, _ = cv2.findContours((mask > 0).astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     if not contours:

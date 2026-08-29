@@ -46,6 +46,18 @@ class ExperimentStore:
             raise LookupError("no successful experiment")
         return max(matches, key=lambda item: (self.root / item.id / "experiment.json").stat().st_mtime_ns)
 
+    def save_candidate(self, experiment_id: str, source: str, candidate: dict[str, object]) -> None:
+        directory = self.root / experiment_id / "candidates"
+        directory.mkdir(exist_ok=True)
+        self._write_json(directory / f"{candidate['id']}.json", {"source": source, **candidate})
+
+    def list_candidates(self, experiment_id: str, source: str | None = None) -> list[dict[str, object]]:
+        directory = self.root / experiment_id / "candidates"
+        if not directory.exists():
+            return []
+        candidates = [json.loads(path.read_text()) for path in directory.glob("*.json")]
+        return [candidate for candidate in candidates if source is None or candidate["source"] == source]
+
     @staticmethod
     def _write_json(path: Path, payload: dict[str, object]) -> None:
         temporary = path.with_suffix(".tmp")
