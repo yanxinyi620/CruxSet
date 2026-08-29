@@ -82,6 +82,25 @@ class ExperimentStore:
         candidates = [json.loads(path.read_text()) for path in directory.glob("*.json")]
         return [candidate for candidate in candidates if source is None or candidate["source"] == source]
 
+    def create_calibration(self, experiment_id: str, source_task_id: str, candidates: list[dict[str, object]], changes: dict[str, int]) -> dict[str, object]:
+        calibration_id = str(uuid4())
+        record = {"id": calibration_id, "sourceTaskId": source_task_id, "createdAt": time.time(), "updatedAt": time.time(), "candidateCount": len(candidates), "changes": changes}
+        directory = self.root / experiment_id / "calibrations" / calibration_id
+        directory.mkdir(parents=True)
+        self._write_json(directory / "calibration.json", record)
+        self._write_json(directory / "candidates.json", {"items": candidates})
+        return record
+
+    def list_calibrations(self, experiment_id: str) -> list[dict[str, object]]:
+        directory = self.root / experiment_id / "calibrations"
+        if not directory.exists():
+            return []
+        return sorted((json.loads(path.read_text()) for path in directory.glob("*/calibration.json")), key=lambda item: item["updatedAt"], reverse=True)
+
+    def read_calibration_candidates(self, experiment_id: str, calibration_id: str) -> list[dict[str, object]]:
+        path = self.root / experiment_id / "calibrations" / calibration_id / "candidates.json"
+        return json.loads(path.read_text())["items"]
+
     @staticmethod
     def _write_json(path: Path, payload: dict[str, object]) -> None:
         temporary = path.with_suffix(".tmp")

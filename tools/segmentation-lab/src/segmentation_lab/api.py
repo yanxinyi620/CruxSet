@@ -6,6 +6,7 @@ from pathlib import Path
 from fastapi import BackgroundTasks, Body, FastAPI, File, Request, UploadFile
 from fastapi.responses import JSONResponse
 from fastapi.responses import FileResponse
+from fastapi.responses import Response
 from PIL import Image
 
 from .adapters.base import SegmentationAdapter
@@ -80,6 +81,29 @@ def create_app(settings: Settings, adapters: Mapping[str, SegmentationAdapter] |
     @app.get("/api/experiments/{experiment_id}/candidates")
     def candidates(experiment_id: str, source: str = "sam2") -> dict[str, list[dict[str, object]]]:
         return {"items": store.list_candidates(experiment_id, source=source)}
+
+    @app.get("/api/experiments/{experiment_id}/calibrations")
+    def calibrations(experiment_id: str) -> dict[str, list[dict[str, object]]]:
+        return {"items": store.list_calibrations(experiment_id)}
+
+    @app.post("/api/experiments/{experiment_id}/calibrations", status_code=201)
+    def create_calibration(experiment_id: str, payload: dict[str, object] = Body(...)) -> dict[str, object]:
+        source_task_id = str(payload["sourceTaskId"])
+        candidates = payload["candidates"]
+        if not isinstance(candidates, list):
+            raise SegmentationLabError("invalid_candidates", "Candidates must be a list")
+        changes = payload.get("changes", {})
+        return store.create_calibration(experiment_id, source_task_id, candidates, changes if isinstance(changes, dict) else {})
+
+    @app.get("/api/experiments/{experiment_id}/calibrations/{calibration_id}")
+    def calibration(experiment_id: str, calibration_id: str) -> dict[str, object]:
+        return {"items": store.read_calibration_candidates(experiment_id, calibration_id)}
+
+    @app.get("/api/experiments/{experiment_id}/calibrations/{calibration_id}/export.svg")
+    def export_calibration_svg(experiment_id: str, calibration_id: str) -> Response:
+        polygons = store.read_calibration_candidates(experiment_id, calibration_id)
+        body = "".join(f'<polygon id="{item["id"]}" points="{" ".join(",".join(map(str, point)) for point in item["polygon"])}" />' for item in polygons)
+        return Response(f'<svg xmlns="http://www.w3.org/2000/svg">{body}</svg>', media_type="image/svg+xml", headers={"Content-Disposition": f'attachment; filename="{calibration_id}.svg"'})
 
     @app.post("/api/experiments/{experiment_id}/runs", status_code=202)
     def run(experiment_id: str, tasks: BackgroundTasks, payload: dict[str, object] = Body(default={})) -> dict[str, str]:
