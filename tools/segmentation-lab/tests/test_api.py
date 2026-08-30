@@ -84,3 +84,37 @@ def test_upload_workbench_uses_extension_free_image_labels(tmp_path):
 
     assert "function displayName(name)" in response.text
     assert "displayName(e.image.name)" in response.text
+
+
+def test_sam2_crop_layers_are_normalized_to_zero(tmp_path):
+    class Adapter:
+        def available(self):
+            return ModelAvailability(available=True, reason=None, device="cpu")
+
+        def generate(self, *_):
+            return []
+
+    client = TestClient(create_app(Settings(data_dir=tmp_path), adapters={"sam2": Adapter()}))
+    image = BytesIO()
+    Image.new("RGB", (20, 10), "white").save(image, format="PNG")
+    experiment_id = client.post(
+        "/api/experiments",
+        files={"image": ("wall.png", image.getvalue(), "image/png")},
+    ).json()["id"]
+
+    response = client.post(
+        f"/api/experiments/{experiment_id}/runs",
+        json={"model": "sam2", "parameters": {"crop_n_layers": 2}},
+    )
+
+    assert response.status_code == 202
+    run = next(iter(client.get("/api/experiments").json()["items"][0]["runs"].values()))
+    assert run["parameters"]["crop_n_layers"] == 0
+
+
+def test_upload_workbench_locks_crop_layers_for_sam_models(tmp_path):
+    response = TestClient(create_app(Settings(data_dir=tmp_path))).get("/")
+
+    assert "2×2 重叠分块" in response.text
+    assert "function applyModelRules()" in response.text
+    assert "runCrop.disabled=restricted" in response.text

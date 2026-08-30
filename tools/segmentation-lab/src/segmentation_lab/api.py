@@ -136,6 +136,8 @@ def create_app(settings: Settings, adapters: Mapping[str, SegmentationAdapter] |
             raise SegmentationLabError("model_unavailable", f"Model '{source}' is unavailable")
         if not isinstance(parameters, dict):
             raise SegmentationLabError("invalid_parameters", "Parameters must be an object")
+        if source in {"sam2", "sam2_tiled"}:
+            parameters = {**parameters, "crop_n_layers": 0}
         image = next((store.root / experiment_id / "input").glob("original.*"))
         task_id = store.start_run(experiment_id, source, parameters)
         tasks.add_task(BenchmarkService(store, active_adapters).run_existing, experiment_id, image, item["width"], item["height"], task_id, source, parameters)
