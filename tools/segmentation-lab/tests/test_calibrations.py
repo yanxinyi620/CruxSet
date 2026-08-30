@@ -30,5 +30,9 @@ def test_calibration_api_saves_and_exports_svg(tmp_path):
 
     assert created.status_code == 201
     assert client.get(f"/api/experiments/{experiment.id}/calibrations/{calibration_id}").json()["items"] == payload["candidates"]
-    assert "manual-1" in client.get(f"/api/experiments/{experiment.id}/calibrations/{calibration_id}/export.svg").text
+    exported = client.get(f"/api/experiments/{experiment.id}/calibrations/{calibration_id}/export.svg").text
+    assert "manual-1" in exported
+    assert 'viewBox="0 0 100 80"' in exported
+    assert 'width="100"' in exported
+    assert 'height="80"' in exported
     assert store.list_experiments()[0]["runs"][task_id]["status"] == "running"

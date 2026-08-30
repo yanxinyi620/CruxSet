@@ -121,9 +121,14 @@ def create_app(settings: Settings, adapters: Mapping[str, SegmentationAdapter] |
 
     @app.get("/api/experiments/{experiment_id}/calibrations/{calibration_id}/export.svg")
     def export_calibration_svg(experiment_id: str, calibration_id: str) -> Response:
+        experiment = next((item for item in store.list_experiments() if item["id"] == experiment_id), None)
+        if experiment is None:
+            raise SegmentationLabError("experiment_not_found", "Experiment was not found")
         polygons = store.read_calibration_candidates(experiment_id, calibration_id)
         body = "".join(f'<polygon id="{item["id"]}" points="{" ".join(",".join(map(str, point)) for point in item["polygon"])}" />' for item in polygons)
-        return Response(f'<svg xmlns="http://www.w3.org/2000/svg">{body}</svg>', media_type="image/svg+xml", headers={"Content-Disposition": f'attachment; filename="{calibration_id}.svg"'})
+        width, height = experiment["width"], experiment["height"]
+        document = f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}"><style>polygon{{fill:#77c94b44;stroke:#3d8b38;stroke-width:3;vector-effect:non-scaling-stroke}}</style>{body}</svg>'
+        return Response(document, media_type="image/svg+xml", headers={"Content-Disposition": f'attachment; filename="{calibration_id}.svg"'})
 
     @app.post("/api/experiments/{experiment_id}/runs", status_code=202)
     def run(experiment_id: str, tasks: BackgroundTasks, payload: dict[str, object] = Body(default={})) -> dict[str, str]:
