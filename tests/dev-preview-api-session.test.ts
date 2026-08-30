@@ -59,6 +59,15 @@ it('refreshes saved holds into cache when publication fails', async () => {
   await expect(session.getWall('wall_1')).resolves.toMatchObject({ holds })
 })
 
+it('preserves the publish error when recovery refresh also fails', async () => {
+  const { api, session } = fixture()
+  const publishError = new Error('WALL_NOT_ROUTABLE: add another hold')
+  api.publishWall.mockRejectedValue(publishError)
+  api.loadBrowseData.mockRejectedValue(new Error('NETWORK_UNAVAILABLE'))
+
+  await expect(session.publishWall('wall_1', holds)).rejects.toBe(publishError)
+})
+
 it('routes problem creation through the API without layout fields', async () => {
   const { api, session } = fixture()
   const result = await session.createProblem('wall_1', { angle: 25, grade: 'V1', footRule: 'specified', holds: { start: ['H001'], finish: ['H002'] } as ProblemHolds })
