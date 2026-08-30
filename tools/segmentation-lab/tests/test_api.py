@@ -154,6 +154,14 @@ def test_calibration_results_table_hides_calibration_id_column(tmp_path):
     assert 'id="calibrations"' in response.text
 
 
+def test_calibration_results_split_continue_and_export_actions(tmp_path):
+    response = TestClient(create_app(Settings(data_dir=tmp_path))).get("/")
+
+    assert "<th>继续</th>" in response.text
+    assert "<th>导出</th>" in response.text
+    assert "<th>操作</th>" not in response.text
+
+
 def test_segmentation_results_use_compact_chinese_status_labels(tmp_path):
     response = TestClient(create_app(Settings(data_dir=tmp_path))).get("/")
 
