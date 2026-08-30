@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { confirmAndDelete, escapeHtml, guardedAction, isWallLockedError, problemEditorState, wallEditorState } from '../web/src/ui-behavior.js'
+import { ApiError, LocalApiClient } from '../web/src/api.js'
 
 describe('web interaction safety', () => {
   it('escapes user and server supplied HTML', () => {
@@ -25,8 +26,13 @@ describe('web interaction safety', () => {
     expect(action).toHaveBeenCalledTimes(1)
   })
 
-  it('recognizes a server-side wall lock as final', () => {
-    expect(isWallLockedError(new Error('WALL_LOCKED'))).toBe(true)
+  it('preserves and recognizes the wall lock code from an actual API error envelope', async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ error: { code: 'WALL_LOCKED', message: 'Published wall geometry is locked' } }), { status: 409, headers: { 'Content-Type': 'application/json' } }))
+    const api = new LocalApiClient('http://local.test', fetcher)
+    const error = await api.saveWallHolds('wall_1', []).catch(cause => cause)
+    expect(error).toBeInstanceOf(ApiError)
+    expect(error).toMatchObject({ code: 'WALL_LOCKED', message: 'Published wall geometry is locked' })
+    expect(isWallLockedError(error)).toBe(true)
     expect(isWallLockedError(new Error('network unavailable'))).toBe(false)
   })
 

@@ -3,6 +3,9 @@ export type LocalUser = { id: string; isAdmin: boolean }
 export type BrowseData = { walls: unknown[]; problems: unknown[] }
 export type NewWallDraft = { name: string; image: File; imageWidth: number; imageHeight: number }
 export type ProblemInput = { wallId: string; angle: number; grade: string; footRule: string; name?: string; description?: string; holds: Record<string, string[]> }
+export class ApiError extends Error {
+  constructor(message: string, readonly code?: string) { super(message); this.name = 'ApiError' }
+}
 export function localApiBaseUrl(location: Pick<Location, 'protocol' | 'hostname'> = window.location): string { return `${location.protocol}//${location.hostname}:8000` }
 export class LocalApiClient {
   constructor(private baseUrl = localApiBaseUrl(), private fetcher: typeof fetch = fetch) {}
@@ -16,5 +19,5 @@ export class LocalApiClient {
   async deleteProblem(id: string): Promise<{ ok: boolean }> { return this.request(`/api/v1/problems/${encodeURIComponent(id)}`, { method: 'DELETE' }) as unknown as { ok: boolean } }
   async deleteWall(id: string): Promise<{ ok: boolean }> { return this.request(`/api/v1/walls/${encodeURIComponent(id)}`, { method: 'DELETE' }) as unknown as { ok: boolean } }
   private get(path: string) { return this.request(path) }
-  private async request(path: string, init: RequestInit = {}): Promise<Record<string, unknown>> { const fetcher = this.fetcher; const response = await fetcher(`${this.baseUrl}${path}`, { credentials: 'include', ...init }); if (!response.ok) { const body = await response.json().catch(() => null) as { error?: { message?: string } } | null; throw new Error(body?.error?.message || '无法读取本地工作台数据') } return await response.json() as Record<string, unknown> }
+  private async request(path: string, init: RequestInit = {}): Promise<Record<string, unknown>> { const fetcher = this.fetcher; const response = await fetcher(`${this.baseUrl}${path}`, { credentials: 'include', ...init }); if (!response.ok) { const body = await response.json().catch(() => null) as { error?: { code?: string; message?: string } } | null; throw new ApiError(body?.error?.message || '无法读取本地工作台数据', body?.error?.code) } return await response.json() as Record<string, unknown> }
 }

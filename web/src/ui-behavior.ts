@@ -10,7 +10,7 @@ export const problemEditorState = (state: { submitting: boolean; saved: boolean;
   canSubmit: !state.submitting && !state.saved && state.hasStart && state.hasFinish,
 })
 
-export const isWallLockedError = (error: unknown) => (error instanceof Error ? error.message : String(error)).includes('WALL_LOCKED')
+export const isWallLockedError = (error: unknown) => typeof error === 'object' && error !== null && 'code' in error && error.code === 'WALL_LOCKED'
 
 export async function confirmAndDelete(confirmDelete: () => boolean, action: () => Promise<unknown>): Promise<{ ok: true } | { ok: false; cancelled: true } | { ok: false; message: string }> {
   if (!confirmDelete()) return { ok: false, cancelled: true }
