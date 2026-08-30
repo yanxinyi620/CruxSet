@@ -51,8 +51,8 @@ def flatten_legacy_documents(
         for field in _PARENT_FIELDS:
             if field in parent:
                 flat_wall[field] = deepcopy(parent[field])
-        if flat_wall.get("published") is True:
-            flat_wall["visibility"] = "public"
+        flat_wall["published"] = layout.get("published") is True
+        flat_wall["visibility"] = "public" if flat_wall["published"] else "private"
         flat_walls.append(flat_wall)
 
     flat_problems: list[dict] = []

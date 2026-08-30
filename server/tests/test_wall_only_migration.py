@@ -28,8 +28,8 @@ def _legacy_documents():
 def test_flatten_legacy_documents_creates_independent_walls_and_rewrites_problems():
     flat_walls, flat_problems = flatten_legacy_documents(*_legacy_documents())
     assert flat_walls == [
-        {"id": "wall_from_layout_a", "name": "A", "imageFileId": "img_a", "displayImageFileId": "display_a", "imageWidth": 100, "imageHeight": 200, "geometryType": "circle", "holds": [{"id": "A1"}, {"id": "A2"}], "description": "Training wall", "angleOptions": [20, 30], "ownerId": "usr_1", "visibility": "private"},
-        {"id": "wall_from_layout_b", "name": "B", "imageFileId": "img_b", "imageWidth": 300, "imageHeight": 400, "geometryType": "circle", "holds": [{"id": "B1"}, {"id": "B2"}], "description": "Training wall", "angleOptions": [20, 30], "ownerId": "usr_1", "visibility": "private"},
+        {"id": "wall_from_layout_a", "name": "A", "imageFileId": "img_a", "displayImageFileId": "display_a", "imageWidth": 100, "imageHeight": 200, "geometryType": "circle", "holds": [{"id": "A1"}, {"id": "A2"}], "published": False, "description": "Training wall", "angleOptions": [20, 30], "ownerId": "usr_1", "visibility": "private"},
+        {"id": "wall_from_layout_b", "name": "B", "imageFileId": "img_b", "imageWidth": 300, "imageHeight": 400, "geometryType": "circle", "holds": [{"id": "B1"}, {"id": "B2"}], "published": False, "description": "Training wall", "angleOptions": [20, 30], "ownerId": "usr_1", "visibility": "private"},
     ]
     assert flat_problems == [
         {"id": "problem_a", "wallId": "wall_from_layout_a", "holds": {"start": ["A1"], "finish": ["A2"]}},
@@ -76,6 +76,33 @@ def test_flatten_legacy_documents_preserves_publication_state_for_route_lifecycl
     )
     assert draft_response.status_code == 409
     assert draft_response.json()["error"]["code"] == "WALL_NOT_ROUTABLE"
+
+
+def test_flatten_legacy_documents_keeps_draft_editable_when_parent_is_public():
+    walls, layouts, problems = _legacy_documents()
+    walls[0]["visibility"] = "public"
+    layouts[2]["published"] = False
+    flat_walls, _ = flatten_legacy_documents(walls, layouts, problems)
+    migrated = {wall["id"]: wall for wall in flat_walls}
+    assert migrated["wall_from_layout_b"]["published"] is False
+    assert migrated["wall_from_layout_b"]["visibility"] == "private"
+
+    repository = MemoryRepository()
+    account = create_admin_account(repository, "admin@example.com", "correct horse")
+    for wall in flat_walls:
+        repository.insert_wall(wall)
+    app.state.repository = repository
+    cookie = {session_cookie_name(): create_session(account["userId"])}
+    client = TestClient(app)
+    holds = [
+        {"id": "B1", "x": 0.1, "y": 0.2, "radius": 0.03, "kind": "hold"},
+        {"id": "B2", "x": 0.4, "y": 0.5, "radius": 0.03, "kind": "hold"},
+    ]
+    saved = client.put("/api/v1/walls/wall_from_layout_b/holds", json={"holds": holds}, cookies=cookie)
+    assert saved.status_code == 200
+    published = client.post("/api/v1/walls/wall_from_layout_b/publish", cookies=cookie)
+    assert published.status_code == 200
+    assert published.json()["wall"]["visibility"] == "public"
 
 
 @pytest.mark.parametrize(("mutate", "entity_id"), [
