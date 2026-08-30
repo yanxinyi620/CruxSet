@@ -12,7 +12,7 @@ const rules=JSON.parse(readFileSync(join(root,'config/cloudbase.rules.json'),'ut
 const expected=['users','walls','problems','admins','counters']
 const collectTs=(directory)=>readdirSync(directory,{withFileTypes:true}).flatMap(entry=>entry.isDirectory()?collectTs(join(directory,entry.name)):entry.name.endsWith('.ts')?[join(directory,entry.name)]:[])
 const collectJs=(directory)=>readdirSync(directory,{withFileTypes:true}).flatMap(entry=>entry.isDirectory()?collectJs(join(directory,entry.name)):entry.name.endsWith('.js')?[join(directory,entry.name)]:[])
-const collectMarkdown=(directory)=>readdirSync(directory,{withFileTypes:true}).flatMap(entry=>entry.name==='superpowers'||entry.name==='CruxSet-微信小程序完整开发实施方案-v1.0.md'||entry.name==='IMPLEMENTATION_PLAN.md'?[]:entry.isDirectory()?collectMarkdown(join(directory,entry.name)):entry.name.endsWith('.md')?[join(directory,entry.name)]:[])
+const collectMarkdown=(directory)=>readdirSync(directory,{withFileTypes:true}).flatMap(entry=>entry.name==='superpowers'?[]:entry.isDirectory()?collectMarkdown(join(directory,entry.name)):entry.name.endsWith('.md')?[join(directory,entry.name)]:[])
 const externalImports=collectTs(join(root,'miniprogram')).filter(file=>readFileSync(file,'utf8').includes('/src/'))
 if(externalImports.length){console.error(`FAIL: mini program imports files outside its package: ${externalImports.map(file=>file.slice(root.length+1)).join(', ')}`);process.exitCode=1}
 if(!Array.isArray(config.setting?.useCompilerPlugins)||!config.setting.useCompilerPlugins.includes('typescript')){console.error('FAIL: the WeChat TypeScript compiler plugin must be enabled');process.exitCode=1}

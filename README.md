@@ -28,8 +28,8 @@ Canvas 手势和线路编辑基础已完成；CloudBase 真机验收、线上数
 
 ## 文档
 
-- [完整产品与技术规格](docs/CruxSet-微信小程序完整开发实施方案-v1.0.md)：权威需求来源
-- [开发实施计划](docs/IMPLEMENTATION_PLAN.md)：阶段、任务、当前状态和验收门槛
+- [开发实施计划](docs/IMPLEMENTATION_PLAN.md)：当前数据模型、阶段状态和验收门槛
+- [历史产品规格](docs/superpowers/history/CruxSet-微信小程序完整开发实施方案-v1.0.md)：已归档的旧版模型说明，不适用于当前实现
 - [架构说明](docs/architecture.md)：代码边界与运行方式
 - [CloudBase 配置清单](docs/cloudbase-setup.md)：环境、集合、索引与权限
 - [CloudBase 集合声明](config/cloudbase.collections.json)：集合、索引与写入边界
