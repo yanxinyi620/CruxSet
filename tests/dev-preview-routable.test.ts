@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { PreviewSession } from '../web/src/data/preview-session.js'
-import { listRoutableLayouts } from '../web/src/data/preview-repository.js'
 
-describe('listRoutableLayouts', () => {
-  it('excludes unpublished zero-hold drafts', async () => {
+describe('routable walls', () => {
+  it('lists public walls directly and excludes private drafts', async () => {
     const session = new PreviewSession()
-    const result = await listRoutableLayouts(session, await session.listMyWalls())
-    expect(result.some(item => item.layout.name === '2026-08 本地草稿')).toBe(false)
+    const result = await session.listWalls()
+    expect(result.every(wall => wall.visibility === 'public')).toBe(true)
+    expect(result.every(wall => wall.holds.length >= 2)).toBe(true)
   })
 })

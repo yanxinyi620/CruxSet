@@ -83,7 +83,7 @@ const SNAP_PX = 20
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value))
 const clamp01 = (value: number) => clamp(value, 0, 1)
 
-/** 草稿 Layout 岩点标注画布：添加、移动、删除、平移、滚轮/双指缩放。 */
+/** 私有墙面岩点标注画布：添加、移动、删除、平移、滚轮/双指缩放。 */
 export class DraftCanvasView {
   private canvas: HTMLCanvasElement
   private ctx: CanvasRenderingContext2D

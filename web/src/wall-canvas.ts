@@ -1,6 +1,6 @@
 import type { Hold, HoldRole, Point, ViewTransform } from "../../miniprogram/domain/types.js"
 import { clampTransform, screenToImage, zoomAroundAnchor } from "../../miniprogram/domain/transform.js"
-import { nearestHold } from "../../miniprogram/domain/geometry.js"
+import { circleHitTest, nearestHold, polygonHitTest } from "../../miniprogram/domain/geometry.js"
 
 /** 统一角色配色：Start 绿、Foot 黄、Hand 蓝、Assist 橙、Finish 紫。 */
 export const ROLE_COLORS: Record<HoldRole, string> = {
@@ -25,6 +25,7 @@ export interface WallCanvasOptions {
 }
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value))
+export const wallHoldAt = (point: Point, holds: Hold[], tolerance: number) => holds.find(hold => hold.polygon?.length ? polygonHitTest(point, hold) : circleHitTest(point, hold)) ?? nearestHold(point, holds, tolerance)
 
 export class WallCanvasView {
   private canvas: HTMLCanvasElement
@@ -165,7 +166,7 @@ export class WallCanvasView {
 
   private tap(screenX: number, screenY: number) {
     const point = screenToImage([screenX, screenY], { scale: this.scale, offsetX: this.offsetX, offsetY: this.offsetY })
-    const hold = nearestHold(point, this.opts.holds, SNAP_PX / this.scale)
+    const hold = wallHoldAt(point, this.opts.holds, SNAP_PX / this.scale)
     if (hold) this.opts.onTapHold(hold.id)
   }
 
@@ -205,20 +206,22 @@ export class WallCanvasView {
 
     const selected = this.opts.getSelectedRole()
     for (const hold of this.opts.holds) {
-      const [sx, sy] = this.toScreen([hold.x, hold.y])
-      const radius = hold.radius * this.scale
       const role = this.roleOf(hold.id)
       ctx.beginPath()
-      ctx.arc(sx, sy, radius, 0, Math.PI * 2)
+      if (hold.polygon && hold.polygon.length >= 3) {
+        hold.polygon.forEach((point, index) => { const [x, y] = this.toScreen(point); if (index) ctx.lineTo(x, y); else ctx.moveTo(x, y) })
+        ctx.closePath()
+      } else {
+        const [sx, sy] = this.toScreen([hold.x, hold.y])
+        ctx.arc(sx, sy, hold.radius * this.scale, 0, Math.PI * 2)
+      }
       ctx.fillStyle = role ? ROLE_COLORS[role] : NEUTRAL
       ctx.fill()
       ctx.lineWidth = role ? 2 : 1
       ctx.strokeStyle = role ? ROLE_COLORS[role] : NEUTRAL_EDGE
       ctx.stroke()
       if (selected && role !== selected) {
-        ctx.beginPath()
-        ctx.arc(sx, sy, radius + 2.5, 0, Math.PI * 2)
-        ctx.lineWidth = 1.5
+        ctx.lineWidth = 2.5
         ctx.strokeStyle = "rgba(99,82,226,.45)"
         ctx.stroke()
       }
