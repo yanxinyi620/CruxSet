@@ -1,0 +1,80 @@
+<h2>设计第 2 部分：人工校正工作台</h2>
+<p class="subtitle">桌面优先。上方控制实验，中央看墙图，右侧处理当前候选。</p>
+
+<div class="mockup">
+  <div class="mockup-header" style="display:flex;justify-content:space-between;align-items:center">
+    <span>Spraywall Segmentation Lab</span><span style="font-size:12px">实验 #07 · 已保存</span>
+  </div>
+  <div class="mockup-body" style="padding:0;overflow:hidden">
+    <div style="display:flex;gap:8px;padding:10px;background:#f8fafc;border-bottom:1px solid #dbe3ea;align-items:center;flex-wrap:wrap">
+      <button class="mock-button">打开墙图</button>
+      <button class="mock-button">设置墙面 ROI</button>
+      <select class="mock-input" style="width:auto"><option>SAM 3 + SAM 2.1</option></select>
+      <button class="mock-button" style="background:#2563eb;color:white">开始双模型识别</button>
+      <span style="margin-left:auto;font-size:12px;color:#64748b">SAM 3：8m 42s　SAM 2.1：12m 08s</span>
+    </div>
+
+    <div style="display:grid;grid-template-columns:170px minmax(360px,1fr) 230px;min-height:470px">
+      <aside style="padding:12px;background:#f8fafc;border-right:1px solid #dbe3ea">
+        <div class="label">查看模式</div>
+        <div style="display:grid;gap:7px;margin:8px 0 18px">
+          <button class="mock-button" style="background:#dbeafe">合并结果</button>
+          <button class="mock-button">仅 SAM 3 · 286</button>
+          <button class="mock-button">仅 SAM 2.1 · 614</button>
+          <button class="mock-button">并排比较</button>
+        </div>
+        <div class="label">筛选</div>
+        <label style="display:block;margin:9px 0"><input type="checkbox" checked> 高置信候选</label>
+        <label style="display:block;margin:9px 0"><input type="checkbox" checked> 待确认</label>
+        <label style="display:block;margin:9px 0"><input type="checkbox"> 已删除</label>
+        <div style="margin-top:18px;padding:9px;background:#fff7ed;border-radius:8px;font-size:12px">已确认 248<br>待处理 41<br>已删除 27</div>
+      </aside>
+
+      <main style="position:relative;background:linear-gradient(145deg,#d2b48c,#8b6f47);overflow:hidden;min-height:470px">
+        <div style="position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent 0 68px,#5b463422 69px),repeating-linear-gradient(90deg,transparent 0 92px,#5b463422 93px)"></div>
+        <svg viewBox="0 0 600 450" style="position:absolute;inset:0;width:100%;height:100%">
+          <g fill="#22c55e55" stroke="#4ade80" stroke-width="3">
+            <path d="M90 330 Q65 300 95 272 Q130 263 145 295 Q134 335 90 330Z"/><path d="M230 350 Q208 318 236 288 Q278 284 294 316 Q280 356 230 350Z"/>
+            <path d="M420 298 Q392 262 427 235 Q465 241 481 276 Q461 308 420 298Z"/><path d="M320 195 Q297 166 326 140 Q359 139 373 172 Q355 204 320 195Z"/>
+          </g>
+          <g fill="#f59e0b55" stroke="#fbbf24" stroke-width="3" stroke-dasharray="7 5">
+            <path d="M145 185 Q117 155 151 127 Q191 132 200 166 Q179 194 145 185Z"/><path d="M480 165 Q455 132 489 109 Q525 118 533 149 Q517 178 480 165Z"/>
+          </g>
+          <path d="M260 250 Q225 205 269 175 Q316 185 325 226 Q301 261 260 250Z" fill="#3b82f666" stroke="#60a5fa" stroke-width="5"/>
+          <circle cx="287" cy="217" r="7" fill="#22c55e" stroke="white" stroke-width="2"/><circle cx="245" cy="235" r="7" fill="#ef4444" stroke="white" stroke-width="2"/>
+        </svg>
+        <div style="position:absolute;left:12px;bottom:12px;background:#0f172ccc;color:white;padding:7px 10px;border-radius:7px;font-size:12px">滚轮缩放 · 空格拖动画布 · 单击选择轮廓</div>
+      </main>
+
+      <aside style="padding:12px;background:white;border-left:1px solid #dbe3ea">
+        <div class="label">当前候选 C-0287</div>
+        <div style="padding:9px;background:#eff6ff;border-radius:8px;margin:8px 0;font-size:12px">来源：SAM 3 + SAM 2.1<br>置信度：0.93 / 0.88<br>状态：待确认</div>
+        <div class="label" style="margin-top:14px">修正工具</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:8px 0">
+          <button class="mock-button" style="background:#dcfce7">＋ 正点</button><button class="mock-button" style="background:#fee2e2">− 负点</button>
+          <button class="mock-button">框选重算</button><button class="mock-button">候选切换</button>
+          <button class="mock-button">拆分</button><button class="mock-button">合并</button>
+        </div>
+        <button class="mock-button" style="width:100%;background:#22c55e;color:white;margin-top:10px">确认此岩点</button>
+        <button class="mock-button" style="width:100%;margin-top:7px;color:#b91c1c">删除误检</button>
+        <div style="margin-top:18px;border-top:1px solid #e2e8f0;padding-top:12px">
+          <div class="label">快捷键</div><small>Enter 确认　Delete 删除<br>1 正点　2 负点　B 框选<br>[ ] 切换候选</small>
+        </div>
+      </aside>
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:#f8fafc;border-top:1px solid #dbe3ea">
+      <span style="font-size:12px">所有操作自动保存 · 可撤销 / 重做</span>
+      <div><button class="mock-button">导出 PNG Masks</button> <button class="mock-button">导出 SVG + JSON</button></div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:20px">
+  <div class="label">交互规则</div>
+  <ul><li><b>绿色实线</b>：已确认；<b>黄色虚线</b>：待处理；<b>蓝色</b>：当前选中。</li><li>正点纳入目标、负点排除邻近对象；每次修正显示多个模型候选，可切换后确认。</li><li>拆分用于两个岩点粘连；合并用于一个岩点被切成多块。所有操作均记录，可撤销。</li></ul>
+</div>
+
+<div class="option" data-choice="editor-approved" onclick="toggleSelect(this)">
+  <div class="letter">✓</div><div class="content"><h3>编辑工作台符合预期</h3><p>选择后回到对话确认；需要改布局或工具也可直接说明。</p></div>
+</div>
