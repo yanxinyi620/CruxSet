@@ -183,6 +183,16 @@ def test_calibration_workbench_keeps_only_the_save_control(tmp_path):
     assert 'id="saved"' not in response.text
 
 
+def test_calibration_workbench_groups_edit_tools_and_restores_loaded_candidates(tmp_path):
+    response = TestClient(create_app(Settings(data_dir=tmp_path))).get("/calibrations")
+
+    assert "选择与删除" in response.text
+    assert "新增岩点" in response.text
+    assert "还原所有修改" in response.text
+    assert "baselineItems" in response.text
+    assert "已还原本次载入后的所有修改。" in response.text
+
+
 def test_segmentation_results_use_compact_chinese_status_labels(tmp_path):
     response = TestClient(create_app(Settings(data_dir=tmp_path))).get("/")
 
