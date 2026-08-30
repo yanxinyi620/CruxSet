@@ -6,7 +6,6 @@ from app.repositories.protocols import Document
 class MemoryRepository:
     def __init__(self) -> None:
         self._walls: dict[str, Document] = {}
-        self._layouts: list[Document] = []
         self._problems: dict[str, Document] = {}
         self._users: dict[str, Document] = {}
         self._admins: dict[str, Document] = {}
@@ -37,10 +36,10 @@ class MemoryRepository:
         user = self._users.get(user_id)
         return deepcopy(user) if user else None
 
-    def insert_layout(self, layout: Document) -> None:
-        self._layouts.append(deepcopy(layout))
-
     def insert_wall(self, wall: Document) -> None:
+        self._walls[str(wall["id"])] = deepcopy(wall)
+
+    def replace_wall(self, wall: Document) -> None:
         self._walls[str(wall["id"])] = deepcopy(wall)
 
     def find_wall(self, wall_id: str) -> Document | None:
@@ -49,15 +48,6 @@ class MemoryRepository:
 
     def list_walls(self) -> list[Document]:
         return [deepcopy(wall) for wall in self._walls.values()]
-
-    def find_layout(self, layout_id: str) -> Document | None:
-        snapshots = [layout for layout in self._layouts if layout.get("id") == layout_id]
-        if not snapshots:
-            return None
-        return deepcopy(max(snapshots, key=lambda item: int(item.get("version", 0))))
-
-    def replace_layout(self, layout: Document) -> None:
-        self._layouts.append(deepcopy(layout))
 
     def insert_problem(self, problem: Document) -> None:
         self._problems[str(problem["id"])] = deepcopy(problem)
@@ -69,28 +59,11 @@ class MemoryRepository:
     def list_problems(self) -> list[Document]:
         return [deepcopy(problem) for problem in self._problems.values()]
 
-    def delete_layout(self, layout_id: str) -> None:
-        self._layouts = [layout for layout in self._layouts if layout.get("id") != layout_id]
-
-    def delete_problems_for_layout(self, layout_id: str) -> None:
-        self._problems = {key: value for key, value in self._problems.items() if value.get("layoutId") != layout_id}
-
     def delete_problem(self, problem_id: str) -> None:
         self._problems.pop(problem_id, None)
 
     def delete_wall(self, wall_id: str) -> None:
-        for layout in self._layouts:
-            if layout.get("wallId") == wall_id:
-                self.delete_problems_for_layout(layout["id"])
-        self._layouts = [layout for layout in self._layouts if layout.get("wallId") != wall_id]
         self._walls.pop(wall_id, None)
 
-    def list_layouts(self, wall_id: str) -> list[Document]:
-        latest: dict[str, Document] = {}
-        for layout in self._layouts:
-            if layout.get("wallId") != wall_id:
-                continue
-            layout_id = str(layout["id"])
-            if layout_id not in latest or int(latest[layout_id].get("version", 0)) < int(layout.get("version", 0)):
-                latest[layout_id] = layout
-        return [deepcopy(layout) for layout in sorted(latest.values(), key=lambda item: int(item.get("updatedAt", 0)), reverse=True)]
+    def count_problems_for_wall(self, wall_id: str) -> int:
+        return sum(problem.get("wallId") == wall_id for problem in self._problems.values())

@@ -49,6 +49,7 @@ class SQLiteRepository:
         return [json.loads(row[0]) for row in rows]
 
     def insert_wall(self, wall: Document) -> None: self._put("walls", wall)
+    def replace_wall(self, wall: Document) -> None: self._put("walls", wall)
     def insert_user(self, user: Document) -> None: self._put("users", user)
     def find_user(self, user_id: str) -> Document | None: return self._get("users", user_id)
     def insert_admin(self, admin: Document) -> None: self._put("admins", admin)
@@ -63,10 +64,6 @@ class SQLiteRepository:
         self._put("admins", {**admin, "passwordHash": password_hash, "updatedAt": updated_at})
     def find_wall(self, wall_id: str) -> Document | None: return self._get("walls", wall_id)
     def list_walls(self) -> list[Document]: return self._list("walls")
-    def insert_layout(self, layout: Document) -> None: self._put("layouts", layout)
-    def replace_layout(self, layout: Document) -> None: self._put("layouts", layout)
-    def find_layout(self, layout_id: str) -> Document | None: return self._get("layouts", layout_id)
-    def list_layouts(self, wall_id: str) -> list[Document]: return [item for item in self._list("layouts") if item.get("wallId") == wall_id]
     def insert_problem(self, problem: Document) -> None: self._put("problems", problem)
     def find_problem(self, problem_id: str) -> Document | None: return self._get("problems", problem_id)
     def list_problems(self) -> list[Document]: return self._list("problems")
@@ -74,23 +71,9 @@ class SQLiteRepository:
         with self._lock:
             self._connection.execute("DELETE FROM documents WHERE collection_name = 'problems' AND document_id = ?", (problem_id,))
             self._connection.commit()
-    def delete_layout(self, layout_id: str) -> None:
-        with self._lock:
-            self._connection.execute("DELETE FROM documents WHERE collection_name = 'layouts' AND document_id = ?", (layout_id,))
-            self._connection.commit()
-    def delete_problems_for_layout(self, layout_id: str) -> None:
-        problem_ids = [problem["id"] for problem in self.list_problems() if problem.get("layoutId") == layout_id]
-        with self._lock:
-            for problem_id in problem_ids:
-                self._connection.execute("DELETE FROM documents WHERE collection_name = 'problems' AND document_id = ?", (problem_id,))
-            self._connection.commit()
     def delete_wall(self, wall_id: str) -> None:
-        layout_ids = [layout["id"] for layout in self.list_layouts(wall_id)]
-        wall_problem_ids = [problem["id"] for problem in self.list_problems() if problem.get("wallId") == wall_id]
         with self._lock:
-            for problem_id in wall_problem_ids:
-                self._connection.execute("DELETE FROM documents WHERE collection_name = 'problems' AND document_id = ?", (problem_id,))
-            for layout_id in layout_ids:
-                self._connection.execute("DELETE FROM documents WHERE collection_name = 'layouts' AND document_id = ?", (layout_id,))
             self._connection.execute("DELETE FROM documents WHERE collection_name = 'walls' AND document_id = ?", (wall_id,))
             self._connection.commit()
+    def count_problems_for_wall(self, wall_id: str) -> int:
+        return sum(problem.get("wallId") == wall_id for problem in self.list_problems())

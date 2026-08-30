@@ -65,6 +65,25 @@ class CloudBaseRepository:
             self._command(table_name, "INSERT", {"insert": table_name, "documents": [document]})
         ])
 
+    def _query_all(self, table_name: str, filter_: dict[str, Any] | None = None) -> list[Document]:
+        response = self._run_commands([
+            self._command(table_name, "QUERY", {"find": table_name, "filter": filter_ or {}})
+        ])
+        return self._documents(response)
+
+    def _replace(self, table_name: str, document: Document) -> None:
+        self._run_commands([
+            self._command(table_name, "UPDATE", {
+                "update": table_name,
+                "updates": [{"q": {"id": {"$eq": document["id"]}}, "u": document, "multi": False, "upsert": True}],
+            })
+        ])
+
+    def _delete(self, table_name: str, document_id: str) -> None:
+        self._run_commands([
+            self._command(table_name, "DELETE", {"delete": table_name, "deletes": [{"q": {"id": {"$eq": document_id}}, "limit": 1}]})
+        ])
+
     def insert_user(self, user: Document) -> None:
         self._insert("users", user)
 
@@ -91,3 +110,33 @@ class CloudBaseRepository:
                 }],
             })
         ])
+
+    def insert_wall(self, wall: Document) -> None:
+        self._insert("walls", wall)
+
+    def replace_wall(self, wall: Document) -> None:
+        self._replace("walls", wall)
+
+    def find_wall(self, wall_id: str) -> Document | None:
+        return self._query_one("walls", {"id": {"$eq": wall_id}})
+
+    def list_walls(self) -> list[Document]:
+        return self._query_all("walls")
+
+    def delete_wall(self, wall_id: str) -> None:
+        self._delete("walls", wall_id)
+
+    def insert_problem(self, problem: Document) -> None:
+        self._insert("problems", problem)
+
+    def find_problem(self, problem_id: str) -> Document | None:
+        return self._query_one("problems", {"id": {"$eq": problem_id}})
+
+    def list_problems(self) -> list[Document]:
+        return self._query_all("problems")
+
+    def delete_problem(self, problem_id: str) -> None:
+        self._delete("problems", problem_id)
+
+    def count_problems_for_wall(self, wall_id: str) -> int:
+        return len(self._query_all("problems", {"wallId": {"$eq": wall_id}}))
