@@ -77,3 +77,10 @@ def test_upload_workbench_describes_polygon_crop_controls(tmp_path):
 
     assert "点击图片添加角点，拖动圆点微调" in response.text
     assert "至少选择 3 个角点" in response.text
+
+
+def test_upload_workbench_uses_extension_free_image_labels(tmp_path):
+    response = TestClient(create_app(Settings(data_dir=tmp_path))).get("/")
+
+    assert "function displayName(name)" in response.text
+    assert "displayName(e.image.name)" in response.text
