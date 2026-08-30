@@ -1,13 +1,11 @@
 import { expect, it } from 'vitest'
 import { isRoutableWall } from '../src/domain/routable-wall.js'
+import type { Wall } from '../src/domain/types.js'
 
-const wall = { id: 'w', activeLayoutId: 'l' } as any
-const usable = { id: 'l', published: true, holds: [{ id: 'H001' }, { id: 'H002' }] } as any
+const wall = { visibility:'public', holds:[{id:'H001'},{id:'H002'}] } as Wall
 
-it('requires a published layout to have two holds', () => {
-  expect(isRoutableWall(wall, usable)).toBe(true)
-  expect(isRoutableWall({ ...wall, activeLayoutId: '' }, usable)).toBe(true)
-  expect(isRoutableWall(wall, { ...usable, published: false })).toBe(false)
-  expect(isRoutableWall(wall, { ...usable, holds: [{ id: 'H001' }] })).toBe(false)
-  expect(isRoutableWall(wall, { ...usable, id: 'another' })).toBe(true)
+it('requires a public wall with at least two holds', () => {
+  expect(isRoutableWall(wall)).toBe(true)
+  expect(isRoutableWall({ ...wall, visibility:'private' })).toBe(false)
+  expect(isRoutableWall({ ...wall, holds:[{id:'H001'}] } as Wall)).toBe(false)
 })
