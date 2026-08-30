@@ -310,7 +310,7 @@
           c.items
             .map(
               (x) =>
-                `<tr><td>${x.sourceTaskId.slice(0, 8)}</td><td>${time(x.updatedAt)}</td><td>${x.candidateCount}</td><td><a href="/calibrations">继续校准</a></td><td><a href="/api/experiments/${x.experimentId}/calibrations/${x.id}/export.svg">SVG</a></td><td><button class="danger" onclick="del('/api/experiments/${x.experimentId}/calibrations/${x.id}')">删除</button></td></tr>`,
+                `<tr><td>${x.sourceTaskId.slice(0, 8)}</td><td>${time(x.updatedAt)}</td><td>${x.candidateCount}</td><td><a href="/calibrations?experiment=${x.experimentId}&calibration=${x.id}">继续校准</a></td><td><a href="/api/experiments/${x.experimentId}/calibrations/${x.id}/export.svg">SVG</a></td><td><button class="danger" onclick="del('/api/experiments/${x.experimentId}/calibrations/${x.id}')">删除</button></td></tr>`,
             )
             .join("") || '<tr><td colspan="6">尚无校准结果</td></tr>';
       }

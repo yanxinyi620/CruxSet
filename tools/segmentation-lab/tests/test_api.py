@@ -162,6 +162,19 @@ def test_calibration_results_split_continue_and_export_actions(tmp_path):
     assert "<th>操作</th>" not in response.text
 
 
+def test_continue_calibration_link_includes_the_saved_result_identity(tmp_path):
+    response = TestClient(create_app(Settings(data_dir=tmp_path))).get("/")
+
+    assert '/calibrations?experiment=${x.experimentId}&calibration=${x.id}' in response.text
+
+
+def test_calibration_workbench_loads_a_calibration_from_url_parameters(tmp_path):
+    response = TestClient(create_app(Settings(data_dir=tmp_path))).get("/calibrations")
+
+    assert "params.get('experiment')" in response.text
+    assert "resumeCalibration" in response.text
+
+
 def test_segmentation_results_use_compact_chinese_status_labels(tmp_path):
     response = TestClient(create_app(Settings(data_dir=tmp_path))).get("/")
 
