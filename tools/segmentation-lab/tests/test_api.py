@@ -200,6 +200,13 @@ def test_calibration_workbench_marks_add_hold_tool_with_the_active_style(tmp_pat
     assert "q('#add').classList.toggle('active',modeName==='add')" in response.text
 
 
+def test_calibration_workbench_allows_adding_boundary_points_over_existing_polygons(tmp_path):
+    response = TestClient(create_app(Settings(data_dir=tmp_path))).get("/calibrations")
+
+    assert "if(mode!=='add')return;" in response.text
+    assert "event.target!==overlay" not in response.text
+
+
 def test_calibration_workbench_renders_large_polygons_below_smaller_holds(tmp_path):
     response = TestClient(create_app(Settings(data_dir=tmp_path))).get("/calibrations")
 
