@@ -35,6 +35,10 @@ def mask_iou(left: np.ndarray, right: np.ndarray) -> float:
     return float(np.logical_and(left_bool, right_bool).sum() / union)
 
 
+def is_oversized_mask(mask: np.ndarray, max_area_ratio: float = 0.5) -> bool:
+    return bool(np.count_nonzero(mask) > mask.size * max_area_ratio)
+
+
 def bbox_from_mask(mask: np.ndarray) -> dict[str, int]:
     rows, columns = np.where(mask > 0)
     if not len(rows):

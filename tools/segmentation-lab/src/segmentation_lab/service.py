@@ -6,7 +6,7 @@ import cv2
 
 from .adapters.base import GenerateRequest, SegmentationAdapter
 from .experiments import ExperimentRecord, ExperimentStore
-from .masks import bbox_from_mask, polygon_from_mask
+from .masks import bbox_from_mask, is_oversized_mask, polygon_from_mask
 
 
 @dataclass(frozen=True)
@@ -26,8 +26,11 @@ class BenchmarkService:
         for source, adapter in self.adapters.items():
             try:
                 masks = adapter.generate(GenerateRequest(str(image_path), width, height, {}), lambda *_: None)
+                candidate_count = 0
                 for index, item in enumerate(masks, start=1):
                     binary = (item.mask > 0).astype("uint8")
+                    if is_oversized_mask(binary):
+                        continue
                     bbox = bbox_from_mask(binary)
                     candidate_id = f"{source}-{index:04d}"
                     mask_path = self.store.root / experiment.id / "masks" / f"{candidate_id}.png"
@@ -42,8 +45,9 @@ class BenchmarkService:
                         "polygon": polygon_from_mask(binary, 1.0),
                         "metadata": item.metadata,
                     })
-                runs[source] = {"status": "succeeded", "candidateCount": len(masks)}
-                self.store.finish_run(experiment.id, source, "succeeded", len(masks))
+                    candidate_count += 1
+                runs[source] = {"status": "succeeded", "candidateCount": candidate_count}
+                self.store.finish_run(experiment.id, source, "succeeded", candidate_count)
             except MemoryError:
                 error = {"code": "model_out_of_memory"}
                 runs[source] = {"status": "failed", "error": error}
@@ -57,11 +61,15 @@ class BenchmarkService:
         except Exception as error:
             self.store.finish_run(experiment_id, task_id, "failed", error={"code": "generation_failed", "message": str(error)}, parameters=parameters)
             return
+        candidate_count = 0
         for index, item in enumerate(masks, 1):
             binary = (item.mask > 0).astype("uint8")
+            if is_oversized_mask(binary):
+                continue
             candidate_id = f"{task_id}-{index:04d}"
             path = self.store.root / experiment_id / "masks" / f"{candidate_id}.png"
             path.parent.mkdir(exist_ok=True)
             cv2.imwrite(str(path), binary * 255)
             self.store.save_candidate(experiment_id, task_id, {"id": candidate_id, "maskPath": str(path.relative_to(self.store.root / experiment_id)), "bbox": bbox_from_mask(binary), "area": int(binary.sum()), "score": item.score, "polygon": polygon_from_mask(binary, 1.0), "metadata": item.metadata})
-        self.store.finish_run(experiment_id, task_id, "succeeded", len(masks), parameters=parameters)
+            candidate_count += 1
+        self.store.finish_run(experiment_id, task_id, "succeeded", candidate_count, parameters=parameters)

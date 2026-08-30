@@ -36,3 +36,16 @@ def test_one_model_failure_preserves_other_results(tmp_path):
     assert result.runs["sam3"]["status"] == "failed"
     assert result.runs["sam3"]["error"]["code"] == "model_out_of_memory"
     assert len(store.list_candidates(result.id, source="sam2")) == 1
+
+
+def test_wall_scale_mask_is_not_saved_as_a_hold_candidate(tmp_path):
+    wall = np.ones((20, 20), np.uint8)
+    hold = np.zeros((20, 20), np.uint8)
+    hold[4:12, 4:12] = 1
+    adapter = FakeAdapter("sam2", [AdapterMask(mask=wall, score=.9, metadata={}), AdapterMask(mask=hold, score=.8, metadata={})])
+    store = ExperimentStore(tmp_path)
+
+    result = BenchmarkService(store, {"sam2": adapter}).run_benchmark(Path("wall.jpg"), "abc", 20, 20)
+
+    assert result.runs["sam2"]["candidateCount"] == 1
+    assert len(store.list_candidates(result.id, source="sam2")) == 1

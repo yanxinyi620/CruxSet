@@ -1,6 +1,6 @@
 import numpy as np
 
-from segmentation_lab.masks import clean_mask, mask_iou, polygon_from_mask, rasterize_polygon
+from segmentation_lab.masks import clean_mask, is_oversized_mask, mask_iou, polygon_from_mask, rasterize_polygon
 
 
 def test_clean_mask_removes_island_and_fills_hole():
@@ -23,3 +23,12 @@ def test_polygon_round_trips_rectangle_with_high_iou():
 
     assert len(polygon) == 4
     assert mask_iou(mask, rasterize_polygon(polygon, mask.shape)) >= 0.95
+
+
+def test_oversized_mask_detects_wall_scale_candidate():
+    wall = np.ones((20, 20), np.uint8)
+    hold = np.zeros((20, 20), np.uint8)
+    hold[4:12, 4:12] = 1
+
+    assert is_oversized_mask(wall)
+    assert not is_oversized_mask(hold)
