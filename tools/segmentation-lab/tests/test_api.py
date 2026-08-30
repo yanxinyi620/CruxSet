@@ -125,3 +125,10 @@ def test_upload_workbench_uses_equal_width_parameter_fields(tmp_path):
 
     assert 'id="runFields"' in response.text
     assert "grid-template-columns:repeat(2,minmax(0,1fr))" in response.text
+
+
+def test_upload_workbench_uses_leading_zero_for_threshold_defaults(tmp_path):
+    response = TestClient(create_app(Settings(data_dir=tmp_path))).get("/")
+
+    assert 'id="runIou" value="0.85"' in response.text
+    assert 'id="runStable" value="0.90"' in response.text
