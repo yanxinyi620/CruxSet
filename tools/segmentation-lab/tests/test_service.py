@@ -49,3 +49,16 @@ def test_wall_scale_mask_is_not_saved_as_a_hold_candidate(tmp_path):
 
     assert result.runs["sam2"]["candidateCount"] == 1
     assert len(store.list_candidates(result.id, source="sam2")) == 1
+
+
+def test_highly_overlapping_masks_keep_only_the_higher_scored_candidate(tmp_path):
+    mask = np.zeros((20, 20), np.uint8)
+    mask[4:12, 4:12] = 1
+    adapter = FakeAdapter("sam2", [AdapterMask(mask=mask, score=.8, metadata={}), AdapterMask(mask=mask, score=.9, metadata={})])
+    store = ExperimentStore(tmp_path)
+
+    result = BenchmarkService(store, {"sam2": adapter}).run_benchmark(Path("wall.jpg"), "abc", 20, 20)
+
+    candidates = store.list_candidates(result.id, source="sam2")
+    assert result.runs["sam2"]["candidateCount"] == 1
+    assert candidates[0]["score"] == .9
