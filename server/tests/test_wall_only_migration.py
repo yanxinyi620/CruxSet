@@ -47,13 +47,14 @@ def test_flatten_legacy_documents_uses_deterministic_noncolliding_wall_ids():
 
 def test_flatten_legacy_documents_preserves_publication_state_for_route_lifecycle():
     walls, layouts, problems = _legacy_documents()
-    walls[0]["visibility"] = "public"
     layouts[1]["published"] = True
     layouts[2]["published"] = False
     flat_walls, _ = flatten_legacy_documents(walls, layouts, problems)
     migrated = {wall["id"]: wall for wall in flat_walls}
     assert migrated["wall_from_layout_a"]["published"] is True
+    assert migrated["wall_from_layout_a"]["visibility"] == "public"
     assert migrated["wall_from_layout_b"]["published"] is False
+    assert migrated["wall_from_layout_b"]["visibility"] == "private"
 
     repository = MemoryRepository()
     account = create_admin_account(repository, "admin@example.com", "correct horse")
@@ -61,12 +62,20 @@ def test_flatten_legacy_documents_preserves_publication_state_for_route_lifecycl
         repository.insert_wall(wall)
     app.state.repository = repository
     cookie = {session_cookie_name(): create_session(account["userId"])}
-    response = TestClient(app).post(
+    client = TestClient(app)
+    response = client.post(
         "/api/v1/problems",
         json={"wallId": "wall_from_layout_a", "angle": 20, "grade": "V1", "holds": {"start": ["A1"], "finish": ["A2"]}},
         cookies=cookie,
     )
     assert response.status_code == 201
+    draft_response = client.post(
+        "/api/v1/problems",
+        json={"wallId": "wall_from_layout_b", "angle": 20, "grade": "V1", "holds": {"start": ["B1"], "finish": ["B2"]}},
+        cookies=cookie,
+    )
+    assert draft_response.status_code == 409
+    assert draft_response.json()["error"]["code"] == "WALL_NOT_ROUTABLE"
 
 
 @pytest.mark.parametrize(("mutate", "entity_id"), [
