@@ -138,3 +138,10 @@ def test_opening_a_model_resets_parameters_to_the_baseline(tmp_path):
     response = TestClient(create_app(Settings(data_dir=tmp_path))).get("/")
 
     assert 'selectedModel=model; preset("base");' in response.text
+
+
+def test_segmentation_results_table_hides_task_id_column(tmp_path):
+    response = TestClient(create_app(Settings(data_dir=tmp_path))).get("/")
+
+    assert "任务 ID" not in response.text
+    assert 'id="runs"' in response.text
