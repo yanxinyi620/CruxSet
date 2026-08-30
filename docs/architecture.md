@@ -8,7 +8,7 @@
 微信小程序：miniprogram/ → Node 云函数 → CloudBase
 ```
 
-Web 与小程序共享 Wall、Layout、Hold、Problem 的字段语义，但不共享草稿、会话或运行期后端。小程序不依赖 FastAPI 在线；Web 未发布草稿也不会写入 CloudBase。
+Web 与小程序共享 Wall、Hold、Problem 的字段语义，但不共享草稿、会话或运行期后端。小程序不依赖 FastAPI 在线；Web 未发布草稿也不会写入 CloudBase。
 
 ```text
 微信原生小程序
@@ -23,7 +23,7 @@ CloudBase Database / Storage / Cloud Functions（真实验收适配器）
 
 `src/domain` 不依赖微信 API，负责坐标、命中、手势、线路校验、筛选、随机和编辑状态，因此可以在 Vitest 中测试。页面与组件不得直接依赖 CloudBase，`miniprogram/services` 是当前 Repository/API 适配边界；未来可替换为 FastAPI。开发默认使用本地 Mock；准备真实验收时才切换至 CloudBase。
 
-Cloud Functions 必须从当前登录身份重新查询 User、Admin、Wall 和 Layout。客户端传入的 `userId`、权限、编号和 Hold 数据都不能直接信任。线路编号通过 `counters/problem_number` 事务生成，业务外键只使用 `users.id`。
+Cloud Functions 必须从当前登录身份重新查询 User、Admin 和 Wall。客户端传入的 `userId`、权限、编号和 Hold 数据都不能直接信任。线路编号通过 `counters/problem_number` 事务生成，业务外键只使用 `users.id`。
 
 ## 运行边界
 

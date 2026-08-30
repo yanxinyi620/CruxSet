@@ -3,16 +3,15 @@
 - 新建线路默认 `footRule = feet_follow`。
 - `feet_follow`：Start、Hand、Assist、Finish 可手抓和脚踩；黄色 Foot 只能脚踩。
 - `specified`：脚只能踩线路指定的黄色 Foot，至少需要一个 Foot。
-- `all`：当前 Layout 所有允许踩的岩点均可作为脚点，通常不填写 `foot[]`。
+- `all`：当前 Wall 所有允许踩的岩点均可作为脚点，通常不填写 `foot[]`。
 - 线路至少需要一个 Start 和一个 Finish；每个 Hold 同时只能拥有一个显式线路角色。
 - 难度使用 V0–V12；描述最多 500 字。
-- 线路浏览的搜索、顺序和随机都只作用于当前 Wall + Layout + Angle + Grade 过滤结果。
+- 线路浏览的搜索、顺序和随机都只作用于当前 Wall + Angle + Grade 过滤结果。
 - 同一随机会话一轮内不重复，耗尽后重新洗牌。
 
-## Wall 与 Layout 生命周期
+## Wall 生命周期
 
-- 一个 Wall 可有多个同时公开的 Layout，不存在“活动 Layout”。
-- 新建 Wall 默认私有；草稿 Layout 仅创建者可见，并且只在“创建 → 我的草稿”提供继续标注入口。
-- Layout 首次发布后公开且永久锁定；需要修改岩点时必须创建新的草稿 Layout。
-- 任一公开且至少包含两个岩点的 Layout 都可用于浏览和创建线路；发布新的 Layout 不影响旧公开 Layout 的线路。
-- “我的”只用于查看所有 Layout 状态和删除管理；不提供继续标注入口。删除 Layout 会级联删除其关联线路。
+- 新建 Wall 默认私有，仅创建者或管理员可标注。
+- Wall 首次发布后公开且永久锁定；需要修改岩点时必须创建新的私有 Wall。
+- 公开且至少包含两个岩点的 Wall 可用于浏览和创建线路。
+- “我的”用于查看 Wall 状态和删除管理；存在关联线路的 Wall 不可删除。

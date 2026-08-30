@@ -1,7 +1,7 @@
 const cloud = require('wx-server-sdk')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 
-const actions = new Set(['createWall', 'updateWallHolds', 'publishWall'])
+const actions = new Set(['createWall', 'updateWall', 'updateWallHolds', 'publishWall'])
 const kinds = new Set(['hold', 'volume'])
 const normalized = value => Number.isFinite(value) && value >= 0 && value <= 1
 const holdsAreValid = holds => Array.isArray(holds) && new Set(holds.map(hold => hold?.id)).size === holds.length && holds.every(hold => hold && /^H\d{3,}$/.test(hold.id) && kinds.has(hold.kind) && normalized(hold.x) && normalized(hold.y) && Number.isFinite(hold.radius) && hold.radius > 0 && hold.radius <= 1)
@@ -32,20 +32,24 @@ exports.main = async event => {
     const id = `wall_${now.toString(36)}_${Math.random().toString(36).slice(2, 8)}`
     const wall = { ...data, id, description: data.description || '', angleOptions: data.angleOptions || [20, 25, 30, 35, 40, 45], ownerId: actor.user.id, visibility: 'private', createdAt: now, updatedAt: now }
     await db.collection('walls').doc(id).set({ data: wall })
-    return { id }
+    return wall
   }
 
-  const wall = (await db.collection('walls').doc(data.wallId).get()).data
+  const wallId = data.wallId || data.id
+  const wall = (await db.collection('walls').doc(wallId).get()).data
   if (!wall) throw new Error('WALL_NOT_FOUND')
   owner(wall, actor)
   if (wall.visibility !== 'private') throw new Error('WALL_LOCKED')
 
-  if (action === 'updateWallHolds') {
-    if (!holdsAreValid(data.holds)) throw new Error('INVALID_WALL_HOLDS')
-    await db.collection('walls').doc(wall.id).update({ data: { holds: data.holds, updatedAt: now } })
-    return { id: wall.id }
+  if (action === 'updateWall' || action === 'updateWallHolds') {
+    const patch = action === 'updateWallHolds' ? { holds: data.holds } : Object.fromEntries(['name', 'description', 'imageFileId', 'displayImageFileId', 'imageWidth', 'imageHeight', 'geometryType', 'holds', 'angleOptions'].filter(key => data[key] !== undefined).map(key => [key, data[key]]))
+    const next = { ...wall, ...patch, id: wall.id, ownerId: wall.ownerId, visibility: 'private', createdAt: wall.createdAt, updatedAt: now }
+    if (!completeWall(next)) throw new Error('INVALID_WALL_DATA')
+    await db.collection('walls').doc(wall.id).update({ data: next })
+    return next
   }
   if (!holdsAreValid(wall.holds) || wall.holds.length < 2) throw new Error('WALL_NOT_ROUTABLE')
-  await db.collection('walls').doc(wall.id).update({ data: { visibility: 'public', updatedAt: now } })
-  return { id: wall.id }
+  const published = { ...wall, visibility: 'public', updatedAt: now }
+  await db.collection('walls').doc(wall.id).update({ data: published })
+  return published
 }
