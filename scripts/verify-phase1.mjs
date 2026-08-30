@@ -38,13 +38,23 @@ if(legacyIdentifiers.some(identifier=>cloudbaseSource.includes(identifier))){con
 if([legacyAdmin,legacyImage].some(name=>existsSync(join(root,'cloudfunctions',name)))){console.error('FAIL: obsolete CloudBase package directories remain');process.exitCode=1}
 const activeScanRoots=['src','miniprogram','web','server','cloudfunctions','config','scripts','docs']
 const activeLegacyPatterns=[new RegExp('interface Lay'+'out'),new RegExp(legacyId),new RegExp(legacyVersion),new RegExp(legacyActive),new RegExp('/'+legacyCollection),new RegExp(`collection\\(['"]${legacyCollection}['"]\\)`)]
+// The offline migration and its fixture tests intentionally read historical
+// documents. They are not loaded by the Wall-only runtime; scan every other
+// active source file for obsolete identifiers.
+const legacyMigrationPaths=new Set(['server/app/migrations.py','server/tests/test_wall_only_migration.py'])
+const migrationModule=join(root,'server/app/migrations.py')
+try{
+  const source=readFileSync(migrationModule,'utf8')
+  if(!source.includes('def flatten_legacy_documents')||!source.includes('def migrate_sqlite_wall_only'))throw new Error('required transform or SQLite runner is missing')
+}catch(error){console.error(`FAIL: legacy migration module is unavailable: ${error.message}`);process.exitCode=1}
 const activeLegacyFiles=[]
 for(const scanRoot of activeScanRoots){
   const directory=join(root,scanRoot)
   if(!existsSync(directory))continue
   const files=scanRoot==='docs'?collectMarkdown(directory):collectFiles(directory).filter(file=>/\.(?:ts|tsx|js|mjs|cjs|py|json|ya?ml|wxml|wxss|css|html)$/i.test(file))
   for(const file of files){
-    try{if(activeLegacyPatterns.some(pattern=>pattern.test(readFileSync(file,'utf8'))))activeLegacyFiles.push(file.slice(root.length+1))}catch{}
+    const relative=file.slice(root.length+1)
+    try{if(!legacyMigrationPaths.has(relative)&&activeLegacyPatterns.some(pattern=>pattern.test(readFileSync(file,'utf8'))))activeLegacyFiles.push(relative)}catch{}
   }
 }
 if(activeLegacyFiles.length){console.error(`FAIL: active product or current documentation still contains legacy Layout fields: ${activeLegacyFiles.join(', ')}`);process.exitCode=1}
