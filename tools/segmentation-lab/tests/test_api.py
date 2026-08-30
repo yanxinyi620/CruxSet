@@ -70,3 +70,10 @@ def test_root_serves_upload_workbench(tmp_path):
 
     assert response.status_code == 200
     assert "导入图片" in response.text
+
+
+def test_upload_workbench_describes_polygon_crop_controls(tmp_path):
+    response = TestClient(create_app(Settings(data_dir=tmp_path))).get("/")
+
+    assert "点击图片添加角点，拖动圆点微调" in response.text
+    assert "至少选择 3 个角点" in response.text
