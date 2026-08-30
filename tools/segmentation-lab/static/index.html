@@ -105,6 +105,7 @@
       background: #b84a43;
       border-color: #b84a43;
     }
+    #preview { display:none; max-width:100%; max-height:360px; margin-top:14px; border:1px solid var(--l); }
     .confirm {
       display: none;
       position: fixed;
@@ -160,9 +161,11 @@
             id="upload"
             class="primary"
           >
-            导入墙图
+            确认导入
           </button>
         </div>
+        <p id="previewHint">选择 JPG 或 PNG 后，在这里确认预览。</p>
+        <img id="preview" alt="墙图预览" />
         <table class="table">
           <thead>
             <tr>
@@ -305,6 +308,13 @@
         form.append("image", f);
         await fetch("/api/experiments", { method: "POST", body: form });
         load();
+      };
+      $("#file").onchange = () => {
+        const file = $("#file").files[0];
+        if (!file) return;
+        $("#preview").src = URL.createObjectURL(file);
+        $("#preview").style.display = "block";
+        $("#previewHint").style.display = "none";
       };
       load();
       models();
