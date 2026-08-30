@@ -8,4 +8,4 @@ const holds: Hold[] = Array.from({ length: 24 }, (_, i) => ({
   kind: i === 17 ? 'volume' : 'hold',
 }))
 
-export const demoWall: Wall = { id: 'wall_demo', name: '日坛 Spraywall', description: 'CruxSet 示例训练墙', imageFileId: '', imageWidth: 1200, imageHeight: 1600, geometryType: 'circle', holds, angleOptions: [20, 25, 30, 35, 40, 45], ownerId: 'usr_demo', visibility: 'public', createdAt: 0, updatedAt: 0 }
+export const demoWall: Wall = { id: 'wall_demo', name: '日坛 Spraywall', description: 'CruxSet 示例训练墙', imageFileId: '/assets/mock/ritan-spraywall-0822.jpg', imageWidth: 1200, imageHeight: 1600, geometryType: 'circle', holds, angleOptions: [20, 25, 30, 35, 40, 45], ownerId: 'usr_demo', visibility: 'public', createdAt: 0, updatedAt: 0 }

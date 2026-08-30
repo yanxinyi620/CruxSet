@@ -17,7 +17,7 @@ it('refuses to delete a wall in use and does not cascade', async () => {
   expect(await repo.listProblems({ wallId: wall.id })).toHaveLength(1)
 })
 
-it('deletes an owned wall together with layouts and routes', async () => {
+it('deletes an unused owned wall and no problems', async () => {
   const repo = createMockRepository()
   const wall = await repo.createWall({ name: 'unused' })
   await repo.deleteWall(wall.id)
