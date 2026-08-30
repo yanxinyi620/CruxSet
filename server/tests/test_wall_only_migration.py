@@ -81,7 +81,43 @@ def test_sqlite_migration_failure_preserves_database_and_recoverable_backup(tmp_
     _write_legacy_database(database, walls, layouts, problems)
     with pytest.raises(ValueError, match="problem_a"):
         migrate_sqlite_wall_only(database, backup)
-    assert backup.read_bytes() == database.read_bytes()
+    source_connection = sqlite3.connect(database)
+    backup_connection = sqlite3.connect(backup)
+    rows = "SELECT collection_name, document_id, body FROM documents ORDER BY collection_name, document_id"
+    assert backup_connection.execute(rows).fetchall() == source_connection.execute(rows).fetchall()
+    source_connection.close()
+    backup_connection.close()
     connection = sqlite3.connect(database)
     assert connection.execute("SELECT count(*) FROM documents WHERE collection_name = 'layouts'").fetchone()[0] == 3
     connection.close()
+
+
+def test_sqlite_migration_backup_includes_committed_wal_data(tmp_path):
+    database = tmp_path / "cruxset.db"
+    backup = tmp_path / "cruxset.before-wall-only.db"
+    _write_legacy_database(database, *_legacy_documents())
+    writer = sqlite3.connect(database)
+    writer.execute("PRAGMA journal_mode = WAL")
+    writer.execute("PRAGMA wal_autocheckpoint = 0")
+    wal_problem = {
+        "id": "problem_wal", "wallId": "wall_parent", "layoutId": "layout_a", "layoutVersion": 2,
+        "holds": {"start": ["A1"], "finish": ["A2"]},
+    }
+    writer.execute(
+        "INSERT INTO documents VALUES (?, ?, ?)",
+        ("problems", wal_problem["id"], json.dumps(wal_problem)),
+    )
+    writer.commit()
+    assert (tmp_path / "cruxset.db-wal").stat().st_size > 0
+
+    migrate_sqlite_wall_only(database, backup)
+
+    backup_connection = sqlite3.connect(backup)
+    backup_ids = {
+        row[0] for row in backup_connection.execute(
+            "SELECT document_id FROM documents WHERE collection_name = 'problems'"
+        )
+    }
+    backup_connection.close()
+    writer.close()
+    assert "problem_wal" in backup_ids

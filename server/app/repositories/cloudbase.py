@@ -15,6 +15,8 @@ class CloudBaseRepository:
     collection name or a CloudBase command directly.
     """
 
+    _QUERY_PAGE_SIZE = 100
+
     def __init__(self) -> None:
         secret_id = os.environ["TENCENT_SECRET_ID"]
         secret_key = os.environ["TENCENT_SECRET_KEY"]
@@ -66,10 +68,20 @@ class CloudBaseRepository:
         ])
 
     def _query_all(self, table_name: str, filter_: dict[str, Any] | None = None) -> list[Document]:
-        response = self._run_commands([
-            self._command(table_name, "QUERY", {"find": table_name, "filter": filter_ or {}})
-        ])
-        return self._documents(response)
+        documents: list[Document] = []
+        while True:
+            response = self._run_commands([
+                self._command(table_name, "QUERY", {
+                    "find": table_name,
+                    "filter": filter_ or {},
+                    "skip": len(documents),
+                    "limit": self._QUERY_PAGE_SIZE,
+                })
+            ])
+            page = self._documents(response)
+            documents.extend(page)
+            if len(page) < self._QUERY_PAGE_SIZE:
+                return documents
 
     def _replace(self, table_name: str, document: Document) -> None:
         self._run_commands([

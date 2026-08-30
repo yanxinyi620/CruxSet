@@ -1,5 +1,4 @@
 import json
-import shutil
 import sqlite3
 from copy import deepcopy
 from pathlib import Path
@@ -84,10 +83,19 @@ def migrate_sqlite_wall_only(database: str | Path, backup: str | Path) -> None:
     backup_path = Path(backup)
     if backup_path.exists():
         raise FileExistsError(f"Migration backup already exists: {backup_path}")
-    shutil.copy2(database_path, backup_path)
-
-    connection = sqlite3.connect(database_path)
+    connection = sqlite3.connect(database_path, isolation_level=None)
     try:
+        # Reserve the writer slot before snapshotting so the backup and the
+        # documents transformed below describe the same committed database.
+        connection.execute("BEGIN IMMEDIATE")
+        backup_connection = sqlite3.connect(backup_path)
+        snapshot_connection = sqlite3.connect(database_path)
+        try:
+            snapshot_connection.backup(backup_connection)
+        finally:
+            snapshot_connection.close()
+            backup_connection.close()
+
         def load(collection: str) -> list[dict]:
             rows = connection.execute(
                 "SELECT body FROM documents WHERE collection_name = ? ORDER BY rowid", (collection,)
@@ -95,13 +103,16 @@ def migrate_sqlite_wall_only(database: str | Path, backup: str | Path) -> None:
             return [json.loads(row[0]) for row in rows]
 
         flat_walls, flat_problems = flatten_legacy_documents(load("walls"), load("layouts"), load("problems"))
-        with connection:
-            connection.execute("DELETE FROM documents WHERE collection_name IN ('walls', 'problems')")
-            for collection, documents in (("walls", flat_walls), ("problems", flat_problems)):
-                connection.executemany(
-                    "INSERT INTO documents (collection_name, document_id, body) VALUES (?, ?, ?)",
-                    [(collection, str(document["id"]), json.dumps(document, ensure_ascii=False, separators=(",", ":"))) for document in documents],
-                )
-            connection.execute("DELETE FROM documents WHERE collection_name = 'layouts'")
+        connection.execute("DELETE FROM documents WHERE collection_name IN ('walls', 'problems')")
+        for collection, documents in (("walls", flat_walls), ("problems", flat_problems)):
+            connection.executemany(
+                "INSERT INTO documents (collection_name, document_id, body) VALUES (?, ?, ?)",
+                [(collection, str(document["id"]), json.dumps(document, ensure_ascii=False, separators=(",", ":"))) for document in documents],
+            )
+        connection.execute("DELETE FROM documents WHERE collection_name = 'layouts'")
+        connection.commit()
+    except BaseException:
+        connection.rollback()
+        raise
     finally:
         connection.close()
