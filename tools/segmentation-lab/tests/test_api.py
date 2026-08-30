@@ -207,11 +207,11 @@ def test_calibration_workbench_allows_adding_boundary_points_over_existing_polyg
     assert "event.target!==overlay" not in response.text
 
 
-def test_calibration_workbench_renders_large_polygons_below_smaller_holds(tmp_path):
+def test_calibration_workbench_renders_large_polygons_before_smaller_holds(tmp_path):
     response = TestClient(create_app(Settings(data_dir=tmp_path))).get("/calibrations")
 
     assert "function polygonArea(item)" in response.text
-    assert "items.slice().sort((left,right)=>polygonArea(left)-polygonArea(right))" in response.text
+    assert "items.slice().sort((left,right)=>polygonArea(right)-polygonArea(left))" in response.text
 
 
 def test_segmentation_results_use_compact_chinese_status_labels(tmp_path):
