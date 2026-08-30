@@ -106,6 +106,7 @@
       border-color: #b84a43;
     }
     #preview { display:none; max-width:100%; max-height:360px; margin-top:14px; border:1px solid var(--l); }
+    #crop { display:none; max-width:100%; margin-top:14px; border:1px solid var(--l); cursor:crosshair; }
     .confirm {
       display: none;
       position: fixed;
@@ -161,11 +162,13 @@
             id="upload"
             class="primary"
           >
-            确认导入
+            校正并导入
           </button>
+          <button id="resetCrop" style="display:none">重选四角</button>
         </div>
         <p id="previewHint">选择 JPG 或 PNG 后，在这里确认预览。</p>
         <img id="preview" alt="墙图预览" />
+        <canvas id="crop"></canvas>
         <table class="table">
           <thead>
             <tr>
@@ -301,21 +304,25 @@
       function openRun(model) { selectedModel=model; $("#runTitle").textContent=`配置 ${model}`; fetch("/api/experiments").then(r=>r.json()).then(d=>{$("#runImage").innerHTML=d.items.map(e=>`<option value="${e.id}">${e.image.name}</option>`).join("")}); $("#runModal").classList.add("open"); }
       function closeRun() { $("#runModal").classList.remove("open"); }
       $("#runConfirm").onclick=async()=>{ let id=$("#runImage").value; if(!id)return; await fetch(`/api/experiments/${id}/runs`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:selectedModel,parameters:{points_per_side:+$("#runPoints").value,points_per_batch:+$("#runBatch").value,pred_iou_thresh:+$("#runIou").value,stability_score_thresh:+$("#runStable").value,crop_n_layers:+$("#runCrop").value}})}); closeRun(); load(); };
+      let cropImage, cropPoints=[];
+      const cropCanvas=$("#crop"), cropCtx=cropCanvas.getContext("2d");
+      function drawCrop(){ cropCtx.drawImage(cropImage,0,0,cropCanvas.width,cropCanvas.height); cropCtx.strokeStyle="#a7e75d";cropCtx.fillStyle="#17211d";cropCtx.lineWidth=3;cropPoints.forEach((p,i)=>{let x=p[0]*cropCanvas.width/cropImage.naturalWidth,y=p[1]*cropCanvas.height/cropImage.naturalHeight;cropCtx.beginPath();cropCtx.arc(x,y,6,0,Math.PI*2);cropCtx.fill();if(i){let q=cropPoints[i-1];cropCtx.beginPath();cropCtx.moveTo(q[0]*cropCanvas.width/cropImage.naturalWidth,q[1]*cropCanvas.height/cropImage.naturalHeight);cropCtx.lineTo(x,y);cropCtx.stroke()}});if(cropPoints.length===4){let a=cropPoints[0],b=cropPoints[3];cropCtx.beginPath();cropCtx.moveTo(a[0]*cropCanvas.width/cropImage.naturalWidth,a[1]*cropCanvas.height/cropImage.naturalHeight);cropCtx.lineTo(b[0]*cropCanvas.width/cropImage.naturalWidth,b[1]*cropCanvas.height/cropImage.naturalHeight);cropCtx.stroke()}}
       $("#upload").onclick = async () => {
         let f = $("#file").files[0];
-        if (!f) return;
+        if (!f || cropPoints.length!==4) return;
+        let xs=cropPoints.map(p=>p[0]),ys=cropPoints.map(p=>p[1]),out=document.createElement("canvas");out.width=Math.max(...xs)-Math.min(...xs);out.height=Math.max(...ys)-Math.min(...ys);out.getContext("2d").drawImage(cropImage,-Math.min(...xs),-Math.min(...ys));let blob=await new Promise(r=>out.toBlob(r,"image/png"));
         let form = new FormData();
-        form.append("image", f);
+        form.append("image", blob, f.name.replace(/\.[^.]+$/,"")+"-wall.png");
         await fetch("/api/experiments", { method: "POST", body: form });
         load();
       };
       $("#file").onchange = () => {
         const file = $("#file").files[0];
         if (!file) return;
-        $("#preview").src = URL.createObjectURL(file);
-        $("#preview").style.display = "block";
+        cropImage=new Image();cropImage.onload=()=>{let s=Math.min(900/cropImage.naturalWidth,600/cropImage.naturalHeight,1);cropCanvas.width=cropImage.naturalWidth*s;cropCanvas.height=cropImage.naturalHeight*s;cropCanvas.style.display="block";cropPoints=[];drawCrop();$("#resetCrop").style.display="inline-block"};cropImage.src=URL.createObjectURL(file);
         $("#previewHint").style.display = "none";
       };
+      cropCanvas.onclick=e=>{if(cropPoints.length>=4)return;let r=cropCanvas.getBoundingClientRect();cropPoints.push([(e.clientX-r.left)*cropImage.naturalWidth/r.width,(e.clientY-r.top)*cropImage.naturalHeight/r.height]);drawCrop()};$("#resetCrop").onclick=()=>{cropPoints=[];drawCrop()};
       load();
       models();
     </script>
