@@ -9,20 +9,20 @@ CruxSet 现有两条独立产品路径：
 
 Web 是管理员的本地创作工作台；小程序独立运行。Web 草稿不与 CloudBase 自动同步，只有已发布内容可通过验证后的发布包导入 CloudBase。
 
-CruxSet 是用于数字化真实攀岩墙的微信原生小程序，目标是在真实岩馆完成：选墙、选 Layout、按角度和难度找线路、查看或随机线路、创建线路并微信分享。
+CruxSet 是用于数字化真实攀岩墙的微信原生小程序，目标是在真实岩馆完成：选墙、按角度和难度找线路、查看或随机线路、创建线路并微信分享。
 
 ## 当前进度
 
 项目处于 Phase 1 开发阶段。目前已完成：
 
 - 微信原生小程序及页面骨架
-- Wall、Layout、Hold、Problem、User 领域类型
+- Wall、Hold、Problem、User 领域类型
 - 三种脚点规则，默认 `feet_follow`
 - Problem 基础校验、筛选、搜索和随机队列
 - Circle/Polygon 基础命中与坐标变换
 - TypeScript 和 Vitest 自动检查
 - 三栏自定义底部导航（线路 / 创建 / 我的）
-- 公开 Layout 选择、创建 → 我的草稿二级页，以及“我的墙面 / 我的线路”管理入口
+- 公开 Wall 浏览、私有草稿编辑，以及“我的墙面 / 我的线路”管理入口
 
 Canvas 手势和线路编辑基础已完成；CloudBase 真机验收、线上数据与上传图像权限仍待完成。准确进度见 [实施计划](docs/IMPLEMENTATION_PLAN.md)。
 
@@ -49,7 +49,7 @@ npm run verify:phase1
 
 使用微信开发者工具导入仓库根目录；工具会读取 `project.config.json`，小程序源码位于 `miniprogram/`。
 
-当前开发默认使用本地 Mock 数据，不需要部署 CloudBase。固定数据为一面日坛 Spraywall、两个 Layout（一个公开、一个草稿）和四条示例线路；创建、标注、发布等操作只保留到本次运行结束，重新编译即恢复初始数据。
+当前开发默认使用本地 Mock 数据，不需要部署 CloudBase。固定数据为一面日坛 Spraywall 和四条示例线路；创建、标注、发布等操作只保留到本次运行结束，重新编译即恢复初始数据。
 
 本地 Web：
 
@@ -80,9 +80,8 @@ export const runtimeMode: RuntimeMode = 'mock'
 
 - Problem 只引用 Hold ID，不保存屏幕坐标。
 - 业务数据引用 CruxSet `users.id`，OpenID 只用于微信身份映射。
-- Wall 与 Layout 分离；重新装点必须创建新 Layout。
-- 一个 Wall 可有多个同时公开的 Layout；任一公开且至少包含两个岩点的 Layout 都可被选择定线，不存在活动 Layout。
-- 草稿 Layout 仅在“创建 → 我的草稿”出现，发布后公开且锁定。
+- Wall 是墙图、几何和岩点的唯一对象；私有 Wall 可编辑，公开后锁定。
+- 公开且至少包含两个岩点的 Wall 可被选择定线。
 - 所有岩点坐标使用 0–1 normalized coordinate。
 - `Problem.id` 与用户可见的 `Problem.number` 不同。
 - 线路编号由服务端原子生成。

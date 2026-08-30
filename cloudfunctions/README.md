@@ -5,8 +5,9 @@
 - `login`：OPENID → `users.id`
 - `saveProblem`：服务端校验并生成线路编号
 - `deleteProblem`：创建者或管理员删除线路
-- `adminLayout`：管理员管理 Wall/Layout
+- `adminWall`：拥有者或管理员创建、标注和发布 Wall
+- `getWallImageUrl`：按 Wall 的公开状态和拥有权换取墙图临时地址
 
-云函数必须从数据库重新读取 Wall、Layout、User 和 Admin，不能信任客户端传入的权限或 Hold 数据。
+云函数必须从数据库重新读取 Wall、User 和 Admin，不能信任客户端传入的权限或 Hold 数据。
 
 错误码使用大写稳定字符串（如 `LOGIN_REQUIRED`、`FORBIDDEN`、`INVALID_HOLD_ID`），小程序端负责将错误码映射为用户可读提示。

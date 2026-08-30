@@ -2,10 +2,9 @@
   "collections": [
     {"name":"users","indexes":[{"fields":["openid"],"unique":true}]},
     {"name":"walls","indexes":[{"fields":["name"],"order":"asc"}]},
-    {"name":"layouts","indexes":[{"fields":["wallId","version"]},{"fields":["id","version"]}]},
-    {"name":"problems","indexes":[{"fields":["wallId","layoutId","angle","grade"]},{"fields":["number"],"order":"asc"},{"fields":["createdBy"]}]},
+    {"name":"problems","indexes":[{"fields":["wallId","angle","grade"]},{"fields":["number"],"order":"asc"},{"fields":["createdBy"]}]},
     {"name":"admins","indexes":[{"fields":["userId"],"unique":true}]},
     {"name":"counters","indexes":[]}
   ],
-  "writePolicy": {"clientWritable":[],"cloudFunctionWritable":["users","walls","layouts","problems","admins","counters"]}
+  "writePolicy": {"clientWritable":[],"cloudFunctionWritable":["users","walls","problems","admins","counters"]}
 }
