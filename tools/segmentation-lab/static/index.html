@@ -134,6 +134,8 @@
     .run-card { width:min(520px,calc(100vw - 40px)); padding:22px; background:var(--c); border:1px solid var(--i); box-shadow:7px 7px #17211d; }
     .run-card label { display:block; margin:10px 0; font:13px system-ui; }
     .run-card select,.run-card input { width:100%; margin-top:4px; }
+    #runFields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 10px; }
+    #runFields label { min-width:0; }
     }
     @media (max-width: 700px) {
       .table {
@@ -243,7 +245,7 @@
         <div class="confirm-actions"><button onclick="closeConfirm()">取消</button><button id="confirmDelete" class="confirm-delete">确认删除</button></div>
       </div>
     </div>
-    <div id="runModal" class="run-modal" role="dialog" aria-modal="true"><div class="run-card"><h2 id="runTitle">配置分割任务</h2><label>墙图<select id="runImage"></select></label><div class="row"><button onclick="preset('base')">基线</button><button onclick="preset('recall')">少漏检</button><button onclick="preset('dense')">密集墙</button></div><div class="row"><label>点密度<input id="runPoints" value="48" type="number"></label><label>批量<input id="runBatch" value="8" type="number"></label><label>IoU<input id="runIou" value=".85" step=".01" type="number"></label><label>稳定度<input id="runStable" value=".90" step=".01" type="number"></label><label>裁剪层<input id="runCrop" value="0" type="number"></label></div><p id="runCropNote" class="note"></p><div class="confirm-actions"><button onclick="closeRun()">取消</button><button id="runConfirm" class="primary">确认并运行</button></div></div></div>
+    <div id="runModal" class="run-modal" role="dialog" aria-modal="true"><div class="run-card"><h2 id="runTitle">配置分割任务</h2><label>墙图<select id="runImage"></select></label><div class="row"><button onclick="preset('base')">基线</button><button onclick="preset('recall')">少漏检</button><button onclick="preset('dense')">密集墙</button></div><div id="runFields"><label>点密度<input id="runPoints" value="48" type="number"></label><label>批量<input id="runBatch" value="8" type="number"></label><label>IoU<input id="runIou" value=".85" step=".01" type="number"></label><label>稳定度<input id="runStable" value=".90" step=".01" type="number"></label><label>裁剪层<input id="runCrop" value="0" type="number"></label></div><p id="runCropNote" class="note"></p><div class="confirm-actions"><button onclick="closeRun()">取消</button><button id="runConfirm" class="primary">确认并运行</button></div></div></div>
     <script>
       const $ = (s) => document.querySelector(s);
       let pendingDelete;

@@ -118,3 +118,10 @@ def test_upload_workbench_locks_crop_layers_for_sam_models(tmp_path):
     assert "2×2 重叠分块" in response.text
     assert "function applyModelRules()" in response.text
     assert "runCrop.disabled=restricted" in response.text
+
+
+def test_upload_workbench_uses_equal_width_parameter_fields(tmp_path):
+    response = TestClient(create_app(Settings(data_dir=tmp_path))).get("/")
+
+    assert 'id="runFields"' in response.text
+    assert "grid-template-columns:repeat(2,minmax(0,1fr))" in response.text
