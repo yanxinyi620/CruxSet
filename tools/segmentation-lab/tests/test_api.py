@@ -145,3 +145,13 @@ def test_segmentation_results_table_hides_task_id_column(tmp_path):
 
     assert "任务 ID" not in response.text
     assert 'id="runs"' in response.text
+
+
+def test_segmentation_results_use_compact_chinese_status_labels(tmp_path):
+    response = TestClient(create_app(Settings(data_dir=tmp_path))).get("/")
+
+    assert "function runStatus(run)" in response.text
+    assert "运行中 · ${progress}%" in response.text
+    assert 'title="${detail}"' in response.text
+    assert "已完成" in response.text
+    assert "失败" in response.text

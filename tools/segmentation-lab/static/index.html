@@ -105,6 +105,11 @@
       background: #b84a43;
       border-color: #b84a43;
     }
+    .status { display:inline-block; padding:3px 7px; border:1px solid var(--l); font:12px system-ui; white-space:nowrap; }
+    .status.running { color:#276b49; border-color:#8ebd72; background:#f0fae7; }
+    .status.succeeded { color:#276b49; border-color:#8ebd72; background:#f6fbef; }
+    .status.failed { color:#8e302b; border-color:#dfaaa4; background:#fff4f2; }
+    .status.pending { color:#536158; background:#f7f7f1; }
     #preview { display:none; max-width:100%; max-height:360px; margin-top:14px; border:1px solid var(--l); }
     #crop { display:none; max-width:100%; margin-top:14px; border:1px solid var(--l); cursor:crosshair; touch-action:none; }
     .confirm {
@@ -256,6 +261,21 @@
       function displayName(name) {
         return name.replace(/\.(?:png|jpe?g)$/i, "");
       }
+      function escapeText(value) {
+        return String(value || "").replace(/[&<>"']/g, character => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[character]));
+      }
+      function runStatus(run) {
+        if (run.status === "running") {
+          let progress=Math.round((run.progress || 0) * 100), detail=escapeText(run.message || "正在准备");
+          return `<span class="status running" title="${detail}">运行中 · ${progress}%</span>`;
+        }
+        if (run.status === "succeeded") return '<span class="status succeeded" title="分割已完成">已完成</span>';
+        if (run.status === "failed") {
+          let detail=escapeText(run.error?.message || "任务失败");
+          return `<span class="status failed" title="${detail}">失败</span>`;
+        }
+        return '<span class="status pending" title="等待任务开始">等待中</span>';
+      }
       function del(url) { pendingDelete = url; $("#confirm").classList.add("open"); }
       function closeConfirm() { pendingDelete = undefined; $("#confirm").classList.remove("open"); }
       $("#confirmDelete").onclick = async () => {
@@ -282,7 +302,7 @@
           runs
             .map(
               ({ e, id, r }) =>
-                `<tr><td><a href="/results/${e.id}?mode=original">${displayName(e.image.name)}</a></td><td>${r.model || id}</td><td>${time(r.updatedAt)}</td><td>${r.status === "running" ? `运行中 ${Math.round((r.progress || 0) * 100)}% · ${r.message || "启动中"}` : r.status}</td><td>${r.status === "succeeded" ? `<a href="/results/${e.id}?source=${id}">查看</a>` : "—"}</td><td><button class="danger" onclick="del('/api/experiments/${e.id}/runs/${id}')">删除</button></td></tr>`,
+                `<tr><td><a href="/results/${e.id}?mode=original">${displayName(e.image.name)}</a></td><td>${r.model || id}</td><td>${time(r.updatedAt)}</td><td>${runStatus(r)}</td><td>${r.status === "succeeded" ? `<a href="/results/${e.id}?source=${id}">查看</a>` : "—"}</td><td><button class="danger" onclick="del('/api/experiments/${e.id}/runs/${id}')">删除</button></td></tr>`,
             )
             .join("") || '<tr><td colspan="6">尚无任务</td></tr>';
         let c = await (await fetch("/api/calibrations")).json();
