@@ -38,7 +38,9 @@ class ExperimentStore:
         for path in self.root.glob("*/experiment.json"):
             item = json.loads(path.read_text())
             timestamp = path.stat().st_mtime
-            item.setdefault("createdAt", timestamp)
+            if "createdAt" not in item:
+                originals = list((path.parent / "input").glob("original.*"))
+                item["createdAt"] = originals[0].stat().st_mtime if originals else timestamp
             for run_id, run in item.get("runs", {}).items():
                 run.setdefault("id", run_id)
                 run.setdefault("model", run_id)

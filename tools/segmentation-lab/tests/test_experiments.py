@@ -1,3 +1,6 @@
+import json
+import os
+
 from segmentation_lab.experiments import ExperimentStore
 
 
@@ -36,6 +39,21 @@ def test_experiments_are_listed_newest_first(tmp_path, monkeypatch):
     second = store.create("second.jpg", image_sha256="second", width=100, height=80)
 
     assert [item["id"] for item in store.list_experiments()] == [second.id, first.id]
+
+
+def test_legacy_experiment_uses_original_file_time_as_upload_time(tmp_path):
+    store = ExperimentStore(tmp_path)
+    experiment = store.create("wall.jpg", image_sha256="abc", width=100, height=80)
+    record_path = store.root / experiment.id / "experiment.json"
+    record = json.loads(record_path.read_text())
+    record.pop("createdAt")
+    record_path.write_text(json.dumps(record))
+    original = store.root / experiment.id / "input" / "original.jpg"
+    original.parent.mkdir()
+    original.write_bytes(b"image")
+    os.utime(original, (123.0, 123.0))
+
+    assert store.list_experiments()[0]["createdAt"] == 123.0
 
 
 def test_deleting_run_removes_its_candidate_and_mask_files(tmp_path):
