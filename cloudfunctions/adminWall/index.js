@@ -1,11 +1,8 @@
 const cloud = require('wx-server-sdk')
+const { completeWall, holdsAreValid, validateWallUpdate } = require('./validation')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 
 const actions = new Set(['createWall', 'updateWall', 'updateWallHolds', 'publishWall'])
-const kinds = new Set(['hold', 'volume'])
-const normalized = value => Number.isFinite(value) && value >= 0 && value <= 1
-const holdsAreValid = holds => Array.isArray(holds) && new Set(holds.map(hold => hold?.id)).size === holds.length && holds.every(hold => hold && /^H\d{3,}$/.test(hold.id) && kinds.has(hold.kind) && normalized(hold.x) && normalized(hold.y) && Number.isFinite(hold.radius) && hold.radius > 0 && hold.radius <= 1)
-const completeWall = data => data && typeof data === 'object' && typeof data.name === 'string' && data.name && typeof data.imageFileId === 'string' && data.imageFileId && Number.isFinite(data.imageWidth) && data.imageWidth > 0 && Number.isFinite(data.imageHeight) && data.imageHeight > 0 && ['circle', 'polygon'].includes(data.geometryType) && holdsAreValid(data.holds)
 
 async function identity (db) {
   const { OPENID: openid } = cloud.getWXContext()
@@ -28,9 +25,9 @@ exports.main = async event => {
   const now = Date.now()
 
   if (action === 'createWall') {
-    if (!completeWall(data)) throw new Error('INVALID_WALL_DATA')
     const id = `wall_${now.toString(36)}_${Math.random().toString(36).slice(2, 8)}`
     const wall = { ...data, id, description: data.description || '', angleOptions: data.angleOptions || [20, 25, 30, 35, 40, 45], ownerId: actor.user.id, visibility: 'private', createdAt: now, updatedAt: now }
+    if (!completeWall(wall)) throw new Error('INVALID_WALL_DATA')
     await db.collection('walls').doc(id).set({ data: wall })
     return wall
   }
@@ -44,7 +41,7 @@ exports.main = async event => {
   if (action === 'updateWall' || action === 'updateWallHolds') {
     const patch = action === 'updateWallHolds' ? { holds: data.holds } : Object.fromEntries(['name', 'description', 'imageFileId', 'displayImageFileId', 'imageWidth', 'imageHeight', 'geometryType', 'holds', 'angleOptions'].filter(key => data[key] !== undefined).map(key => [key, data[key]]))
     const next = { ...wall, ...patch, id: wall.id, ownerId: wall.ownerId, visibility: 'private', createdAt: wall.createdAt, updatedAt: now }
-    if (!completeWall(next)) throw new Error('INVALID_WALL_DATA')
+    validateWallUpdate(wall, patch, action)
     await db.collection('walls').doc(wall.id).update({ data: next })
     return next
   }
