@@ -1,15 +1,11 @@
 import { expect, it } from 'vitest'
 import { createMockRepository } from '../miniprogram/services/mock-repository.js'
 
-it('locks a published mock layout and allows a separate replacement layout', async () => {
+it('publishes a routable wall and locks it', async () => {
   const repo = createMockRepository()
   const { id: wallId } = await repo.createWall({ name: '私有训练墙' })
-  const wall = await repo.getWall(wallId)
-  const draft = await repo.createLayout(wall.id, { name: '草稿', imageFileId: '/assets/mock/ritan-spraywall-0822.jpg', imageWidth: 4096, imageHeight: 3072 })
-  await repo.publishLayout(wall.id, draft.id, [])
-  expect((await repo.getWall(wall.id)).visibility).toBe('public')
-  await expect(repo.publishLayout(wall.id, draft.id, [])).rejects.toThrow('LAYOUT_LOCKED')
-  const replacement = await repo.createLayout(wall.id, { name: 'replacement', imageFileId: '/assets/mock/ritan-spraywall-0822.jpg', imageWidth: 4096, imageHeight: 3072 })
-  expect(replacement.id).not.toBe(draft.id)
-  expect(replacement.published).toBe(false)
+  await expect(repo.publishWall(wallId)).rejects.toThrow('WALL_NOT_ROUTABLE')
+  await repo.updateWall(wallId, { holds: [{ id: 'H1', x: .1, y: .1, radius: .02, kind: 'hold' }, { id: 'H2', x: .2, y: .2, radius: .02, kind: 'hold' }] } as any)
+  expect((await repo.publishWall(wallId)).visibility).toBe('public')
+  await expect(repo.updateWall(wallId, { name: 'locked' })).rejects.toThrow('WALL_LOCKED')
 })

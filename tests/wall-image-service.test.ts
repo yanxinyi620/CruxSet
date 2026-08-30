@@ -10,10 +10,10 @@ vi.mock('../miniprogram/config/runtime.js', () => ({
 }))
 
 import { call } from '../miniprogram/services/cloud.js'
-import { getLayoutImageUrl } from '../miniprogram/services/layouts.js'
+import { getWallImageUrl } from '../miniprogram/services/walls.js'
 
-it('requests a guarded temporary URL for a cloud layout image', async () => {
+it('requests a guarded temporary URL for a cloud wall image', async () => {
   vi.mocked(call).mockResolvedValueOnce({ url: 'https://temporary.example/layout.jpg' })
-  await expect(getLayoutImageUrl('cloud://env/layout.jpg')).resolves.toBe('https://temporary.example/layout.jpg')
-  expect(call).toHaveBeenCalledWith('getLayoutImageUrl', { fileID: 'cloud://env/layout.jpg' })
+  await expect(getWallImageUrl('cloud://env/wall.jpg')).resolves.toBe('https://temporary.example/layout.jpg')
+  expect(call).toHaveBeenCalledWith('getLayoutImageUrl', { fileID: 'cloud://env/wall.jpg' })
 })

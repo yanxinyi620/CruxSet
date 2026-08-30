@@ -6,20 +6,20 @@ const holds = [
   { id: 'H002', x: .2, y: .2, radius: .02, kind: 'hold' },
 ] as any
 
-it('deletes an owned published Layout and its routes', async () => {
+it('refuses to delete a wall in use and does not cascade', async () => {
   const repo = createMockRepository()
-  const [wall] = await repo.listMyWalls()
-  const [layout] = await repo.listLayouts(wall.id)
-  await repo.publishLayout(wall.id, layout.id, holds)
-  await repo.createProblem(wall.id, layout.id, { angle: 20, grade: 'V0', holds: { start: ['H001'], foot: [], hand: [], assist: [], finish: ['H002'] } })
-  await repo.deleteLayout(wall.id, layout.id)
-  await expect(repo.getLayout(layout.id)).rejects.toThrow('LAYOUT_NOT_FOUND')
-  expect(await repo.listProblems({ layoutId: layout.id })).toEqual([])
+  const wall = (await repo.listMyWalls()).find(item => item.visibility === 'private')!
+  await repo.updateWall(wall.id, { holds } as any)
+  await repo.publishWall(wall.id)
+  await repo.createProblem(wall.id, { angle: 20, grade: 'V0', holds: { start: ['H001'], foot: [], hand: [], assist: [], finish: ['H002'] } })
+  await expect(repo.deleteWall(wall.id)).rejects.toThrow('WALL_IN_USE')
+  await expect(repo.getWall(wall.id)).resolves.toMatchObject({ id: wall.id })
+  expect(await repo.listProblems({ wallId: wall.id })).toHaveLength(1)
 })
 
 it('deletes an owned wall together with layouts and routes', async () => {
   const repo = createMockRepository()
-  const [wall] = await repo.listMyWalls()
+  const wall = await repo.createWall({ name: 'unused' })
   await repo.deleteWall(wall.id)
   await expect(repo.getWall(wall.id)).rejects.toThrow('WALL_NOT_FOUND')
   expect(await repo.listProblems({ wallId: wall.id })).toEqual([])

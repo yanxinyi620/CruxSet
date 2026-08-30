@@ -11,13 +11,13 @@
   <view class="section-label">继续创建</view>
   <view class="action-row" bindtap="openDrafts">
     <view class="draft-symbol"><view>✦</view></view>
-    <view class="action-body"><view class="action-title">我的草稿</view><view class="action-meta">查看并继续标注未发布 Layout</view></view>
+    <view class="action-body"><view class="action-title">我的草稿</view><view class="action-meta">查看并继续标注未发布 墙面</view></view>
     <view class="action-arrow">›</view>
   </view>
   <view class="section-label">设置线路</view>
   <view class="wall-row" bindtap="createProblem">
     <view class="route-visual"></view>
-    <view class="wall-copy"><view class="wall-name">新建线路</view><view class="wall-meta">选择一个公开 Layout 后开始设置</view></view>
+    <view class="wall-copy"><view class="wall-name">新建线路</view><view class="wall-meta">选择一个公开 墙面 后开始设置</view></view>
     <view class="action-arrow">›</view>
   </view>
 </view>

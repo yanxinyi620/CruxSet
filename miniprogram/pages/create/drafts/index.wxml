@@ -1,11 +1,1 @@
-<view class="page drafts-page">
-  <view class="page-title">我的草稿</view>
-  <view class="page-lead">仅在这里继续标注未发布 Layout。</view>
-  <view wx:if="{{loading}}" class="quiet-empty">正在整理你的草稿…</view>
-  <view wx:for="{{drafts}}" wx:key="layoutId" class="action-row" data-wall-id="{{item.wallId}}" data-layout-id="{{item.layoutId}}" bindtap="resumeDraft">
-    <view class="draft-symbol"><view>✦</view></view>
-    <view class="action-body"><view class="action-title">{{item.wallName}}</view><view class="action-meta">草稿 · {{item.layoutName}} · 可继续标注</view></view>
-    <view class="action-arrow">›</view>
-  </view>
-  <view wx:if="{{!loading&&!drafts.length}}" class="empty">没有未发布的标注草稿</view>
-</view>
+<view class="page"><view class="page-title">我的草稿</view><view class="page-lead">仅在这里继续墙面标注。</view><view wx:for="{{drafts}}" wx:key="id" class="action-row" data-wall-id="{{item.id}}" bindtap="resumeDraft"><view>{{item.name}}</view><view class="muted">墙面标注草稿</view></view><view wx:if="{{!drafts.length}}" class="empty">暂无草稿墙面</view></view>

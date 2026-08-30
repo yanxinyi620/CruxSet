@@ -1,4 +1,3 @@
 // @ts-nocheck
-import { deleteLayout, listLayouts } from '../../../services/layouts.js'
-import { listMyWalls } from '../../../services/walls.js'
-Page({data:{layouts:[]},onShow(){this.reload()},async reload(){const walls=await listMyWalls();const layouts=(await Promise.all(walls.map(async wall=>(await listLayouts(wall.id)).map(layout=>({id:layout.id,wallId:wall.id,wallName:wall.name,layoutName:layout.name,published:layout.published,updatedAt:layout.updatedAt}))))).flat();this.setData({layouts:layouts.sort((a,b)=>b.updatedAt-a.updatedAt)})},remove(e){const {wallId,layoutId}=e.currentTarget.dataset;wx.showModal({title:'删除 Layout？',content:'关联线路将一并删除，此操作不可恢复。',success:r=>r.confirm&&deleteLayout(wallId,layoutId).then(()=>this.reload())})}})
+import { deleteWall,listMyWalls } from '../../../services/walls.js'
+Page({data:{walls:[]},onShow(){this.reload()},async reload(){this.setData({walls:(await listMyWalls()).sort((a,b)=>b.updatedAt-a.updatedAt)})},remove(e){const wallId=e.currentTarget.dataset.wallId;wx.showModal({title:'删除墙面？',content:'有线路使用该墙面时无法删除。',success:r=>r.confirm&&deleteWall(wallId).then(()=>this.reload()).catch(error=>wx.showToast({title:String(error.message).includes('WALL_IN_USE')?'墙面正在被线路使用':'删除失败',icon:'none'}))})}})

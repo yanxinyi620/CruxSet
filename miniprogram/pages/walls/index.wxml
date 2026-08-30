@@ -1,12 +1,12 @@
 <view class="page lines-page">
   <view class="preview-top"><view>CRUXSET</view><view class="preview-avatar"></view></view>
   <view class="page-title">线路</view>
-  <view class="page-lead">先选一面可浏览的墙，再选择 Layout 和线路。</view>
+  <view class="page-lead">先选一面可浏览的墙，再选择 墙面 和线路。</view>
   <view wx:if="{{loading}}" class="quiet-empty">正在加载公开墙面…</view>
   <view wx:if="{{error}}" class="error-card"><view>{{error}}</view><view class="error-copy">当前显示本地示例数据</view></view>
   <view wx:for="{{walls}}" wx:key="id" class="line-wall-card" data-id="{{item.id}}" bindtap="openWall">
-    <view class="wall-card-top"><view class="wall-visual wall-visual-a"><view class="wall-visual-dot"></view></view><view class="wall-title-wrap"><view class="wall-name">{{item.name}}</view><view class="layout-label">选择一个公开 Layout 查看线路</view></view><view class="wall-arrow">›</view></view>
-    <view class="wall-card-bottom"><view class="public-chip">{{item.publishedCount}} 个公开 Layout</view></view>
+    <view class="wall-card-top"><view class="wall-visual wall-visual-a"><view class="wall-visual-dot"></view></view><view class="wall-title-wrap"><view class="wall-name">{{item.name}}</view><view class="layout-label">选择一个公开 墙面 查看线路</view></view><view class="wall-arrow">›</view></view>
+    <view class="wall-card-bottom"><view class="public-chip">{{item.holds.length}} 个岩点</view></view>
   </view>
   <view wx:if="{{!loading && !error && !walls.length}}" class="empty">暂无公开墙面</view>
 </view>
