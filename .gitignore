@@ -10,5 +10,10 @@ tools/annotator/data/
 server/.venv/
 server/.pytest_cache/
 server/**/__pycache__/
+tools/segmentation-lab/**/__pycache__/
+tools/segmentation-lab/.pytest_cache/
+tools/segmentation-lab/.venv/
+tools/segmentation-lab/data/
+tools/segmentation-lab/models/
 .worktrees/
 server/data/
