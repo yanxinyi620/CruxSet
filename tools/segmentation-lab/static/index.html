@@ -1,1 +1,301 @@
-<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>Spraywall Lab</title><style>:root{--i:#17211d;--p:#f2f0e8;--l:#b9c4b9;--g:#a7e75d;--c:#fffdf7}*{box-sizing:border-box}body{margin:0;background:var(--p);color:var(--i);font:16px Georgia,'Noto Serif SC',serif}.shell{max-width:1120px;margin:auto;padding:32px 24px}header{border-bottom:2px solid var(--i);padding-bottom:18px}h1{margin:0;font-size:40px}.step{margin-top:20px;padding:20px;background:var(--c);border:1px solid var(--l);box-shadow:5px 5px #cbd5c9}.head{display:flex;align-items:center;gap:12px}.num{background:var(--g);padding:5px 8px;font:700 20px system-ui}h2{margin:0;font-size:22px}.sub{margin-left:auto;color:#536158}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}button,input,select{padding:9px 12px;border:1px solid var(--i);background:var(--c);font:14px system-ui;cursor:pointer}.primary{background:var(--g);font-weight:bold}.table{width:100%;border-collapse:collapse;margin-top:12px}.table th,.table td{text-align:left;padding:9px;border-bottom:1px solid var(--l)}a{color:#276b49}.danger{color:#9d2d28}@media(max-width:700px){.table{font-size:12px}.table th,.table td{padding:6px}}</style><body><main class="shell"><header><h1>SPRAYWALL / LAB</h1><div>固定墙岩点分割实验台</div></header><section class="step"><div class="head"><span class="num">01</span><h2>导入图片</h2><span id="count" class="sub"></span></div><div class="row" style="margin-top:14px"><input id="file" type="file" accept="image/png,image/jpeg"><button id="upload" class="primary">导入墙图</button></div><table class="table"><thead><tr><th>原图名称</th><th>上传时间</th><th>大小</th><th>查看</th><th>删除</th></tr></thead><tbody id="images"></tbody></table></section><section class="step"><div class="head"><span class="num">02</span><h2>选择模型</h2><span id="modelsCount" class="sub"></span></div><div id="models" class="row" style="margin-top:12px"></div></section><section class="step"><div class="head"><span class="num">03</span><h2>分割结果</h2></div><table class="table"><thead><tr><th>任务 ID</th><th>原图</th><th>模型</th><th>状态</th><th>结果</th><th>删除</th></tr></thead><tbody id="runs"></tbody></table></section><section class="step"><div class="head"><span class="num">04</span><h2>人工校准</h2></div><p>选择分割结果后在独立工作台进行删除、补点和保存。</p><p><a href="/calibrations"><button class="primary">选择分割结果并开始校准</button></a></p><table class="table"><thead><tr><th>校准 ID</th><th>来源任务</th><th>保存时间</th><th>岩点</th><th>操作</th><th>删除</th></tr></thead><tbody id="calibrations"></tbody></table></section></main><script>const $=s=>document.querySelector(s);function time(v){return v?new Date(v*1000).toLocaleString():'—'}async function del(url){if(!confirm('确认删除此项？该操作不可恢复。'))return;await fetch(url,{method:'DELETE'});load()}async function load(){let d=await(await fetch('/api/experiments')).json(),all=d.items;$('#count').textContent=`已导入 ${all.length} 张`;$('#images').innerHTML=all.map(e=>`<tr><td>${e.image.name}</td><td>${time(e.createdAt)}</td><td>${e.image.width} × ${e.image.height}</td><td><a href="/results/${e.id}?mode=original">查看</a></td><td><button class="danger" onclick="del('/api/experiments/${e.id}')">删除</button></td></tr>`).join('')||'<tr><td colspan="5">尚无原图</td></tr>';let runs=all.flatMap(e=>Object.entries(e.runs).map(([id,r])=>({e,id,r})));$('#runs').innerHTML=runs.map(({e,id,r})=>`<tr><td>${id.slice(0,8)}</td><td>${e.image.name}</td><td>${r.model||id}</td><td>${r.status}</td><td>${r.status==='succeeded'?`<a href="/results/${e.id}?source=${id}">查看</a>`:'—'}</td><td><button class="danger" onclick="del('/api/experiments/${e.id}/runs/${id}')">删除</button></td></tr>`).join('')||'<tr><td colspan="6">尚无任务</td></tr>';let c=await(await fetch('/api/calibrations')).json();$('#calibrations').innerHTML=c.items.map(x=>`<tr><td>${x.id.slice(0,8)}</td><td>${x.sourceTaskId.slice(0,8)}</td><td>${time(x.updatedAt)}</td><td>${x.candidateCount}</td><td><a href="/calibrations">继续校准</a> · <a href="/api/experiments/${x.experimentId}/calibrations/${x.id}/export.svg">SVG</a></td><td><button class="danger" onclick="del('/api/experiments/${x.experimentId}/calibrations/${x.id}')">删除</button></td></tr>`).join('')||'<tr><td colspan="6">尚无校准结果</td></tr>'}async function models(){let d=await(await fetch('/api/models')).json();$('#modelsCount').textContent=`可用 ${d.items.filter(x=>x.available).length} 个模型`;$('#models').innerHTML=d.items.map(x=>`<button ${x.available?'':'disabled'}>${x.name}${x.available?'':'（不可用）'}</button>`).join('')}$('#upload').onclick=async()=>{let f=$('#file').files[0];if(!f)return;let form=new FormData();form.append('image',f);await fetch('/api/experiments',{method:'POST',body:form});load()};load();models();</script></body></html>
+<!doctype html>
+<html lang="zh-CN">
+  <meta charset="utf-8" /><title>Spraywall Lab</title
+  ><style>
+    :root {
+      --i: #17211d;
+      --p: #f2f0e8;
+      --l: #b9c4b9;
+      --g: #a7e75d;
+      --c: #fffdf7;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      background: var(--p);
+      color: var(--i);
+      font:
+        16px Georgia,
+        "Noto Serif SC",
+        serif;
+    }
+    .shell {
+      max-width: 1120px;
+      margin: auto;
+      padding: 32px 24px;
+    }
+    header {
+      border-bottom: 2px solid var(--i);
+      padding-bottom: 18px;
+    }
+    h1 {
+      margin: 0;
+      font-size: 40px;
+    }
+    .step {
+      margin-top: 20px;
+      padding: 20px;
+      background: var(--c);
+      border: 1px solid var(--l);
+      box-shadow: 5px 5px #cbd5c9;
+    }
+    .head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .num {
+      background: var(--g);
+      padding: 5px 8px;
+      font: 700 20px system-ui;
+    }
+    h2 {
+      margin: 0;
+      font-size: 22px;
+    }
+    .sub {
+      margin-left: auto;
+      color: #536158;
+    }
+    .row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    button,
+    input,
+    select {
+      padding: 9px 12px;
+      border: 1px solid var(--i);
+      background: var(--c);
+      font: 14px system-ui;
+      cursor: pointer;
+    }
+    .primary {
+      background: var(--g);
+      font-weight: bold;
+    }
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+    }
+    .table th,
+    .table td {
+      text-align: left;
+      padding: 9px;
+      border-bottom: 1px solid var(--l);
+    }
+    a {
+      color: #276b49;
+    }
+    .danger {
+      width: auto;
+      padding: 6px 10px;
+      color: #8e302b;
+      border-color: #dfaaa4;
+      background: #fff4f2;
+      font-size: 12px;
+    }
+    .danger:hover {
+      color: #fff;
+      background: #b84a43;
+      border-color: #b84a43;
+    }
+    .confirm {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      align-items: center;
+      justify-content: center;
+      background: #17211d55;
+    }
+    .confirm.open { display: flex; }
+    .confirm-card {
+      width: min(380px, calc(100vw - 40px));
+      padding: 22px;
+      background: var(--c);
+      border: 1px solid var(--i);
+      box-shadow: 7px 7px #17211d;
+    }
+    .confirm-card h2 { margin: 0; font-size: 20px; }
+    .confirm-card p { color: #536158; line-height: 1.5; }
+    .confirm-actions { display: flex; gap: 9px; justify-content: flex-end; }
+    .confirm-actions button { width: auto; }
+    .confirm-actions .confirm-delete { background: #b84a43; border-color: #b84a43; color: #fff; }
+    }
+    @media (max-width: 700px) {
+      .table {
+        font-size: 12px;
+      }
+      .table th,
+      .table td {
+        padding: 6px;
+      }
+    }
+  </style>
+  <body>
+    <main class="shell">
+      <header>
+        <h1>SPRAYWALL / LAB</h1>
+        <div>固定墙岩点分割实验台</div>
+      </header>
+      <section class="step">
+        <div class="head">
+          <span class="num">01</span>
+          <h2>导入图片</h2>
+          <span id="count" class="sub"></span>
+        </div>
+        <div class="row" style="margin-top: 14px">
+          <input id="file" type="file" accept="image/png,image/jpeg" /><button
+            id="upload"
+            class="primary"
+          >
+            导入墙图
+          </button>
+        </div>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>原图名称</th>
+              <th>上传时间</th>
+              <th>大小</th>
+              <th>查看</th>
+              <th>删除</th>
+            </tr>
+          </thead>
+          <tbody id="images"></tbody>
+        </table>
+      </section>
+      <section class="step">
+        <div class="head">
+          <span class="num">02</span>
+          <h2>选择模型</h2>
+          <span id="modelsCount" class="sub"></span>
+        </div>
+        <div id="models" class="row" style="margin-top: 12px"></div>
+      </section>
+      <section class="step">
+        <div class="head">
+          <span class="num">03</span>
+          <h2>分割结果</h2>
+        </div>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>任务 ID</th>
+              <th>原图</th>
+              <th>模型</th>
+              <th>状态</th>
+              <th>结果</th>
+              <th>删除</th>
+            </tr>
+          </thead>
+          <tbody id="runs"></tbody>
+        </table>
+      </section>
+      <section class="step">
+        <div class="head">
+          <span class="num">04</span>
+          <h2>人工校准</h2>
+        </div>
+        <p>选择分割结果后在独立工作台进行删除、补点和保存。</p>
+        <p>
+          <a href="/calibrations"
+            ><button class="primary">选择分割结果并开始校准</button></a
+          >
+        </p>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>校准 ID</th>
+              <th>来源任务</th>
+              <th>保存时间</th>
+              <th>岩点</th>
+              <th>操作</th>
+              <th>删除</th>
+            </tr>
+          </thead>
+          <tbody id="calibrations"></tbody>
+        </table>
+      </section>
+    </main>
+    <div id="confirm" class="confirm" role="dialog" aria-modal="true">
+      <div class="confirm-card">
+        <h2>删除此记录？</h2>
+        <p>删除后无法恢复。相关结果与文件将一并移除。</p>
+        <div class="confirm-actions"><button onclick="closeConfirm()">取消</button><button id="confirmDelete" class="confirm-delete">确认删除</button></div>
+      </div>
+    </div>
+    <script>
+      const $ = (s) => document.querySelector(s);
+      let pendingDelete;
+      function time(v) {
+        return v ? new Date(v * 1000).toLocaleString() : "—";
+      }
+      function del(url) { pendingDelete = url; $("#confirm").classList.add("open"); }
+      function closeConfirm() { pendingDelete = undefined; $("#confirm").classList.remove("open"); }
+      $("#confirmDelete").onclick = async () => {
+        if (!pendingDelete) return;
+        await fetch(pendingDelete, { method: "DELETE" });
+        closeConfirm();
+        load();
+      };
+      async function load() {
+        let d = await (await fetch("/api/experiments")).json(),
+          all = d.items;
+        $("#count").textContent = `已导入 ${all.length} 张`;
+        $("#images").innerHTML =
+          all
+            .map(
+              (e) =>
+                `<tr><td>${e.image.name}</td><td>${time(e.createdAt)}</td><td>${e.image.width} × ${e.image.height}</td><td><a href="/results/${e.id}?mode=original">查看</a></td><td><button class="danger" onclick="del('/api/experiments/${e.id}')">删除</button></td></tr>`,
+            )
+            .join("") || '<tr><td colspan="5">尚无原图</td></tr>';
+        let runs = all.flatMap((e) =>
+          Object.entries(e.runs).map(([id, r]) => ({ e, id, r })),
+        );
+        $("#runs").innerHTML =
+          runs
+            .map(
+              ({ e, id, r }) =>
+                `<tr><td>${id.slice(0, 8)}</td><td>${e.image.name}</td><td>${r.model || id}</td><td>${r.status}</td><td>${r.status === "succeeded" ? `<a href="/results/${e.id}?source=${id}">查看</a>` : "—"}</td><td><button class="danger" onclick="del('/api/experiments/${e.id}/runs/${id}')">删除</button></td></tr>`,
+            )
+            .join("") || '<tr><td colspan="6">尚无任务</td></tr>';
+        let c = await (await fetch("/api/calibrations")).json();
+        $("#calibrations").innerHTML =
+          c.items
+            .map(
+              (x) =>
+                `<tr><td>${x.id.slice(0, 8)}</td><td>${x.sourceTaskId.slice(0, 8)}</td><td>${time(x.updatedAt)}</td><td>${x.candidateCount}</td><td><a href="/calibrations">继续校准</a> · <a href="/api/experiments/${x.experimentId}/calibrations/${x.id}/export.svg">SVG</a></td><td><button class="danger" onclick="del('/api/experiments/${x.experimentId}/calibrations/${x.id}')">删除</button></td></tr>`,
+            )
+            .join("") || '<tr><td colspan="6">尚无校准结果</td></tr>';
+      }
+      async function models() {
+        let d = await (await fetch("/api/models")).json();
+        $("#modelsCount").textContent =
+          `可用 ${d.items.filter((x) => x.available).length} 个模型`;
+        $("#models").innerHTML = d.items
+          .map(
+            (x) =>
+              `<button ${x.available ? "" : "disabled"}>${x.name}${x.available ? "" : "（不可用）"}</button>`,
+          )
+          .join("");
+      }
+      $("#upload").onclick = async () => {
+        let f = $("#file").files[0];
+        if (!f) return;
+        let form = new FormData();
+        form.append("image", f);
+        await fetch("/api/experiments", { method: "POST", body: form });
+        load();
+      };
+      load();
+      models();
+    </script>
+  </body>
+</html>
