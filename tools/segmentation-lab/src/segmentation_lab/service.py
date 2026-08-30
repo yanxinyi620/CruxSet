@@ -52,7 +52,11 @@ class BenchmarkService:
 
     def run_existing(self, experiment_id: str, image_path: Path, width: int, height: int, task_id: str, source: str, parameters: dict[str, object]) -> None:
         adapter = self.adapters[source]
-        masks = adapter.generate(GenerateRequest(str(image_path), width, height, parameters), lambda *_: None)
+        try:
+            masks = adapter.generate(GenerateRequest(str(image_path), width, height, parameters), lambda progress, message: self.store.update_run_progress(experiment_id, task_id, progress, message))
+        except Exception as error:
+            self.store.finish_run(experiment_id, task_id, "failed", error={"code": "generation_failed", "message": str(error)}, parameters=parameters)
+            return
         for index, item in enumerate(masks, 1):
             binary = (item.mask > 0).astype("uint8")
             candidate_id = f"{task_id}-{index:04d}"

@@ -61,6 +61,16 @@ class ExperimentStore:
         payload["runs"][task_id] = {"id": task_id, "model": existing.get("model", task_id), "status": status, "candidateCount": candidate_count, "error": error, "parameters": parameters if parameters is not None else existing.get("parameters", {}), "updatedAt": time.time()}
         self._write_json(path, payload)
 
+    def update_run_progress(self, experiment_id: str, task_id: str, progress: float, message: str) -> None:
+        path = self.root / experiment_id / "experiment.json"
+        payload = json.loads(path.read_text())
+        run = payload["runs"].get(task_id)
+        if run:
+            run["progress"] = progress
+            run["message"] = message
+            run["updatedAt"] = time.time()
+            self._write_json(path, payload)
+
     def latest_success(self, image_sha256: str, source: str) -> ExperimentRecord:
         matches: list[ExperimentRecord] = []
         for path in self.root.glob("*/experiment.json"):

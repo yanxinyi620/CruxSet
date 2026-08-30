@@ -277,7 +277,7 @@
           runs
             .map(
               ({ e, id, r }) =>
-                `<tr><td>${id.slice(0, 8)}</td><td><a href="/results/${e.id}?mode=original">${e.image.name}</a></td><td>${r.model || id}</td><td>${time(r.updatedAt)}</td><td>${r.status}</td><td>${r.status === "succeeded" ? `<a href="/results/${e.id}?source=${id}">查看</a>` : "—"}</td><td><button class="danger" onclick="del('/api/experiments/${e.id}/runs/${id}')">删除</button></td></tr>`,
+                `<tr><td>${id.slice(0, 8)}</td><td><a href="/results/${e.id}?mode=original">${e.image.name}</a></td><td>${r.model || id}</td><td>${time(r.updatedAt)}</td><td>${r.status === "running" ? `运行中 ${Math.round((r.progress || 0) * 100)}% · ${r.message || "启动中"}` : r.status}</td><td>${r.status === "succeeded" ? `<a href="/results/${e.id}?source=${id}">查看</a>` : "—"}</td><td><button class="danger" onclick="del('/api/experiments/${e.id}/runs/${id}')">删除</button></td></tr>`,
             )
             .join("") || '<tr><td colspan="7">尚无任务</td></tr>';
         let c = await (await fetch("/api/calibrations")).json();

@@ -46,17 +46,18 @@ class Sam2Adapter:
         progress(0.25, "generating masks")
         parameters = self.pipeline_parameters(request.parameters)
         if self.tiled:
-            result = self._generate_tiled(generator, request, parameters)
+            result = self._generate_tiled(generator, request, parameters, progress)
         else:
             result = self._to_adapter_masks(generator(request.image_path, **parameters))
         progress(0.9, "converting masks")
         progress(1.0, "done")
         return result
 
-    def _generate_tiled(self, generator, request: GenerateRequest, parameters: dict[str, object]) -> list[AdapterMask]:
+    def _generate_tiled(self, generator, request: GenerateRequest, parameters: dict[str, object], progress: ProgressCallback) -> list[AdapterMask]:
         collected: list[AdapterMask] = []
         with Image.open(request.image_path) as image, TemporaryDirectory() as directory:
             for index, (x1, y1, x2, y2) in enumerate(self.tile_boxes(request.width, request.height), start=1):
+                progress(0.25 + index * 0.15, f"processing tile {index}/4")
                 tile_path = Path(directory) / f"tile-{index}.png"
                 image.crop((x1, y1, x2, y2)).save(tile_path)
                 for candidate in self._to_adapter_masks(generator(str(tile_path), **parameters)):
