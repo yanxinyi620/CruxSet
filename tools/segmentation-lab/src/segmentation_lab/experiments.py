@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -100,6 +101,21 @@ class ExperimentStore:
     def read_calibration_candidates(self, experiment_id: str, calibration_id: str) -> list[dict[str, object]]:
         path = self.root / experiment_id / "calibrations" / calibration_id / "candidates.json"
         return json.loads(path.read_text())["items"]
+
+    def all_calibrations(self) -> list[dict[str, object]]:
+        return [{"experimentId": item["id"], **calibration} for item in self.list_experiments() for calibration in self.list_calibrations(item["id"])]
+
+    def delete_calibration(self, experiment_id: str, calibration_id: str) -> None:
+        shutil.rmtree(self.root / experiment_id / "calibrations" / calibration_id)
+
+    def delete_experiment(self, experiment_id: str) -> None:
+        shutil.rmtree(self.root / experiment_id)
+
+    def delete_run(self, experiment_id: str, task_id: str) -> None:
+        path = self.root / experiment_id / "experiment.json"
+        payload = json.loads(path.read_text())
+        payload["runs"].pop(task_id, None)
+        self._write_json(path, payload)
 
     @staticmethod
     def _write_json(path: Path, payload: dict[str, object]) -> None:

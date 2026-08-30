@@ -90,6 +90,22 @@ def create_app(settings: Settings, adapters: Mapping[str, SegmentationAdapter] |
     def calibrations(experiment_id: str) -> dict[str, list[dict[str, object]]]:
         return {"items": store.list_calibrations(experiment_id)}
 
+    @app.get("/api/calibrations")
+    def all_calibrations() -> dict[str, list[dict[str, object]]]:
+        return {"items": store.all_calibrations()}
+
+    @app.delete("/api/experiments/{experiment_id}", status_code=204)
+    def delete_experiment(experiment_id: str) -> None:
+        store.delete_experiment(experiment_id)
+
+    @app.delete("/api/experiments/{experiment_id}/runs/{task_id}", status_code=204)
+    def delete_run(experiment_id: str, task_id: str) -> None:
+        store.delete_run(experiment_id, task_id)
+
+    @app.delete("/api/experiments/{experiment_id}/calibrations/{calibration_id}", status_code=204)
+    def delete_calibration(experiment_id: str, calibration_id: str) -> None:
+        store.delete_calibration(experiment_id, calibration_id)
+
     @app.post("/api/experiments/{experiment_id}/calibrations", status_code=201)
     def create_calibration(experiment_id: str, payload: dict[str, object] = Body(...)) -> dict[str, object]:
         source_task_id = str(payload["sourceTaskId"])
