@@ -236,11 +236,12 @@
         <div class="confirm-actions"><button onclick="closeConfirm()">取消</button><button id="confirmDelete" class="confirm-delete">确认删除</button></div>
       </div>
     </div>
-    <div id="runModal" class="run-modal" role="dialog" aria-modal="true"><div class="run-card"><h2 id="runTitle">配置分割任务</h2><label>墙图<select id="runImage"></select></label><div class="row"><label>点密度<input id="runPoints" value="48" type="number"></label><label>裁剪层<input id="runCrop" value="1" type="number"></label></div><div class="confirm-actions"><button onclick="closeRun()">取消</button><button id="runConfirm" class="primary">确认并运行</button></div></div></div>
+    <div id="runModal" class="run-modal" role="dialog" aria-modal="true"><div class="run-card"><h2 id="runTitle">配置分割任务</h2><label>墙图<select id="runImage"></select></label><div class="row"><button onclick="preset('base')">基线</button><button onclick="preset('recall')">少漏检</button><button onclick="preset('dense')">密集墙</button></div><div class="row"><label>点密度<input id="runPoints" value="48" type="number"></label><label>批量<input id="runBatch" value="8" type="number"></label><label>IoU<input id="runIou" value=".85" step=".01" type="number"></label><label>稳定度<input id="runStable" value=".90" step=".01" type="number"></label><label>裁剪层<input id="runCrop" value="1" type="number"></label></div><div class="confirm-actions"><button onclick="closeRun()">取消</button><button id="runConfirm" class="primary">确认并运行</button></div></div></div>
     <script>
       const $ = (s) => document.querySelector(s);
       let pendingDelete;
       let selectedModel;
+      const presets={base:[48,8,.85,.90,1],recall:[64,4,.78,.85,1],dense:[64,4,.78,.82,2]};
       function time(v) {
         return v ? new Date(v * 1000).toLocaleString() : "—";
       }
@@ -293,9 +294,10 @@
           )
           .join("");
       }
-      function openRun(model) { selectedModel=model; $("#runTitle").textContent=`配置 ${model}`; $("#runImage").innerHTML=[...$("#images").querySelectorAll("tr")].map((_,i)=>`<option value="${i}">${i+1} 号原图</option>`).join(""); $("#runModal").classList.add("open"); }
+      function preset(name){[$("#runPoints").value,$("#runBatch").value,$("#runIou").value,$("#runStable").value,$("#runCrop").value]=presets[name]}
+      function openRun(model) { selectedModel=model; $("#runTitle").textContent=`配置 ${model}`; fetch("/api/experiments").then(r=>r.json()).then(d=>{$("#runImage").innerHTML=d.items.map(e=>`<option value="${e.id}">${e.image.name}</option>`).join("")}); $("#runModal").classList.add("open"); }
       function closeRun() { $("#runModal").classList.remove("open"); }
-      $("#runConfirm").onclick=async()=>{ let d=await(await fetch("/api/experiments")).json(),e=d.items[$("#runImage").value]; if(!e)return; await fetch(`/api/experiments/${e.id}/runs`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:selectedModel,parameters:{points_per_side:+$("#runPoints").value,points_per_batch:4,pred_iou_thresh:.78,stability_score_thresh:.82,crop_n_layers:+$("#runCrop").value}})}); closeRun(); load(); };
+      $("#runConfirm").onclick=async()=>{ let id=$("#runImage").value; if(!id)return; await fetch(`/api/experiments/${id}/runs`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:selectedModel,parameters:{points_per_side:+$("#runPoints").value,points_per_batch:+$("#runBatch").value,pred_iou_thresh:+$("#runIou").value,stability_score_thresh:+$("#runStable").value,crop_n_layers:+$("#runCrop").value}})}); closeRun(); load(); };
       $("#upload").onclick = async () => {
         let f = $("#file").files[0];
         if (!f) return;
