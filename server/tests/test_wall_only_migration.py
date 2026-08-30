@@ -2,8 +2,13 @@ import json
 import sqlite3
 
 import pytest
+from fastapi.testclient import TestClient
 
+from app.auth.passwords import create_admin_account
+from app.auth.sessions import create_session, session_cookie_name
+from app.main import app
 from app.migrations import flatten_legacy_documents, migrate_sqlite_wall_only
+from app.repositories.memory import MemoryRepository
 
 
 def _legacy_documents():
@@ -38,6 +43,30 @@ def test_flatten_legacy_documents_uses_deterministic_noncolliding_wall_ids():
     flat_walls, flat_problems = flatten_legacy_documents(walls, layouts, problems)
     assert [wall["id"] for wall in flat_walls] == ["wall_from_layout_a_3", "wall_from_layout_b"]
     assert flat_problems[0]["wallId"] == "wall_from_layout_a_3"
+
+
+def test_flatten_legacy_documents_preserves_publication_state_for_route_lifecycle():
+    walls, layouts, problems = _legacy_documents()
+    walls[0]["visibility"] = "public"
+    layouts[1]["published"] = True
+    layouts[2]["published"] = False
+    flat_walls, _ = flatten_legacy_documents(walls, layouts, problems)
+    migrated = {wall["id"]: wall for wall in flat_walls}
+    assert migrated["wall_from_layout_a"]["published"] is True
+    assert migrated["wall_from_layout_b"]["published"] is False
+
+    repository = MemoryRepository()
+    account = create_admin_account(repository, "admin@example.com", "correct horse")
+    for wall in flat_walls:
+        repository.insert_wall(wall)
+    app.state.repository = repository
+    cookie = {session_cookie_name(): create_session(account["userId"])}
+    response = TestClient(app).post(
+        "/api/v1/problems",
+        json={"wallId": "wall_from_layout_a", "angle": 20, "grade": "V1", "holds": {"start": ["A1"], "finish": ["A2"]}},
+        cookies=cookie,
+    )
+    assert response.status_code == 201
 
 
 @pytest.mark.parametrize(("mutate", "entity_id"), [
