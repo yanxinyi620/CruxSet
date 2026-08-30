@@ -127,6 +127,11 @@
     .confirm-actions { display: flex; gap: 9px; justify-content: flex-end; }
     .confirm-actions button { width: auto; }
     .confirm-actions .confirm-delete { background: #b84a43; border-color: #b84a43; color: #fff; }
+    .run-modal { display:none; position:fixed; inset:0; z-index:9; align-items:center; justify-content:center; background:#17211d55; }
+    .run-modal.open { display:flex; }
+    .run-card { width:min(520px,calc(100vw - 40px)); padding:22px; background:var(--c); border:1px solid var(--i); box-shadow:7px 7px #17211d; }
+    .run-card label { display:block; margin:10px 0; font:13px system-ui; }
+    .run-card select,.run-card input { width:100%; margin-top:4px; }
     }
     @media (max-width: 700px) {
       .table {
@@ -231,9 +236,11 @@
         <div class="confirm-actions"><button onclick="closeConfirm()">取消</button><button id="confirmDelete" class="confirm-delete">确认删除</button></div>
       </div>
     </div>
+    <div id="runModal" class="run-modal" role="dialog" aria-modal="true"><div class="run-card"><h2 id="runTitle">配置分割任务</h2><label>墙图<select id="runImage"></select></label><div class="row"><label>点密度<input id="runPoints" value="48" type="number"></label><label>裁剪层<input id="runCrop" value="1" type="number"></label></div><div class="confirm-actions"><button onclick="closeRun()">取消</button><button id="runConfirm" class="primary">确认并运行</button></div></div></div>
     <script>
       const $ = (s) => document.querySelector(s);
       let pendingDelete;
+      let selectedModel;
       function time(v) {
         return v ? new Date(v * 1000).toLocaleString() : "—";
       }
@@ -282,10 +289,13 @@
         $("#models").innerHTML = d.items
           .map(
             (x) =>
-              `<button ${x.available ? "" : "disabled"}>${x.name}${x.available ? "" : "（不可用）"}</button>`,
+              `<button ${x.available ? `onclick="openRun('${x.name}')"` : "disabled"}>${x.name}${x.available ? "" : "（不可用）"}</button>`,
           )
           .join("");
       }
+      function openRun(model) { selectedModel=model; $("#runTitle").textContent=`配置 ${model}`; $("#runImage").innerHTML=[...$("#images").querySelectorAll("tr")].map((_,i)=>`<option value="${i}">${i+1} 号原图</option>`).join(""); $("#runModal").classList.add("open"); }
+      function closeRun() { $("#runModal").classList.remove("open"); }
+      $("#runConfirm").onclick=async()=>{ let d=await(await fetch("/api/experiments")).json(),e=d.items[$("#runImage").value]; if(!e)return; await fetch(`/api/experiments/${e.id}/runs`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:selectedModel,parameters:{points_per_side:+$("#runPoints").value,points_per_batch:4,pred_iou_thresh:.78,stability_score_thresh:.82,crop_n_layers:+$("#runCrop").value}})}); closeRun(); load(); };
       $("#upload").onclick = async () => {
         let f = $("#file").files[0];
         if (!f) return;
