@@ -7,7 +7,7 @@ from pathlib import Path
 
 _PARENT_FIELDS = ("description", "angleOptions", "ownerId", "visibility")
 _LAYOUT_FIELDS = (
-    "name", "imageFileId", "imageUrl", "imageWidth", "imageHeight",
+    "name", "imageFileId", "displayImageFileId", "imageUrl", "imageWidth", "imageHeight",
     "geometryType", "holds", "createdAt", "updatedAt",
 )
 

@@ -10,7 +10,7 @@ def _legacy_documents():
     walls = [{"id": "wall_parent", "name": "Parent", "description": "Training wall", "angleOptions": [20, 30], "ownerId": "usr_1", "visibility": "private"}]
     layouts = [
         {"id": "layout_a", "wallId": "wall_parent", "version": 1, "name": "A old", "holds": []},
-        {"id": "layout_a", "wallId": "wall_parent", "version": 2, "name": "A", "imageFileId": "img_a", "imageWidth": 100, "imageHeight": 200, "geometryType": "circle", "holds": [{"id": "A1"}, {"id": "A2"}]},
+        {"id": "layout_a", "wallId": "wall_parent", "version": 2, "name": "A", "imageFileId": "img_a", "displayImageFileId": "display_a", "imageWidth": 100, "imageHeight": 200, "geometryType": "circle", "holds": [{"id": "A1"}, {"id": "A2"}]},
         {"id": "layout_b", "wallId": "wall_parent", "version": 1, "name": "B", "imageFileId": "img_b", "imageWidth": 300, "imageHeight": 400, "geometryType": "circle", "holds": [{"id": "B1"}, {"id": "B2"}]},
     ]
     problems = [
@@ -25,7 +25,7 @@ def test_flatten_legacy_documents_creates_independent_walls_and_rewrites_problem
     assert [wall["id"] for wall in flat_walls] == ["wall_from_layout_a", "wall_from_layout_b"]
     assert flat_walls[0] == {
         "id": "wall_from_layout_a", "name": "A", "description": "Training wall", "angleOptions": [20, 30],
-        "ownerId": "usr_1", "visibility": "private", "imageFileId": "img_a", "imageWidth": 100,
+        "ownerId": "usr_1", "visibility": "private", "imageFileId": "img_a", "displayImageFileId": "display_a", "imageWidth": 100,
         "imageHeight": 200, "geometryType": "circle", "holds": [{"id": "A1"}, {"id": "A2"}],
     }
     assert flat_problems == [
