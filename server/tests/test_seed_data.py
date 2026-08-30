@@ -1,4 +1,4 @@
-def test_seed_data_creates_one_wall_two_layouts_and_four_published_routes(tmp_path):
+def test_seed_data_creates_independent_flat_walls_and_four_routes(tmp_path):
     from app.repositories.sqlite import SQLiteRepository
     from app.seed import seed_demo_workspace
 
@@ -6,7 +6,9 @@ def test_seed_data_creates_one_wall_two_layouts_and_four_published_routes(tmp_pa
     seed_demo_workspace(repository)
 
     walls = repository.list_walls()
-    assert len(walls) == 1
-    layouts = repository.list_layouts(walls[0]["id"])
-    assert [layout["published"] for layout in layouts] == [True, False]
-    assert len(repository.list_problems()) == 4
+    assert len(walls) == 2
+    assert sorted(wall["published"] for wall in walls) == [False, True]
+    assert all("activeLayoutId" not in wall for wall in walls)
+    problems = repository.list_problems()
+    assert len(problems) == 4
+    assert all(set(problem).isdisjoint({"layoutId", "layoutVersion"}) for problem in problems)

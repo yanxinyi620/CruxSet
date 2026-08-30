@@ -20,7 +20,7 @@ def test_admin_can_create_wall():
 
     response = client.post(
         "/api/v1/walls",
-        json={"name": "日坛 Spraywall", "angleOptions": [25, 35]},
+        json={"name": "日坛 Spraywall", "imageFileId": "image.jpg", "imageWidth": 100, "imageHeight": 200, "angleOptions": [25, 35]},
         cookies={session_cookie_name(): create_session(account["userId"])},
     )
 

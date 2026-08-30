@@ -15,30 +15,22 @@ def test_authenticated_sqlite_writes_work_through_the_api(tmp_path):
     client = TestClient(app)
     cookie = {session_cookie_name(): create_session(account["userId"])}
 
-    created = client.post("/api/v1/walls", json={"name": "SQLite wall"}, cookies=cookie)
+    created = client.post("/api/v1/walls", json={"name": "SQLite wall", "imageFileId": "wall.jpg", "imageWidth": 100, "imageHeight": 200}, cookies=cookie)
     assert created.status_code == 201, created.text
     wall = created.json()["wall"]
-
-    layout = client.post(
-        f"/api/v1/walls/{wall['id']}/layouts",
-        json={"name": "L1", "imageFileId": "mock://wall", "imageWidth": 100, "imageHeight": 200},
-        cookies=cookie,
-    )
-    assert layout.status_code == 201, layout.text
-    layout_id = layout.json()["layout"]["id"]
 
     holds = [
         {"id": "H001", "x": 0.1, "y": 0.2, "radius": 0.03, "kind": "hold"},
         {"id": "H002", "x": 0.5, "y": 0.6, "radius": 0.03, "kind": "hold"},
     ]
-    assert client.put(f"/api/v1/layouts/{layout_id}/holds", json={"holds": holds}, cookies=cookie).status_code == 200
-    assert client.post(f"/api/v1/layouts/{layout_id}/publish", json={"holds": holds}, cookies=cookie).status_code == 200
+    assert client.put(f"/api/v1/walls/{wall['id']}/holds", json={"holds": holds}, cookies=cookie).status_code == 200
+    assert client.post(f"/api/v1/walls/{wall['id']}/publish", cookies=cookie).status_code == 200
 
     problem = client.post(
         "/api/v1/problems",
-        json={"wallId": wall["id"], "layoutId": layout_id, "angle": 25, "grade": "V1", "holds": {"start": ["H001"], "finish": ["H002"]}},
+        json={"wallId": wall["id"], "angle": 25, "grade": "V1", "holds": {"start": ["H001"], "finish": ["H002"]}},
         cookies=cookie,
     )
     assert problem.status_code == 201, problem.text
     assert client.delete(f"/api/v1/problems/{problem.json()['problem']['id']}", cookies=cookie).status_code == 200
-    assert client.delete(f"/api/v1/walls/{wall['id']}?confirmCascade=true", cookies=cookie).status_code == 200
+    assert client.delete(f"/api/v1/walls/{wall['id']}", cookies=cookie).status_code == 200

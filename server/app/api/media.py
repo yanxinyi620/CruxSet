@@ -2,8 +2,10 @@ import os
 import secrets
 from pathlib import Path
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
+
+from app.auth.sessions import read_session, session_cookie_name
 
 router = APIRouter(prefix="/api/v1/media", tags=["media"])
 
@@ -30,10 +32,25 @@ async def upload_image(file: UploadFile = File(...)):
 
 
 @router.get("/{media_id}")
-async def read_media(media_id: str):
+async def read_media(media_id: str, request: Request):
     if Path(media_id).name != media_id:
         raise HTTPException(status_code=404, detail="Media not found")
     path = _media_directory() / media_id
     if not path.is_file():
         raise HTTPException(status_code=404, detail="Media not found")
+    walls = [
+        wall for wall in request.app.state.repository.list_walls()
+        if media_id in (wall.get("imageFileId"), wall.get("displayImageFileId"))
+    ]
+    if not walls:
+        raise HTTPException(status_code=404, detail="Media not found")
+    if not any(wall.get("visibility") == "public" for wall in walls):
+        user_id = read_session(request.cookies.get(session_cookie_name()))
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Authentication required")
+        repository = request.app.state.repository
+        is_admin = repository.find_admin_by_user_id(user_id) is not None
+        is_owner = any(wall.get("ownerId") == user_id for wall in walls)
+        if not is_admin and not is_owner:
+            raise HTTPException(status_code=403, detail="Forbidden")
     return FileResponse(path)
