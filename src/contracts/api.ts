@@ -1,11 +1,11 @@
-import type { Layout, Problem, User, Wall } from '../domain/types.js'
+import type { Problem, User, Wall } from '../domain/types.js'
 
 export type ApiErrorCode =
   | 'AUTH_REQUIRED'
   | 'FORBIDDEN'
   | 'NOT_FOUND'
-  | 'LAYOUT_LOCKED'
-  | 'LAYOUT_NOT_ROUTABLE'
+  | 'WALL_LOCKED'
+  | 'WALL_NOT_ROUTABLE'
   | 'INVALID_INPUT'
   | 'RATE_LIMITED'
 
@@ -21,5 +21,4 @@ export interface CurrentUser extends Pick<User, 'id' | 'displayName' | 'avatarUr
 }
 
 export type WallSummary = Pick<Wall, 'id' | 'name' | 'description' | 'angleOptions' | 'ownerId' | 'visibility' | 'updatedAt'>
-export type LayoutSummary = Pick<Layout, 'id' | 'wallId' | 'name' | 'version' | 'published' | 'holds' | 'updatedAt'>
-export type ProblemSummary = Pick<Problem, 'id' | 'number' | 'wallId' | 'layoutId' | 'name' | 'angle' | 'grade' | 'createdBy' | 'updatedAt'>
+export type ProblemSummary = Pick<Problem, 'id' | 'number' | 'wallId' | 'name' | 'angle' | 'grade' | 'createdBy' | 'updatedAt'>

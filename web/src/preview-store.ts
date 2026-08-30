@@ -15,7 +15,7 @@ export class PreviewStore {
   private emit() { this.listeners.forEach(listener => listener()) }
   navigate(route: PreviewRoute) { this.state = { ...this.state, route }; this.emit() }
   setDevice(device: PreviewState['device']) { this.state = { ...this.state, device }; this.emit() }
-  async createWall(input: Partial<Wall>) { const wall = await this.session.createWall(input); this.navigate({ name: 'me' }); return wall }
+  async createWall(input: Partial<Wall>) { const wall = await this.session.createWall({ ...input, name: input.name ?? '', imageWidth: input.imageWidth ?? 0, imageHeight: input.imageHeight ?? 0 }); this.navigate({ name: 'me' }); return wall }
   async useApi(api: LocalApiClient) { const session = new ApiSession(api); await session.refresh(); this.session = session; this.emit() }
   requestWallDeletion(wallId: string) { this.state = { ...this.state, dialog: { kind: 'delete-wall', wallId, step: 1 } }; this.emit() }
   async confirmDialog() { const dialog = this.state.dialog; if (!dialog) return; if (dialog.step === 1) { this.state = { ...this.state, dialog: { ...dialog, step: 2 } }; this.emit(); return } await this.session.deleteWall(dialog.wallId); this.state = { ...this.state, route: { name: 'me' }, dialog: undefined, toast: '墙面及关联内容已删除' }; this.emit() }

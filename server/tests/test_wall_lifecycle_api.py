@@ -33,7 +33,7 @@ def test_wall_is_created_as_a_private_editable_flat_document():
     assert wall["published"] is False
     assert wall["imageFileId"] == "media_wall.jpg"
     assert wall["holds"] == []
-    assert "activeLayoutId" not in wall
+    assert set(wall).issuperset({"id", "imageFileId", "imageWidth", "imageHeight", "holds"})
 
 
 def test_private_wall_holds_can_be_saved_then_published_and_locked():
@@ -61,7 +61,7 @@ def test_publish_requires_at_least_two_valid_holds():
     assert response.json()["error"]["code"] == "WALL_NOT_ROUTABLE"
 
 
-def test_problem_accepts_only_wall_id_and_contains_no_layout_fields():
+def test_problem_accepts_only_wall_id():
     client, cookie = _client()
     wall = _create_wall(client, cookie)
     client.put(f"/api/v1/walls/{wall['id']}/holds", json={"holds": _holds()}, cookies=cookie)
@@ -71,7 +71,7 @@ def test_problem_accepts_only_wall_id_and_contains_no_layout_fields():
     assert response.status_code == 201
     problem = response.json()["problem"]
     assert problem["wallId"] == wall["id"]
-    assert "layoutId" not in problem and "layoutVersion" not in problem
+    assert set(problem).issuperset({"id", "number", "wallId", "holds"})
 
 
 def test_wall_list_returns_flat_documents():

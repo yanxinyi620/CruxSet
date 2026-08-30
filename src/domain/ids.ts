@@ -1,4 +1,4 @@
-export type IdPrefix = 'usr' | 'wall' | 'layout' | 'problem'
+export type IdPrefix = 'usr' | 'wall' | 'problem'
 
 let sequence = 0
 
