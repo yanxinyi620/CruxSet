@@ -1,14 +1,20 @@
-import { isRoutableWall } from '../../../miniprogram/domain/routable-wall.js'
-import type { Layout, Wall } from '../../../miniprogram/domain/types.js'
-import type { PreviewSession } from './preview-session.js'
-
-export type RoutableLayout = { wall: Wall; layout: Layout }
-
-export const listRoutableLayouts = async (session: PreviewSession, walls: Wall[]): Promise<RoutableLayout[]> => {
-  const entries = await Promise.all(walls.map(async wall => {
-    if (!wall.activeLayoutId) return undefined
-    const layout = await session.getLayout(wall.activeLayoutId)
-    return isRoutableWall(wall, layout) ? { wall, layout } : undefined
-  }))
-  return entries.filter((entry): entry is RoutableLayout => Boolean(entry))
+import type { Hold, Problem, ProblemHolds, Wall } from '../../../miniprogram/domain/types.js'
+export const previewOwnerId = 'usr_mock_owner'
+export type CreateWallInput = Pick<Wall, 'name' | 'imageWidth' | 'imageHeight'> & Partial<Pick<Wall, 'description' | 'imageFileId' | 'displayImageFileId' | 'geometryType' | 'angleOptions'>> & { image?: File }
+const clone = <T>(value: T): T => structuredClone(value)
+const problemHolds = (holds: Partial<ProblemHolds> = {}): ProblemHolds => ({ start: holds.start ?? [], foot: holds.foot ?? [], hand: holds.hand ?? [], assist: holds.assist ?? [], finish: holds.finish ?? [] })
+const seedWall: Wall = { id: 'wall_demo', name: '日坛 Spraywall', description: 'CruxSet 固定测试墙面', imageFileId: '/assets/mock/ritan-spraywall-0822.jpg', imageWidth: 4096, imageHeight: 3072, geometryType: 'circle', holds: [{ id: 'H001', x: .1, y: .2, radius: .03, kind: 'hold' }, { id: 'H002', x: .2, y: .3, radius: .03, kind: 'hold' }], angleOptions: [20, 25, 30, 35, 40, 45], ownerId: previewOwnerId, visibility: 'public', createdAt: 0, updatedAt: 0 }
+export class PreviewRepository {
+  private walls: Wall[] = clone([seedWall]); private problems: Problem[] = []
+  listWalls() { return Promise.resolve(clone(this.walls.filter(wall => wall.visibility === 'public'))) }
+  listMyWalls() { return Promise.resolve(clone(this.walls.filter(wall => wall.ownerId === previewOwnerId))) }
+  async getWall(id: string) { const wall = this.walls.find(item => item.id === id); if (!wall) throw new Error('WALL_NOT_FOUND'); return clone(wall) }
+  listProblems(filter: Partial<Pick<Problem, 'wallId' | 'angle' | 'grade'>> = {}) { return Promise.resolve(clone(this.problems.filter(problem => Object.entries(filter).every(([key, value]) => value === undefined || problem[key as keyof Problem] === value)))) }
+  async createWall(data: CreateWallInput) { const now = Date.now(); const wall: Wall = { id: `wall_mock_${now}`, name: data.name || '未命名墙面', description: data.description ?? '', imageFileId: data.imageFileId ?? '', displayImageFileId: data.displayImageFileId, imageWidth: data.imageWidth, imageHeight: data.imageHeight, geometryType: data.geometryType ?? 'circle', holds: [], angleOptions: data.angleOptions ?? [20, 25, 30, 35, 40, 45], ownerId: previewOwnerId, visibility: 'private', createdAt: now, updatedAt: now }; this.walls.push(wall); return clone(wall) }
+  async updateWallHolds(id: string, holds: Hold[]) { const wall = await this.ownedWall(id); if (wall.visibility === 'public') throw new Error('WALL_LOCKED'); wall.holds = clone(holds); wall.updatedAt = Date.now(); return clone(wall) }
+  async publishWall(id: string) { const wall = await this.ownedWall(id); if (wall.visibility === 'public') throw new Error('WALL_LOCKED'); if (wall.holds.length < 2) throw new Error('WALL_NOT_ROUTABLE'); wall.visibility = 'public'; wall.updatedAt = Date.now(); return clone(wall) }
+  async createProblem(wallId: string, draft: Partial<Problem>) { const wall = await this.getWall(wallId); if (wall.visibility !== 'public' || wall.holds.length < 2) throw new Error('WALL_NOT_ROUTABLE'); const now = Date.now(); const item: Problem = { id: `problem_mock_${now}_${this.problems.length}`, number: `CS-${String(this.problems.length + 121).padStart(6, '0')}`, wallId, name: draft.name, description: draft.description, angle: draft.angle ?? wall.angleOptions[0], grade: draft.grade ?? 'V0', footRule: draft.footRule ?? 'feet_follow', holds: problemHolds(draft.holds), createdBy: previewOwnerId, createdAt: now, updatedAt: now }; this.problems.push(item); return clone(item) }
+  async deleteProblem(id: string) { const index = this.problems.findIndex(item => item.id === id); if (index < 0) throw new Error('PROBLEM_NOT_FOUND'); this.problems.splice(index, 1); return { ok: true } }
+  async deleteWall(id: string) { await this.ownedWall(id); if (this.problems.some(problem => problem.wallId === id)) throw new Error('WALL_IN_USE'); this.walls = this.walls.filter(wall => wall.id !== id); return { ok: true } }
+  private async ownedWall(id: string) { const wall = this.walls.find(item => item.id === id); if (!wall) throw new Error('WALL_NOT_FOUND'); if (wall.ownerId !== previewOwnerId) throw new Error('FORBIDDEN'); return wall }
 }
