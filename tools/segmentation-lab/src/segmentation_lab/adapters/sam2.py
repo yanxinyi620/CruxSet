@@ -24,6 +24,12 @@ class Sam2Adapter:
             translated["crops_n_layers"] = translated.pop("crop_n_layers")
         return translated
 
+    def parameters_for_request(self, parameters: dict[str, object]) -> dict[str, object]:
+        translated = self.pipeline_parameters(parameters)
+        if self.tiled:
+            translated["crops_n_layers"] = 0
+        return translated
+
     @staticmethod
     def tile_boxes(width: int, height: int, overlap: float = 0.2) -> list[tuple[int, int, int, int]]:
         tile_width = int(width * (0.5 + overlap / 2))
@@ -44,7 +50,7 @@ class Sam2Adapter:
         progress(0.05, "loading SAM 2.1")
         generator = pipeline("mask-generation", model=self.model_name, device=-1)
         progress(0.25, "generating masks")
-        parameters = self.pipeline_parameters(request.parameters)
+        parameters = self.parameters_for_request(request.parameters)
         if self.tiled:
             result = self._generate_tiled(generator, request, parameters, progress)
         else:

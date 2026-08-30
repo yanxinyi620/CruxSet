@@ -16,3 +16,12 @@ def test_two_by_two_tiles_overlap_and_cover_the_full_image():
     assert len(boxes) == 4
     assert boxes[0] == (0, 0, 60, 48)
     assert boxes[-1] == (40, 32, 100, 80)
+
+
+def test_tiled_sam2_disables_internal_cropping_to_keep_tile_batches_uniform():
+    adapter = Sam2Adapter(tiled=True)
+
+    parameters = adapter.parameters_for_request({"crop_n_layers": 2, "points_per_side": 64})
+
+    assert parameters["crops_n_layers"] == 0
+    assert parameters["points_per_crop"] == 64
