@@ -193,6 +193,13 @@ def test_calibration_workbench_groups_edit_tools_and_restores_loaded_candidates(
     assert "已还原本次载入后的所有修改。" in response.text
 
 
+def test_calibration_workbench_marks_add_hold_tool_with_the_active_style(tmp_path):
+    response = TestClient(create_app(Settings(data_dir=tmp_path))).get("/calibrations")
+
+    assert "function setTool(modeName)" in response.text
+    assert "q('#add').classList.toggle('active',modeName==='add')" in response.text
+
+
 def test_calibration_workbench_renders_large_polygons_below_smaller_holds(tmp_path):
     response = TestClient(create_app(Settings(data_dir=tmp_path))).get("/calibrations")
 
