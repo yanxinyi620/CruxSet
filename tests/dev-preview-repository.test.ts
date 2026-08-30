@@ -13,14 +13,21 @@ describe('PreviewSession', () => {
 
   it('publishes a wall and creates problems directly against it', async () => {
     const session = new PreviewSession(); const created = await createWall(session)
-    await session.updateWallHolds(created.id, twoHolds); expect((await session.publishWall(created.id)).visibility).toBe('public')
+    const published = await session.publishWall(created.id, twoHolds)
+    expect(published).toMatchObject({ visibility: 'public', holds: twoHolds })
     expect(await session.createProblem(created.id, { holds: { start: ['H001'], foot: [], hand: [], assist: [], finish: ['H002'] } })).toMatchObject({ wallId: created.id })
   })
 
   it('refuses to delete a wall referenced by problems and preserves both', async () => {
     const session = new PreviewSession(); const created = await createWall(session)
-    await session.updateWallHolds(created.id, twoHolds); await session.publishWall(created.id); await session.createProblem(created.id, { holds: { start: ['H001'], foot: [], hand: [], assist: [], finish: ['H002'] } })
+    await session.publishWall(created.id, twoHolds); await session.createProblem(created.id, { holds: { start: ['H001'], foot: [], hand: [], assist: [], finish: ['H002'] } })
     await expect(session.deleteWall(created.id)).rejects.toThrow('WALL_IN_USE')
     await expect(session.getWall(created.id)).resolves.toMatchObject({ id: created.id }); await expect(session.listProblems({ wallId: created.id })).resolves.toHaveLength(1)
+  })
+
+  it('returns a literal successful result when deleting an unused wall', async () => {
+    const session = new PreviewSession(); const created = await createWall(session)
+    const result: { ok: true } = await session.deleteWall(created.id)
+    expect(result).toEqual({ ok: true })
   })
 })

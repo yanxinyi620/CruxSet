@@ -19,9 +19,11 @@ const holds: Hold[] = [{ id: 'H001', x: .1, y: .2, radius: .03, kind: 'hold' }]
 it('routes wall creation, hold saves, and publishing through the flat API', async () => {
   const { api, session } = fixture(); const image = new File(['image'], 'wall.jpg', { type: 'image/jpeg' })
   await session.createWall({ name: 'New wall', image, imageWidth: 100, imageHeight: 200 })
-  await session.updateWallHolds('wall_1', holds); await session.publishWall('wall_1')
+  await session.publishWall('wall_1', holds)
   expect(api.createWall).toHaveBeenCalledWith({ name: 'New wall', image, imageWidth: 100, imageHeight: 200 })
-  expect(api.saveWallHolds).toHaveBeenCalledWith('wall_1', holds); expect(api.publishWall).toHaveBeenCalledWith('wall_1')
+  expect(api.saveWallHolds).toHaveBeenLastCalledWith('wall_1', holds)
+  expect(api.saveWallHolds.mock.invocationCallOrder.at(-1)).toBeLessThan(api.publishWall.mock.invocationCallOrder[0])
+  expect(api.publishWall).toHaveBeenCalledWith('wall_1')
 })
 
 it('routes problem creation through the API without layout fields', async () => {
@@ -38,4 +40,10 @@ it('keeps cached walls and problems when deleting an in-use wall fails', async (
   await expect(session.deleteWall('wall_1')).rejects.toThrow('WALL_IN_USE')
   await expect(session.getWall('wall_1')).resolves.toMatchObject({ id: 'wall_1' }); await expect(session.listProblems({ wallId: 'wall_1' })).resolves.toHaveLength(1)
   expect(api.loadBrowseData).toHaveBeenCalledTimes(1)
+})
+
+it('returns a literal successful result when deleting a wall', async () => {
+  const { session } = fixture()
+  const result: { ok: true } = await session.deleteWall('wall_1')
+  expect(result).toEqual({ ok: true })
 })

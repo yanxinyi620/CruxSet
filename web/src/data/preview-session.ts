@@ -10,8 +10,8 @@ export class PreviewSession {
   listProblems(filter: Partial<Pick<Problem, 'wallId' | 'angle' | 'grade'>> = {}) { return this.repository.listProblems(filter) }
   createWall(data: CreateWallInput) { return this.repository.createWall(data) }
   updateWallHolds(id: string, holds: Hold[]) { return this.repository.updateWallHolds(id, holds) }
-  publishWall(id: string) { return this.repository.publishWall(id) }
+  publishWall(id: string, holds: Hold[]) { return this.repository.publishWall(id, holds) }
   createProblem(id: string, draft: Partial<Problem>) { return this.repository.createProblem(id, draft) }
   deleteProblem(id: string) { return this.repository.deleteProblem(id) }
-  deleteWall(id: string) { return this.repository.deleteWall(id) }
+  deleteWall(id: string): Promise<{ ok: true }> { return this.repository.deleteWall(id) }
 }
