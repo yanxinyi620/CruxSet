@@ -115,6 +115,13 @@ class ExperimentStore:
         path = self.root / experiment_id / "experiment.json"
         payload = json.loads(path.read_text())
         payload["runs"].pop(task_id, None)
+        candidates = self.root / experiment_id / "candidates"
+        for candidate_path in candidates.glob(f"{task_id}-*.json") if candidates.exists() else []:
+            candidate = json.loads(candidate_path.read_text())
+            mask_path = candidate.get("maskPath")
+            if mask_path:
+                (self.root / experiment_id / mask_path).unlink(missing_ok=True)
+            candidate_path.unlink()
         self._write_json(path, payload)
 
     @staticmethod

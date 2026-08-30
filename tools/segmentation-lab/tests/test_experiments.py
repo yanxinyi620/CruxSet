@@ -23,3 +23,18 @@ def test_each_started_run_has_a_distinct_id_and_preserves_prior_run(tmp_path):
     assert set(runs) == {first_task, second_task}
     assert runs[first_task]["model"] == "sam2"
     assert runs[second_task]["parameters"] == {"points_per_side": 64}
+
+
+def test_deleting_run_removes_its_candidate_and_mask_files(tmp_path):
+    store = ExperimentStore(tmp_path)
+    experiment = store.create("wall.jpg", image_sha256="abc", width=100, height=80)
+    task_id = store.start_run(experiment.id, "sam2", {})
+    mask = store.root / experiment.id / "masks" / f"{task_id}-0001.png"
+    mask.parent.mkdir()
+    mask.write_bytes(b"mask")
+    store.save_candidate(experiment.id, task_id, {"id": f"{task_id}-0001", "maskPath": str(mask.relative_to(store.root / experiment.id))})
+
+    store.delete_run(experiment.id, task_id)
+
+    assert not mask.exists()
+    assert store.list_candidates(experiment.id, task_id) == []
