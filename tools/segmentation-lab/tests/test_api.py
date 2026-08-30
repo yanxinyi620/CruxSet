@@ -175,6 +175,14 @@ def test_calibration_workbench_loads_a_calibration_from_url_parameters(tmp_path)
     assert "resumeCalibration" in response.text
 
 
+def test_calibration_workbench_keeps_only_the_save_control(tmp_path):
+    response = TestClient(create_app(Settings(data_dir=tmp_path))).get("/calibrations")
+
+    assert "保存为校准结果" in response.text
+    assert "已保存校准结果" not in response.text
+    assert 'id="saved"' not in response.text
+
+
 def test_segmentation_results_use_compact_chinese_status_labels(tmp_path):
     response = TestClient(create_app(Settings(data_dir=tmp_path))).get("/")
 
