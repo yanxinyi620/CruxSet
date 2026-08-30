@@ -30,4 +30,18 @@ describe('PreviewSession', () => {
     const result: { ok: true } = await session.deleteWall(created.id)
     expect(result).toEqual({ ok: true })
   })
+
+  it.each([
+    ['unsupported angle', { angle: 99, holds: { start: ['H001'], finish: ['H002'] } }],
+    ['invalid grade', { grade: 'V13', holds: { start: ['H001'], finish: ['H002'] } }],
+    ['missing start', { holds: { finish: ['H002'] } }],
+    ['missing finish', { holds: { start: ['H001'] } }],
+    ['unknown hold', { holds: { start: ['H001'], finish: ['missing'] } }],
+    ['duplicate hold', { holds: { start: ['H001'], finish: ['H001'] } }],
+    ['unknown role', { holds: { start: ['H001'], finish: ['H002'], danger: ['H002'] } }],
+  ])('rejects problem drafts with %s', async (_label, draft) => {
+    const session = new PreviewSession(); const created = await createWall(session)
+    await session.publishWall(created.id, twoHolds)
+    await expect(session.createProblem(created.id, draft as any)).rejects.toThrow('INVALID_INPUT')
+  })
 })

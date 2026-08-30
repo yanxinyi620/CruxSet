@@ -5,6 +5,7 @@ import type { Hold, ProblemHolds, Wall } from '../miniprogram/domain/types.js'
 const wall = (patch: Partial<Wall> = {}): Wall => ({ id: 'wall_1', name: 'Test wall', description: '', imageFileId: 'mock://wall', imageWidth: 100, imageHeight: 200, geometryType: 'circle', holds: [], angleOptions: [20, 25], ownerId: 'usr_admin', visibility: 'private', createdAt: 0, updatedAt: 0, ...patch })
 const fixture = () => {
   const api = {
+    currentUser: vi.fn().mockResolvedValue({ id: 'usr_admin', isAdmin: true }),
     loadBrowseData: vi.fn().mockResolvedValue({ walls: [wall()], problems: [] }),
     createWall: vi.fn().mockResolvedValue(wall({ id: 'wall_2' })),
     saveWallHolds: vi.fn().mockResolvedValue({ wall: wall() }),
@@ -24,6 +25,38 @@ it('routes wall creation, hold saves, and publishing through the flat API', asyn
   expect(api.saveWallHolds).toHaveBeenLastCalledWith('wall_1', holds)
   expect(api.saveWallHolds.mock.invocationCallOrder.at(-1)).toBeLessThan(api.publishWall.mock.invocationCallOrder[0])
   expect(api.publishWall).toHaveBeenCalledWith('wall_1')
+})
+
+it('lists only walls owned by the authenticated user', async () => {
+  const { api, session } = fixture()
+  api.loadBrowseData.mockResolvedValue({ walls: [wall(), wall({ id: 'wall_foreign', ownerId: 'usr_other', visibility: 'public' })], problems: [] })
+  await session.refresh()
+  await expect(session.listMyWalls()).resolves.toEqual([expect.objectContaining({ id: 'wall_1' })])
+
+  api.currentUser.mockResolvedValue(null)
+  await session.refresh()
+  await expect(session.listMyWalls()).resolves.toEqual([])
+})
+
+it('defensively clones API data on ingest and return', async () => {
+  const { api, session } = fixture()
+  const source = wall({ visibility: 'public', holds: [...holds] })
+  api.loadBrowseData.mockResolvedValue({ walls: [source], problems: [{ id: 'problem_1', wallId: 'wall_1', angle: 20, grade: 'V0' }] })
+  await session.refresh()
+  source.name = 'mutated source'
+  const listed = await session.listWalls(); listed[0].name = 'mutated return'; listed[0].holds[0].x = .9
+  const problems = await session.listProblems(); problems[0].grade = 'V9'
+  await expect(session.getWall('wall_1')).resolves.toMatchObject({ name: 'Test wall', holds: [{ x: .1 }] })
+  await expect(session.listProblems()).resolves.toEqual([expect.objectContaining({ grade: 'V0' })])
+})
+
+it('refreshes saved holds into cache when publication fails', async () => {
+  const { api, session } = fixture()
+  api.publishWall.mockRejectedValue(new Error('WALL_NOT_ROUTABLE'))
+  api.loadBrowseData.mockResolvedValue({ walls: [wall({ holds })], problems: [] })
+  await expect(session.publishWall('wall_1', holds)).rejects.toThrow('WALL_NOT_ROUTABLE')
+  expect(api.saveWallHolds).toHaveBeenCalledWith('wall_1', holds)
+  await expect(session.getWall('wall_1')).resolves.toMatchObject({ holds })
 })
 
 it('routes problem creation through the API without layout fields', async () => {
