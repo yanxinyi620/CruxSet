@@ -77,4 +77,4 @@ def test_problem_accepts_only_wall_id_and_contains_no_layout_fields():
 def test_wall_list_returns_flat_documents():
     client, cookie = _client()
     wall = _create_wall(client, cookie)
-    assert client.get("/api/v1/walls").json()["walls"] == [wall]
+    assert client.get("/api/v1/walls", cookies=cookie).json()["walls"] == [wall]

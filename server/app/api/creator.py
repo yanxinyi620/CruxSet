@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.auth import require_admin
 from app.api.errors import ApiError
+from app.auth.sessions import read_session, session_cookie_name
 
 router = APIRouter(prefix="/api/v1", tags=["creator"])
 
@@ -74,14 +75,26 @@ def _editable_wall(request: Request, wall_id: str) -> dict:
     return wall
 
 
+def _visible_walls(request: Request) -> list[dict]:
+    repository = _repo(request)
+    user_id = read_session(request.cookies.get(session_cookie_name()))
+    if user_id and repository.find_user(user_id) and repository.find_admin_by_user_id(user_id):
+        return repository.list_walls()
+    return [
+        wall for wall in repository.list_walls()
+        if wall.get("visibility") == "public" or (user_id and wall.get("ownerId") == user_id)
+    ]
+
+
 @router.get("/walls")
 async def list_walls(request: Request):
-    return {"walls": _repo(request).list_walls()}
+    return {"walls": _visible_walls(request)}
 
 
 @router.get("/problems")
 async def list_problems(request: Request):
-    return {"problems": _repo(request).list_problems()}
+    visible_wall_ids = {wall["id"] for wall in _visible_walls(request)}
+    return {"problems": [problem for problem in _repo(request).list_problems() if problem.get("wallId") in visible_wall_ids]}
 
 
 @router.post("/walls", status_code=201)
