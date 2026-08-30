@@ -44,7 +44,7 @@ class ExperimentStore:
                 run.setdefault("model", run_id)
                 run.setdefault("updatedAt", timestamp)
             items.append(item)
-        return sorted(items, key=lambda item: item["id"], reverse=True)
+        return sorted(items, key=lambda item: item["createdAt"], reverse=True)
 
     def start_run(self, experiment_id: str, model: str, parameters: dict[str, object]) -> str:
         task_id = str(uuid4())
@@ -113,7 +113,8 @@ class ExperimentStore:
         return json.loads(path.read_text())["items"]
 
     def all_calibrations(self) -> list[dict[str, object]]:
-        return [{"experimentId": item["id"], **calibration} for item in self.list_experiments() for calibration in self.list_calibrations(item["id"])]
+        calibrations = [{"experimentId": item["id"], **calibration} for item in self.list_experiments() for calibration in self.list_calibrations(item["id"])]
+        return sorted(calibrations, key=lambda item: item["updatedAt"], reverse=True)
 
     def delete_calibration(self, experiment_id: str, calibration_id: str) -> None:
         shutil.rmtree(self.root / experiment_id / "calibrations" / calibration_id)

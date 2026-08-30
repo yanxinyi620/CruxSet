@@ -183,3 +183,10 @@ def test_segmentation_results_use_compact_chinese_status_labels(tmp_path):
     assert 'title="${detail}"' in response.text
     assert "已完成" in response.text
     assert "失败" in response.text
+
+
+def test_workbench_sorts_task_and_calibration_rows_newest_first(tmp_path):
+    response = TestClient(create_app(Settings(data_dir=tmp_path))).get("/")
+
+    assert ".sort((first, second) => (second.r.updatedAt || 0) - (first.r.updatedAt || 0));" in response.text
+    assert "let calibrations = c.items.sort((first, second) => (second.updatedAt || 0) - (first.updatedAt || 0));" in response.text

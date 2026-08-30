@@ -36,3 +36,15 @@ def test_calibration_api_saves_and_exports_svg(tmp_path):
     assert 'width="100"' in exported
     assert 'height="80"' in exported
     assert store.list_experiments()[0]["runs"][task_id]["status"] == "running"
+
+
+def test_all_calibrations_are_listed_newest_first(tmp_path, monkeypatch):
+    store = ExperimentStore(tmp_path)
+    experiment = store.create("wall.jpg", "abc", 100, 80)
+    timestamps = iter([100.0, 100.0, 200.0, 200.0])
+    monkeypatch.setattr("segmentation_lab.experiments.time.time", lambda: next(timestamps))
+
+    first = store.create_calibration(experiment.id, "task", [], {})
+    second = store.create_calibration(experiment.id, "task", [], {})
+
+    assert [item["id"] for item in store.all_calibrations()] == [second["id"], first["id"]]

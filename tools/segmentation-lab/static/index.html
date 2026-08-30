@@ -297,7 +297,7 @@
             .join("") || '<tr><td colspan="4">尚无原图</td></tr>';
         let runs = all.flatMap((e) =>
           Object.entries(e.runs).map(([id, r]) => ({ e, id, r })),
-        );
+        ).sort((first, second) => (second.r.updatedAt || 0) - (first.r.updatedAt || 0));
         $("#runs").innerHTML =
           runs
             .map(
@@ -306,8 +306,9 @@
             )
             .join("") || '<tr><td colspan="6">尚无任务</td></tr>';
         let c = await (await fetch("/api/calibrations")).json();
+        let calibrations = c.items.sort((first, second) => (second.updatedAt || 0) - (first.updatedAt || 0));
         $("#calibrations").innerHTML =
-          c.items
+          calibrations
             .map(
               (x) =>
                 `<tr><td>${x.sourceTaskId.slice(0, 8)}</td><td>${time(x.updatedAt)}</td><td>${x.candidateCount}</td><td><a href="/calibrations?experiment=${x.experimentId}&calibration=${x.id}">继续校准</a></td><td><a href="/api/experiments/${x.experimentId}/calibrations/${x.id}/export.svg">SVG</a></td><td><button class="danger" onclick="del('/api/experiments/${x.experimentId}/calibrations/${x.id}')">删除</button></td></tr>`,

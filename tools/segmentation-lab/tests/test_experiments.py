@@ -25,6 +25,19 @@ def test_each_started_run_has_a_distinct_id_and_preserves_prior_run(tmp_path):
     assert runs[second_task]["parameters"] == {"points_per_side": 64}
 
 
+def test_experiments_are_listed_newest_first(tmp_path, monkeypatch):
+    timestamps = iter([100.0, 200.0])
+    identifiers = iter(["z-first", "a-second"])
+    monkeypatch.setattr("segmentation_lab.experiments.time.time", lambda: next(timestamps))
+    monkeypatch.setattr("segmentation_lab.experiments.uuid4", lambda: next(identifiers))
+    store = ExperimentStore(tmp_path)
+
+    first = store.create("first.jpg", image_sha256="first", width=100, height=80)
+    second = store.create("second.jpg", image_sha256="second", width=100, height=80)
+
+    assert [item["id"] for item in store.list_experiments()] == [second.id, first.id]
+
+
 def test_deleting_run_removes_its_candidate_and_mask_files(tmp_path):
     store = ExperimentStore(tmp_path)
     experiment = store.create("wall.jpg", image_sha256="abc", width=100, height=80)
