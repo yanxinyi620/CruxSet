@@ -193,6 +193,13 @@ def test_calibration_workbench_groups_edit_tools_and_restores_loaded_candidates(
     assert "已还原本次载入后的所有修改。" in response.text
 
 
+def test_calibration_workbench_renders_large_polygons_below_smaller_holds(tmp_path):
+    response = TestClient(create_app(Settings(data_dir=tmp_path))).get("/calibrations")
+
+    assert "function polygonArea(item)" in response.text
+    assert "items.slice().sort((left,right)=>polygonArea(left)-polygonArea(right))" in response.text
+
+
 def test_segmentation_results_use_compact_chinese_status_labels(tmp_path):
     response = TestClient(create_app(Settings(data_dir=tmp_path))).get("/")
 
