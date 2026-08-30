@@ -147,6 +147,13 @@ def test_segmentation_results_table_hides_task_id_column(tmp_path):
     assert 'id="runs"' in response.text
 
 
+def test_calibration_results_table_hides_calibration_id_column(tmp_path):
+    response = TestClient(create_app(Settings(data_dir=tmp_path))).get("/")
+
+    assert "校准 ID" not in response.text
+    assert 'id="calibrations"' in response.text
+
+
 def test_segmentation_results_use_compact_chinese_status_labels(tmp_path):
     response = TestClient(create_app(Settings(data_dir=tmp_path))).get("/")
 

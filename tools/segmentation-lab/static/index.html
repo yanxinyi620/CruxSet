@@ -230,7 +230,6 @@
         <table class="table">
           <thead>
             <tr>
-              <th>校准 ID</th>
               <th>来源任务</th>
               <th>保存时间</th>
               <th>岩点</th>
@@ -310,9 +309,9 @@
           c.items
             .map(
               (x) =>
-                `<tr><td>${x.id.slice(0, 8)}</td><td>${x.sourceTaskId.slice(0, 8)}</td><td>${time(x.updatedAt)}</td><td>${x.candidateCount}</td><td><a href="/calibrations">继续校准</a> · <a href="/api/experiments/${x.experimentId}/calibrations/${x.id}/export.svg">SVG</a></td><td><button class="danger" onclick="del('/api/experiments/${x.experimentId}/calibrations/${x.id}')">删除</button></td></tr>`,
+                `<tr><td>${x.sourceTaskId.slice(0, 8)}</td><td>${time(x.updatedAt)}</td><td>${x.candidateCount}</td><td><a href="/calibrations">继续校准</a> · <a href="/api/experiments/${x.experimentId}/calibrations/${x.id}/export.svg">SVG</a></td><td><button class="danger" onclick="del('/api/experiments/${x.experimentId}/calibrations/${x.id}')">删除</button></td></tr>`,
             )
-            .join("") || '<tr><td colspan="6">尚无校准结果</td></tr>';
+            .join("") || '<tr><td colspan="5">尚无校准结果</td></tr>';
       }
       async function models() {
         let d = await (await fetch("/api/models")).json();
