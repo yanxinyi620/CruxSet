@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { validateWallUpdate } from '../cloudfunctions/adminWall/validation.js'
+import { completeWall, validateWallUpdate } from '../cloudfunctions/adminWall/validation.js'
 
 const wall = {
   id: 'wall_1', name: 'Wall', description: '', imageFileId: 'cloud://wall.jpg', imageWidth: 100, imageHeight: 100,
@@ -17,4 +17,9 @@ it('rejects invalid generic Wall metadata before persistence', () => {
   expect(() => validateWallUpdate(wall, { angleOptions: [15] }, 'updateWall')).toThrow('INVALID_WALL_DATA')
   expect(() => validateWallUpdate(wall, { description: 3 }, 'updateWall')).toThrow('INVALID_WALL_DATA')
   expect(() => validateWallUpdate(wall, { imageFileId: false }, 'updateWall')).toThrow('INVALID_WALL_DATA')
+})
+
+it('rejects non-string optional Wall creation fields', () => {
+  expect(completeWall({ ...wall, description: 1 })).toBe(false)
+  expect(completeWall({ ...wall, displayImageFileId: false })).toBe(false)
 })
