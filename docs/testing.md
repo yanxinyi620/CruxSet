@@ -42,3 +42,10 @@ uv run --extra test pytest -s -q
 - [ ] 删除有关联 Problem 的 Wall 返回 `WALL_IN_USE`，且不级联删除 Problem。
 - [ ] 至少在一台 Android 与一台 iPhone 上验证单指拖动、双指缩放、密集 Hold 命中和性能。
 - [ ] 验证墙图上传、Wall 发布、线路保存和分享链接。
+## 分割实验台发布验收
+
+- [ ] 在实验台选择已保存校准结果并点击“发布到 CruxSet”。
+- [ ] 刷新 Web 浏览页后出现新的公开 Wall，岩点数量与校准结果一致。
+- [ ] 新 Wall 可正常定线，并出现在管理员“我的墙面”。
+- [ ] 有线路时删除 Wall 被阻止；删除线路后可以删除 Wall。
+- [ ] 再次发布同一校准结果生成新的 Wall ID，不修改旧 Wall。

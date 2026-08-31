@@ -2,6 +2,7 @@ import secrets
 import time
 import json
 import math
+import os
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, Form, Header, Request, UploadFile
@@ -129,7 +130,7 @@ async def publish_segmentation_wall(request: Request, image: UploadFile = File(.
     if not owner_id or not _repo(request).find_admin_by_user_id(owner_id):
         raise ApiError("PUBLISH_NOT_CONFIGURED", "Segmentation publishing owner is not configured", 503)
     content = await image.read()
-    media = store_image(content, image.content_type or "")
+    media = store_image(content, image.content_type or "", int(os.environ.get("SEGMENTATION_MAX_UPLOAD_BYTES", "52428800")))
     now = _now()
     wall = {"id": _id("wall"), "name": name, "description": str(payload.get("description", "")), "imageFileId": media["id"], "imageWidth": width, "imageHeight": height, "geometryType": "polygon", "holds": holds, "published": True, "angleOptions": payload.get("angleOptions", [20, 25, 30, 35, 40, 45]), "ownerId": owner_id, "visibility": "public", "source": {"type": "segmentation_lab", "experimentId": experiment_id, "calibrationId": calibration_id, "publishRequestId": request_id}, "createdAt": now, "updatedAt": now}
     _repo(request).insert_wall(wall)

@@ -24,6 +24,19 @@ SEG_LAB_DATA_DIR=./data uv run uvicorn segmentation_lab.api:app --host 127.0.0.1
 
 在浏览器打开 <http://127.0.0.1:8765/>。
 
+## 发布到本机 CruxSet
+
+先启动 CruxSet API（默认 `http://127.0.0.1:8000`）并设置同一个本机密钥。密钥只用于两个本机服务之间的发布，不会发送到浏览器，也不要提交到版本库：
+
+```bash
+export CRUXSET_SEGMENTATION_PUBLISH_KEY='local-only-long-random-secret'
+export CRUXSET_SEGMENTATION_PUBLISH_OWNER_ID='<CruxSet 管理员用户 ID>'
+export CRUXSET_BASE_URL='http://127.0.0.1:8000'
+export CRUXSET_WEB_URL='http://127.0.0.1:5173'
+```
+
+CruxSet 和实验台都使用 `CRUXSET_SEGMENTATION_PUBLISH_KEY`。在校准结果列表点击“发布到 CruxSet”，确认墙面名称后会创建一面新的公开 Wall；重复发布会创建新的 Wall。发布结果会保存在校准记录中，并可打开 CruxSet 浏览地址。
+
 首次运行 `sam2` / `sam2_tiled` 时，Transformers 会下载 `facebook/sam2.1-hiera-large` 权重；需要联网并预留足够的磁盘空间。模型状态会在页面的“02 选择模型”中显示。`sam3` 需要另行安装其依赖并提供本地 checkpoint；未满足条件时会保持不可用。
 
 ## 推荐工作流

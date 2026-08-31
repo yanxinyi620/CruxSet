@@ -18,11 +18,12 @@ def _media_directory() -> Path:
     return directory
 
 
-def store_image(content: bytes, content_type: str) -> dict[str, object]:
+def store_image(content: bytes, content_type: str, max_bytes: int | None = None) -> dict[str, object]:
     extension = _allowed_types.get(content_type)
     if not extension:
         raise HTTPException(status_code=415, detail="Only JPEG, PNG, and WebP images are supported")
-    if len(content) > int(os.environ.get("MAX_UPLOAD_BYTES", "10485760")):
+    limit = max_bytes if max_bytes is not None else int(os.environ.get("MAX_UPLOAD_BYTES", "10485760"))
+    if len(content) > limit:
         raise HTTPException(status_code=413, detail="Image is too large")
     media_id = f"media_{secrets.token_urlsafe(12)}{extension}"
     (_media_directory() / media_id).write_bytes(content)

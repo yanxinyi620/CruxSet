@@ -93,3 +93,7 @@ npm run build
 ```
 
 `npm run build` 会同时检查共享领域代码和微信小程序 TypeScript。
+
+## 分割实验台发布
+
+本机可将实验台已保存的校准结果发布为新的公开 Wall。CruxSet API 与实验台启动时配置同一个仅本机使用的 `CRUXSET_SEGMENTATION_PUBLISH_KEY`，并在 CruxSet 配置 `CRUXSET_SEGMENTATION_PUBLISH_OWNER_ID` 指向管理员用户 ID；实验台另配置 `CRUXSET_BASE_URL=http://127.0.0.1:8000` 与 `CRUXSET_WEB_URL=http://127.0.0.1:5173`。密钥不会进入浏览器或版本库。
