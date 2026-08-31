@@ -21,6 +21,13 @@ describe('Wall-only visual restoration', () => {
     expect(source).toContain('roi-grid')
   })
 
+  it('keeps the login screen focused on sign in and registration choices', () => {
+    expect(source).toContain('<h1>CRUXSET创作工作台</h1>')
+    expect(source).toContain('data-login')
+    expect(source).toContain('data-register')
+    expect(source).not.toContain('<small>CRUXSET</small><h1>本地创作工作台</h1>')
+  })
+
   it('contains the restored problem editor presentation', () => {
     expect(source).toContain('class="field"')
     expect(source).toMatch(/class="chip\s/)

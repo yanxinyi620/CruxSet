@@ -157,7 +157,7 @@ let problemCtx: ProblemCtx | null = null,
   wallPreview: WallCanvasView | null = null;
 
 const renderLogin = () => {
-  root.innerHTML = `<div class="device"><main class="login-page"><div class="login-card"><small>CRUXSET</small><h1>本地创作工作台</h1><p class="lead">把墙面、岩点和线路整理成可分享的攀岩资料库。</p><div class="field"><label for="email">邮箱</label><input id="email" autocomplete="email"></div><div class="field"><label for="password">密码</label><input id="password" type="password" autocomplete="current-password"></div><button class="hero-card" data-login>登录工作台</button><p>${h(loginError)}</p></div></main></div>`;
+  root.innerHTML = `<div class="device"><main class="login-page"><div class="login-card"><h1>CRUXSET <span>创作工作台</span></h1><div class="field"><label for="email">邮箱</label><input id="email" autocomplete="email"></div><div class="field"><label for="password">密码</label><input id="password" type="password" autocomplete="current-password"></div><div class="login-actions"><button class="login-submit" data-login>登录</button><button class="register-submit" type="button" data-register>注册</button></div><p class="login-error">${h(loginError)}</p></div></main></div>`;
   root.querySelector<HTMLButtonElement>("[data-login]")!.onclick = async () => {
     try {
       const user = await api.login(
