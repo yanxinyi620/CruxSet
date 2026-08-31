@@ -17,3 +17,4 @@ tools/segmentation-lab/data/
 tools/segmentation-lab/models/
 .worktrees/
 server/data/
+.playwright-cli/
