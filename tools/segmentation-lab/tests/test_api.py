@@ -185,7 +185,9 @@ def test_primary_actions_use_distinct_muted_colors(tmp_path):
     response = TestClient(create_app(Settings(data_dir=tmp_path))).get("/")
     assert 'class="upload-action"' in response.text
     assert 'class="calibrate-action"' in response.text
-    assert "--g: #d8e2c4" in response.text
+    assert "--lavender: #ddd6e7" in response.text
+    assert "background: #d5e8e2" in response.text
+    assert "background: #c8dfd9" in response.text
     assert 'id="publishConfirm"' in response.text
     assert 'id="publishName"' in response.text
     assert "确认发布" in response.text
