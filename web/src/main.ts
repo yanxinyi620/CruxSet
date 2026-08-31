@@ -523,10 +523,10 @@ const render = async () => {
     : `<h1>线路</h1><p>选择一面公开墙面。</p>${publicWalls.map((w) => `<button class="wall-card" data-wall="${h(w.id)}">${thumb}<span><b>${h(w.name)}</b><em>${w.holds.length} 个岩点 · ${problems.filter((p) => p.wallId === w.id).length} 条线路</em></span></button>`).join("")}`;
   const create =
     panel === "new-wall"
-      ? `${back}<h1>新建墙面</h1><label for="wall-name">墙面名称</label><input id="wall-name"><label for="wall-image">墙面图片</label><input id="wall-image" type="file"><p id="wall-error"></p><button data-create-wall>创建草稿墙面</button>`
+      ? `${back}<div class="editor-head"><h1>新建墙面</h1><p>上传墙面图片，开始整理岩点。</p></div><div class="field"><label for="wall-name">墙面名称</label><input id="wall-name" placeholder="例如：北墙训练区"></div><div class="field"><label for="wall-image">墙面图片</label><input id="wall-image" type="file"></div><p id="wall-error"></p><button class="action-card" data-create-wall>创建草稿墙面</button>`
       : panel === "drafts"
-        ? `${back}<h1>我的草稿</h1>${drafts.map((w) => `<button class="mine-card" data-edit-wall="${h(w.id)}">${thumb}<b>${h(w.name)}</b><em>${w.holds.length} 个岩点</em></button>`).join("") || "<p>没有私有墙面草稿</p>"}`
-        : `<h1>创建</h1><button data-panel="new-wall">新建墙面</button><button data-panel="drafts">我的草稿 · ${drafts.length}</button><p>发布即公开并锁定。</p>`;
+        ? `${back}<div class="editor-head"><h1>我的草稿</h1><p>继续编辑尚未发布的墙面。</p></div>${drafts.map((w) => `<button class="mine-card hub-card" data-edit-wall="${h(w.id)}">${thumb}<span><b>${h(w.name)}</b><em>${w.holds.length} 个岩点 · 私有草稿</em></span><strong>›</strong></button>`).join("") || "<p class=\"lead\">没有私有墙面草稿</p>"}`
+        : `<div class="editor-head"><h1>创建</h1><p class="lead">从一面墙开始，逐步建立你的线路资料。</p></div><button class="hub-card walls" data-panel="new-wall"><i>＋</i><span><b>新建墙面</b><em>上传图片并标注岩点</em></span><strong>›</strong></button><button class="hub-card problems" data-panel="drafts"><i>□</i><span><b>我的草稿</b><em>继续编辑 ${drafts.length} 面私有墙</em></span><strong>›</strong></button><p class="lead">发布即公开并锁定。</p>`;
   const cards = mine
       .map(
         (w) =>
@@ -538,7 +538,7 @@ const render = async () => {
       .map((w) => {
         const ps = problems.filter((p) => p.wallId === w.id),
           open = expandedWall === w.id;
-        return `<article><button data-expand="${h(w.id)}"><b>${h(w.name)}</b><em>${ps.length} 条线路</em></button>${open ? ps.map((p) => `<div class="problem-row"><b>${h(p.number)}</b><button data-delete-problem="${h(p.id)}">删除</button></div>`).join("") : ""}</article>`;
+        return `<article class="problem-group"><button class="group-head" data-expand="${h(w.id)}"><span><b>${h(w.name)}</b><em>${ps.length} 条线路</em></span><strong>${open ? "⌃" : "›"}</strong></button>${open ? `<div class="problem-list">${ps.map((p) => `<div class="problem-row"><span><b>${h(p.number)}</b><em>${h(p.name || "未命名线路")}</em></span><button class="delete-button" data-delete-problem="${h(p.id)}">删除</button></div>`).join("")}</div>` : ""}</article>`;
       })
       .join("");
   const me =
@@ -546,7 +546,7 @@ const render = async () => {
       ? `${back}<h1>我的墙面</h1>${managementError ? `<p class="editor-toast">${h(managementError)}</p>` : ""}${cards}`
       : panel === "my-problems"
         ? `${back}<h1>我的线路</h1>${managementError ? `<p class="editor-toast">${h(managementError)}</p>` : ""}${groups}`
-        : `<h1>我的</h1><button data-panel="my-walls">我的墙面 · ${mine.length}</button><button data-panel="my-problems">我的线路 · ${problems.length}</button>`;
+        : `<div class="editor-head"><h1>我的</h1><p class="lead">管理你创建的墙面与线路。</p></div><button class="hub-card walls" data-panel="my-walls"><i>▧</i><span><b>我的墙面</b><em>已创建 ${mine.length} 面墙</em></span><strong>›</strong></button><button class="hub-card problems" data-panel="my-problems"><i>◇</i><span><b>我的线路</b><em>共 ${problems.length} 条线路</em></span><strong>›</strong></button>`;
   root.innerHTML = `<div class="device"><header><small>CRUXSET</small></header><main>${tab === "browse" ? browse : tab === "create" ? create : me}</main><nav>${(["browse", "create", "me"] as const).map((x) => `<button data-tab="${x}">${x === "browse" ? "线路" : x === "create" ? "创建" : "我的"}</button>`).join("")}</nav></div>`;
   root.querySelectorAll<HTMLButtonElement>("[data-tab]").forEach(
     (b) =>
