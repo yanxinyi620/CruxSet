@@ -18,17 +18,21 @@ def _media_directory() -> Path:
     return directory
 
 
-@router.post("/images", status_code=201)
-async def upload_image(file: UploadFile = File(...)):
-    extension = _allowed_types.get(file.content_type or "")
+def store_image(content: bytes, content_type: str) -> dict[str, object]:
+    extension = _allowed_types.get(content_type)
     if not extension:
         raise HTTPException(status_code=415, detail="Only JPEG, PNG, and WebP images are supported")
-    content = await file.read()
     if len(content) > int(os.environ.get("MAX_UPLOAD_BYTES", "10485760")):
         raise HTTPException(status_code=413, detail="Image is too large")
     media_id = f"media_{secrets.token_urlsafe(12)}{extension}"
     (_media_directory() / media_id).write_bytes(content)
-    return {"media": {"id": media_id, "url": f"/api/v1/media/{media_id}", "contentType": file.content_type, "size": len(content)}}
+    return {"id": media_id, "url": f"/api/v1/media/{media_id}", "contentType": content_type, "size": len(content)}
+
+
+@router.post("/images", status_code=201)
+async def upload_image(file: UploadFile = File(...)):
+    content = await file.read()
+    return {"media": store_image(content, file.content_type or "")}
 
 
 @router.get("/{media_id}")

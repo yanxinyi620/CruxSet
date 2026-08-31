@@ -1,13 +1,17 @@
 import secrets
 import time
+import json
+import math
 from typing import Any
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.auth import require_admin
 from app.api.errors import ApiError
 from app.auth.sessions import read_session, session_cookie_name
+from app.api.media import store_image
 
 router = APIRouter(prefix="/api/v1", tags=["creator"])
 
@@ -49,6 +53,87 @@ def _id(prefix: str) -> str:
 
 def _now() -> int:
     return int(time.time() * 1000)
+
+
+def _publish_key(request: Request, authorization: str | None) -> None:
+    expected = getattr(request.app.state, "segmentation_publish_key", "")
+    if not expected:
+        raise ApiError("PUBLISH_NOT_CONFIGURED", "Segmentation publishing is not configured", 503)
+    supplied = authorization.removeprefix("Bearer ").strip() if authorization else ""
+    if not authorization or not authorization.startswith("Bearer ") or not secrets.compare_digest(supplied, expected):
+        raise ApiError("UNAUTHORIZED", "Invalid publish credentials", 401)
+
+
+def _segmentation_holds(raw_holds: Any, width: int, height: int) -> list[dict[str, Any]]:
+    if not isinstance(raw_holds, list) or not raw_holds:
+        raise ApiError("INVALID_INPUT", "At least one hold is required", 422)
+    result = []
+    seen: set[str] = set()
+    for item in raw_holds:
+        if not isinstance(item, dict) or not isinstance(item.get("sourceId"), str) or not item["sourceId"] or item["sourceId"] in seen:
+            raise ApiError("INVALID_INPUT", "Hold source ids must be non-empty and unique", 422)
+        seen.add(item["sourceId"])
+        polygon = item.get("polygon")
+        if not isinstance(polygon, list) or len(polygon) < 3:
+            raise ApiError("INVALID_INPUT", f"Invalid polygon for {item['sourceId']}", 422)
+        points: list[tuple[float, float]] = []
+        for point in polygon:
+            if not isinstance(point, (list, tuple)) or len(point) != 2:
+                raise ApiError("INVALID_INPUT", f"Invalid polygon for {item['sourceId']}", 422)
+            x, y = point
+            if not all(isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value) for value in (x, y)) or not (0 <= x <= width and 0 <= y <= height):
+                raise ApiError("INVALID_INPUT", f"Polygon is outside image for {item['sourceId']}", 422)
+            points.append((float(x) / width, float(y) / height))
+        if len(set(points)) < 3:
+            raise ApiError("INVALID_INPUT", f"Invalid polygon for {item['sourceId']}", 422)
+        area = abs(sum(points[index][0] * points[(index + 1) % len(points)][1] - points[(index + 1) % len(points)][0] * points[index][1] for index in range(len(points))) / 2)
+        if area <= 0:
+            raise ApiError("INVALID_INPUT", f"Polygon area is empty for {item['sourceId']}", 422)
+        xs, ys = zip(*points)
+        bbox = [min(xs), min(ys), max(xs), max(ys)]
+        result.append({"sourceId": item["sourceId"], "kind": item.get("kind", "hold"), "polygon": [[x, y] for x, y in points], "bbox": bbox, "x": sum(xs) / len(xs), "y": sum(ys) / len(ys), "radius": math.sqrt(area / math.pi)})
+    if any(item["kind"] not in ("hold", "volume") for item in result):
+        raise ApiError("INVALID_INPUT", "Invalid hold kind", 422)
+    result.sort(key=lambda item: (item["bbox"][1], item["bbox"][0], item["sourceId"]))
+    for index, item in enumerate(result, 1):
+        item["id"] = f"H{index:03d}"
+        item.pop("bbox", None)
+    return result
+
+
+@router.post("/admin/segmentation-walls")
+async def publish_segmentation_wall(request: Request, image: UploadFile = File(...), metadata: str = Form(...), authorization: str | None = None):
+    _publish_key(request, authorization or request.headers.get("Authorization"))
+    try:
+        payload = json.loads(metadata)
+    except json.JSONDecodeError as error:
+        raise ApiError("INVALID_INPUT", "Metadata must be valid JSON", 422) from error
+    if not isinstance(payload, dict):
+        raise ApiError("INVALID_INPUT", "Metadata must be an object", 422)
+    try:
+        width, height = int(payload["imageWidth"]), int(payload["imageHeight"])
+        request_id, name = str(payload["publishRequestId"]), str(payload["wallName"])
+        experiment_id, calibration_id = str(payload["sourceExperimentId"]), str(payload["sourceCalibrationId"])
+    except (KeyError, TypeError, ValueError) as error:
+        raise ApiError("INVALID_INPUT", "Missing publish metadata", 422) from error
+    if width <= 0 or height <= 0 or not request_id or not name:
+        raise ApiError("INVALID_INPUT", "Invalid publish metadata", 422)
+    existing = next((wall for wall in _repo(request).list_walls() if wall.get("source", {}).get("publishRequestId") == request_id), None)
+    if existing:
+        source = existing.get("source", {})
+        if source.get("calibrationId") != calibration_id or existing.get("imageWidth") != width or existing.get("imageHeight") != height:
+            raise ApiError("PUBLISH_REQUEST_CONFLICT", "Publish request id was already used with different data", 409)
+        return JSONResponse(status_code=200, content={"wallId": existing["id"], "wallName": existing["name"], "holdCount": len(existing.get("holds", [])), "browsePath": f"/wall/{existing['id']}", "created": False})
+    holds = _segmentation_holds(payload.get("holds"), width, height)
+    owner_id = getattr(request.app.state, "segmentation_publish_owner_id", "")
+    if not owner_id or not _repo(request).find_admin_by_user_id(owner_id):
+        raise ApiError("PUBLISH_NOT_CONFIGURED", "Segmentation publishing owner is not configured", 503)
+    content = await image.read()
+    media = store_image(content, image.content_type or "")
+    now = _now()
+    wall = {"id": _id("wall"), "name": name, "description": str(payload.get("description", "")), "imageFileId": media["id"], "imageWidth": width, "imageHeight": height, "geometryType": "polygon", "holds": holds, "published": True, "angleOptions": payload.get("angleOptions", [20, 25, 30, 35, 40, 45]), "ownerId": owner_id, "visibility": "public", "source": {"type": "segmentation_lab", "experimentId": experiment_id, "calibrationId": calibration_id, "publishRequestId": request_id}, "createdAt": now, "updatedAt": now}
+    _repo(request).insert_wall(wall)
+    return JSONResponse(status_code=201, content={"wallId": wall["id"], "wallName": wall["name"], "holdCount": len(holds), "browsePath": f"/wall/{wall['id']}", "created": True})
 
 
 def _validate_hold_shape(holds: list[dict]) -> None:

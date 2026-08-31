@@ -18,6 +18,8 @@ database_path = os.environ.get("CRUXSET_DATABASE_URL", str(Path(__file__).resolv
 Path(database_path).parent.mkdir(parents=True, exist_ok=True)
 app.state.repository = SQLiteRepository(database_path)
 seed_demo_workspace(app.state.repository)
+app.state.segmentation_publish_key = os.environ.get("CRUXSET_SEGMENTATION_PUBLISH_KEY", "")
+app.state.segmentation_publish_owner_id = os.environ.get("CRUXSET_SEGMENTATION_PUBLISH_OWNER_ID", "")
 app.state.login_rate_limiter = LoginRateLimiter()
 app.add_middleware(
     CORSMiddleware,
