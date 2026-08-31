@@ -70,6 +70,25 @@ describe('wall-only web routes', () => {
     expect(source).toContain('profileEmail.split("@", 1)[0]')
   })
 
+  it('keeps route detail metadata and notes above a stable pager', () => {
+    const source = readFileSync('web/src/main.ts', 'utf8')
+    expect(source).toContain('h(selectedRoute.number)} ${h(selectedRoute.name || "")}')
+    expect(source).toContain('footLabels[selectedRoute.footRule]')
+    expect(source).toContain('class="route-note"')
+  })
+
+  it('closes open dialogs when the backdrop is clicked', () => {
+    const source = readFileSync('web/src/main.ts', 'utf8')
+    expect(source).toContain('event.target === dialog')
+    expect(source).toContain('dialog.close()')
+  })
+
+  it('disables browser autofill suggestions in the route save dialog', () => {
+    const source = readFileSync('web/src/main.ts', 'utf8')
+    expect(source).toContain('autocomplete="off" autocapitalize="off"')
+    expect(source).toContain('autocomplete="new-password"')
+  })
+
   it('opens the save dialog before sizing its full-wall route preview', () => {
     const source = readFileSync('web/src/main.ts', 'utf8')
     const openDialog = source.indexOf('saveDialog.showModal()')

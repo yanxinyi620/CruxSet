@@ -156,6 +156,12 @@ let problemCtx: ProblemCtx | null = null,
   detailCtx: DetailCtx | null = null,
   wallPreview: WallCanvasView | null = null;
 
+root.addEventListener("click", (event) => {
+  root.querySelectorAll<HTMLDialogElement>("dialog[open]").forEach((dialog) => {
+    if (event.target === dialog) dialog.close();
+  });
+});
+
 const renderLogin = () => {
   root.innerHTML = `<div class="device"><main class="login-page"><div class="login-card"><h1>CRUXSET <span>创作工作台</span></h1><div class="field"><label for="email">邮箱</label><input id="email" autocomplete="email"></div><div class="field"><label for="password">密码</label><input id="password" type="password" autocomplete="current-password"></div><div class="login-actions"><button class="login-submit" data-login>登录</button><button class="register-submit" type="button" data-register>注册</button></div><p class="login-error">${h(loginError)}</p></div></main></div>`;
   root.querySelector<HTMLButtonElement>("[data-login]")!.onclick = async () => {
@@ -232,7 +238,7 @@ const renderProblemEditor = () => {
   );
   const toast = root.querySelector<HTMLParagraphElement>(".editor-toast");
   if (toast) root.querySelector("#editor-canvas")!.before(toast);
-  root.querySelector("#editor-canvas")!.insertAdjacentHTML("beforebegin", `<dialog class="problem-save-dialog" id="problem-save-dialog"><h2>保存线路</h2><p class="generated-number" id="generated-problem-number"></p><label>线路名称（选填）<input id="dialog-problem-name" placeholder="可不填写"></label><label>线路说明（选填）<textarea id="dialog-problem-description" placeholder="可不填写"></textarea></label><button data-confirm-problem-save>确认保存</button><button data-close-problem-save>返回</button></dialog>`);
+  root.querySelector("#editor-canvas")!.insertAdjacentHTML("beforebegin", `<dialog class="problem-save-dialog" id="problem-save-dialog" autocomplete="off"><h2>保存线路</h2><p class="generated-number" id="generated-problem-number"></p><label>线路名称（选填）<input id="dialog-problem-name" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="可不填写"></label><label>线路说明（选填）<textarea id="dialog-problem-description" autocomplete="new-password" autocapitalize="off" spellcheck="false" placeholder="可不填写"></textarea></label><button data-confirm-problem-save>确认保存</button><button data-close-problem-save>返回</button></dialog>`);
   const saveDialog = root.querySelector<HTMLDialogElement>("#problem-save-dialog")!;
   saveDialog.tabIndex = -1;
   const generated = root.querySelector<HTMLElement>("#generated-problem-number");
@@ -543,7 +549,7 @@ const render = async () => {
     routeBrowser =
       route.name === "route-browser" && selected
         ? selectedRoute
-          ? `${back}<h1>${h(selectedRoute.name || selectedRoute.number)}</h1><p>${h(selected.name)} · ${selectedRoute.angle}° · ${selectedRoute.grade}</p><div id="route-preview"></div><div class="legend">${roles.map((x) => `<span><i style="background:${ROLE_COLORS[x]}"></i>${roleLabels[x]}</span>`).join("")}</div><div class="route-pager"><button data-route-previous ${selectedRouteIndex === 0 ? "disabled" : ""}>‹ 上一条</button><button data-route-next ${selectedRouteIndex === filteredRouteProblems.length - 1 ? "disabled" : ""}>下一条 ›</button></div><button class="route-list-return" data-route-back-list>返回线路列表</button>`
+          ? `${back}<h1 class="route-detail-title">${h(selectedRoute.number)} ${h(selectedRoute.name || "")}</h1><p class="route-detail-meta">${h(selected.name)}<b>·</b>${selectedRoute.angle}°<b>·</b>${selectedRoute.grade}<b>·</b>${footLabels[selectedRoute.footRule]}</p><div id="route-preview"></div><div class="legend">${roles.map((x) => `<span><i style="background:${ROLE_COLORS[x]}"></i>${roleLabels[x]}</span>`).join("")}</div><div class="route-note">${h(selectedRoute.description || "")}</div><div class="route-pager"><button data-route-previous ${selectedRouteIndex === 0 ? "disabled" : ""}>‹ 上一条</button><button data-route-next ${selectedRouteIndex === filteredRouteProblems.length - 1 ? "disabled" : ""}>下一条 ›</button></div><button class="route-list-return" data-route-back-list>返回线路列表</button>`
           : `${back}<h1>${h(selected.name)}</h1><div class="route-browser-filters"><button data-route-angle>角度：${routeFilterAngle === undefined ? "全部" : `${routeFilterAngle}°`}</button><button data-route-grade>难度：${routeFilterGrade ?? "全部"}</button></div><dialog class="choice-dialog" data-route-filter-dialog="angle"><h2>筛选角度</h2><button data-route-filter-angle="">全部</button>${routeAngles.map((angle) => `<button data-route-filter-angle="${angle}">${angle}°</button>`).join("")}<button data-route-filter-close>关闭</button></dialog><dialog class="choice-dialog" data-route-filter-dialog="grade"><h2>筛选难度</h2><button data-route-filter-grade="">全部</button>${grades.map((grade) => `<button data-route-filter-grade="${grade}">${grade}</button>`).join("")}<button data-route-filter-close>关闭</button></dialog><div class="route-browser-list">${filteredRouteProblems.map((p) => `<button class="problem-row" data-browse-problem="${h(p.id)}"><b>${h(p.number)}</b><em>${h(p.name || "未命名线路")} · ${p.angle}° · ${p.grade}</em></button>`).join("") || '<p class="lead">没有符合筛选条件的线路</p>'}</div>`
         : "",
     browse = routeBrowser || (selected
