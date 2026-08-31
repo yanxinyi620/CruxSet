@@ -162,6 +162,12 @@ def test_calibration_results_split_continue_and_export_actions(tmp_path):
     assert "<th>操作</th>" not in response.text
 
 
+def test_calibration_results_offer_cruxset_publish(tmp_path):
+    response = TestClient(create_app(Settings(data_dir=tmp_path))).get("/")
+    assert "发布到 CruxSet" in response.text
+    assert "/publish" in response.text
+
+
 def test_continue_calibration_link_includes_the_saved_result_identity(tmp_path):
     response = TestClient(create_app(Settings(data_dir=tmp_path))).get("/")
 

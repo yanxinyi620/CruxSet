@@ -155,7 +155,7 @@
   <body>
     <main class="shell">
       <header>
-        <h1>SPRAYWALL / LAB</h1>
+        <h1>CRUXSET / SEGMENTATION LAB</h1>
         <div>固定墙岩点分割实验台</div>
       </header>
       <section class="step">
@@ -235,6 +235,7 @@
               <th>岩点</th>
               <th>继续</th>
               <th>导出</th>
+              <th>发布</th>
               <th>删除</th>
             </tr>
           </thead>
@@ -278,6 +279,24 @@
       }
       function del(url) { pendingDelete = url; $("#confirm").classList.add("open"); }
       function closeConfirm() { pendingDelete = undefined; $("#confirm").classList.remove("open"); }
+      async function publishCalibration(experimentId, calibrationId, button) {
+        const wallName = window.prompt("发布为墙面名称", "")
+        if (wallName === null) return
+        button.disabled = true
+        button.textContent = "发布中…"
+        try {
+          const response = await fetch(`/api/experiments/${experimentId}/calibrations/${calibrationId}/publish`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ wallName }) })
+          const result = await response.json()
+          if (!response.ok) throw new Error(result.message || result.detail || "发布失败")
+          window.alert(`已发布 ${result.holdCount} 个岩点。Wall ID: ${result.wallId}`)
+          if (result.browseUrl) window.open(result.browseUrl, "_blank")
+        } catch (error) {
+          window.alert(error.message || "发布失败")
+        } finally {
+          button.disabled = false
+          button.textContent = "发布到 CruxSet"
+        }
+      }
       $("#confirmDelete").onclick = async () => {
         if (!pendingDelete) return;
         await fetch(pendingDelete, { method: "DELETE" });
@@ -311,7 +330,7 @@
           calibrations
             .map(
               (x) =>
-                `<tr><td>${x.sourceTaskId.slice(0, 8)}</td><td>${time(x.updatedAt)}</td><td>${x.candidateCount}</td><td><a href="/calibrations?experiment=${x.experimentId}&calibration=${x.id}">继续校准</a></td><td><a href="/api/experiments/${x.experimentId}/calibrations/${x.id}/export.svg">SVG</a></td><td><button class="danger" onclick="del('/api/experiments/${x.experimentId}/calibrations/${x.id}')">删除</button></td></tr>`,
+                `<tr><td>${x.sourceTaskId.slice(0, 8)}</td><td>${time(x.updatedAt)}</td><td>${x.candidateCount}</td><td><a href="/calibrations?experiment=${x.experimentId}&calibration=${x.id}">继续校准</a></td><td><a href="/api/experiments/${x.experimentId}/calibrations/${x.id}/export.svg">SVG</a></td><td><button onclick="publishCalibration('${x.experimentId}','${x.id}',this)">发布到 CruxSet</button></td><td><button class="danger" onclick="del('/api/experiments/${x.experimentId}/calibrations/${x.id}')">删除</button></td></tr>`,
             )
             .join("") || '<tr><td colspan="6">尚无校准结果</td></tr>';
       }

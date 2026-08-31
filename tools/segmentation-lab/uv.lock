@@ -74,6 +74,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
+    { name = "httpx" },
     { name = "numpy" },
     { name = "opencv-python-headless" },
     { name = "pillow" },
@@ -98,6 +99,7 @@ test = [
 [package.metadata]
 requires-dist = [
     { name = "fastapi", specifier = ">=0.116,<1" },
+    { name = "httpx", specifier = ">=0.28,<1" },
     { name = "httpx", marker = "extra == 'test'", specifier = ">=0.28,<1" },
     { name = "numpy", specifier = ">=1.26,<2" },
     { name = "opencv-python-headless", specifier = ">=4.10,<5" },

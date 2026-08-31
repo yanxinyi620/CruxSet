@@ -4,7 +4,7 @@ import json
 import math
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Header, Request, UploadFile
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -102,8 +102,8 @@ def _segmentation_holds(raw_holds: Any, width: int, height: int) -> list[dict[st
 
 
 @router.post("/admin/segmentation-walls")
-async def publish_segmentation_wall(request: Request, image: UploadFile = File(...), metadata: str = Form(...), authorization: str | None = None):
-    _publish_key(request, authorization or request.headers.get("Authorization"))
+async def publish_segmentation_wall(request: Request, image: UploadFile = File(...), metadata: str = Form(...), authorization: str | None = Header(default=None)):
+    _publish_key(request, authorization)
     try:
         payload = json.loads(metadata)
     except json.JSONDecodeError as error:

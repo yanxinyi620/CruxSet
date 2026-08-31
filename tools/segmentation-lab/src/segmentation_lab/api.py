@@ -2,6 +2,8 @@ from typing import Mapping
 from hashlib import sha256
 from io import BytesIO
 from pathlib import Path
+import time
+from uuid import uuid4
 
 from fastapi import BackgroundTasks, Body, FastAPI, File, Request, UploadFile
 from fastapi.responses import JSONResponse
@@ -15,6 +17,7 @@ from .adapters.sam3 import Sam3Adapter
 from .config import Settings
 from .errors import SegmentationLabError
 from .experiments import ExperimentStore
+from .cruxset import CruxSetPublisher
 from .service import BenchmarkService
 
 
@@ -118,6 +121,36 @@ def create_app(settings: Settings, adapters: Mapping[str, SegmentationAdapter] |
     @app.get("/api/experiments/{experiment_id}/calibrations/{calibration_id}")
     def calibration(experiment_id: str, calibration_id: str) -> dict[str, object]:
         return {"items": store.read_calibration_candidates(experiment_id, calibration_id)}
+
+    @app.post("/api/experiments/{experiment_id}/calibrations/{calibration_id}/publish", status_code=201)
+    async def publish_calibration(experiment_id: str, calibration_id: str, payload: dict[str, object] = Body(default={})) -> dict[str, object]:
+        experiment = next((item for item in store.list_experiments() if item["id"] == experiment_id), None)
+        if experiment is None:
+            raise SegmentationLabError("experiment_not_found", "Experiment was not found")
+        calibration = next((item for item in store.list_calibrations(experiment_id) if item["id"] == calibration_id), None)
+        if calibration is None:
+            raise SegmentationLabError("calibration_not_found", "Calibration was not found")
+        if not settings.cruxset_publish_key:
+            raise SegmentationLabError("publish_not_configured", "CruxSet 发布密钥未配置。")
+        image_path = next((store.root / experiment_id / "input").glob("original.*"), None)
+        if image_path is None:
+            raise SegmentationLabError("experiment_not_found", "Experiment image was not found")
+        wall_name = str(payload.get("wallName") or f"{experiment['imageName']} · 校准 {calibration_id[:8]}")
+        candidates = store.read_calibration_candidates(experiment_id, calibration_id)
+        metadata = {
+            "publishRequestId": str(uuid4()),
+            "sourceExperimentId": experiment_id,
+            "sourceCalibrationId": calibration_id,
+            "wallName": wall_name,
+            "imageWidth": experiment["width"],
+            "imageHeight": experiment["height"],
+            "holds": [{"sourceId": str(item["id"]), "kind": item.get("kind", "hold"), "polygon": item["polygon"]} for item in candidates],
+        }
+        result = await CruxSetPublisher(settings.cruxset_base_url, settings.cruxset_publish_key).publish(image_path.read_bytes(), str(experiment["imageName"]), metadata)
+        result = {**result, "browseUrl": f"{settings.cruxset_web_url}{result.get('browsePath', '')}"}
+        record = {**result, "publishRequestId": metadata["publishRequestId"], "wallName": wall_name, "publishedAt": time.time(), "status": "succeeded"}
+        store.record_calibration_publish(experiment_id, calibration_id, record)
+        return result
 
     @app.get("/api/experiments/{experiment_id}/calibrations/{calibration_id}/export.svg")
     def export_calibration_svg(experiment_id: str, calibration_id: str) -> Response:

@@ -114,6 +114,13 @@ class ExperimentStore:
         path = self.root / experiment_id / "calibrations" / calibration_id / "candidates.json"
         return json.loads(path.read_text())["items"]
 
+    def record_calibration_publish(self, experiment_id: str, calibration_id: str, record: dict[str, object]) -> None:
+        path = self.root / experiment_id / "calibrations" / calibration_id / "calibration.json"
+        payload = json.loads(path.read_text())
+        payload["publish"] = record
+        payload["updatedAt"] = time.time()
+        self._write_json(path, payload)
+
     def all_calibrations(self) -> list[dict[str, object]]:
         calibrations = [{"experimentId": item["id"], **calibration} for item in self.list_experiments() for calibration in self.list_calibrations(item["id"])]
         return sorted(calibrations, key=lambda item: item["updatedAt"], reverse=True)
