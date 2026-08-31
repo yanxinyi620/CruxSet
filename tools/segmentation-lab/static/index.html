@@ -118,6 +118,24 @@
       background: #23877f;
       border-color: #23877f;
     }
+    .model-button {
+      min-width: 112px;
+      color: #176b65;
+      border-color: #8ccfc6;
+      background: #e7f7f3;
+      font-weight: 700;
+    }
+    .model-button:hover:not(:disabled) {
+      color: #fff;
+      background: #23877f;
+      border-color: #23877f;
+    }
+    .model-button:disabled {
+      color: #8b918d;
+      border-color: #d4d8d4;
+      background: #f0f1ed;
+      cursor: not-allowed;
+    }
     .status { display:inline-block; padding:3px 7px; border:1px solid var(--l); font:12px system-ui; white-space:nowrap; }
     .status.running { color:#276b49; border-color:#8ebd72; background:#f0fae7; }
     .status.succeeded { color:#276b49; border-color:#8ebd72; background:#f6fbef; }
@@ -385,7 +403,7 @@
         $("#models").innerHTML = d.items
           .map(
             (x) =>
-              `<button ${x.available ? `onclick="openRun('${x.name}')"` : "disabled"}>${x.name}${x.available ? "" : "（不可用）"}</button>`,
+              `<button class="model-button" ${x.available ? `onclick="openRun('${x.name}')"` : "disabled"}>${x.name}${x.available ? "" : "（不可用）"}</button>`,
           )
           .join("");
       }

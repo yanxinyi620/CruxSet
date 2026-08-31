@@ -173,6 +173,12 @@ def test_calibration_results_use_short_calibrate_label(tmp_path):
     response = TestClient(create_app(Settings(data_dir=tmp_path))).get("/")
     assert '>校准</a>' in response.text
     assert '继续校准' not in response.text
+
+
+def test_model_buttons_use_publish_style_class(tmp_path):
+    response = TestClient(create_app(Settings(data_dir=tmp_path))).get("/")
+    assert 'class="model-button"' in response.text
+    assert ".model-button:hover:not(:disabled)" in response.text
     assert 'id="publishConfirm"' in response.text
     assert 'id="publishName"' in response.text
     assert "确认发布" in response.text
