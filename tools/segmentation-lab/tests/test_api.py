@@ -213,6 +213,7 @@ def test_calibration_workbench_loads_a_calibration_from_url_parameters(tmp_path)
 
     assert "params.get('experiment')" in response.text
     assert "resumeCalibration" in response.text
+    assert "function centerWall()" in response.text
 
 
 def test_calibration_workbench_keeps_only_the_save_control(tmp_path):
@@ -231,6 +232,23 @@ def test_calibration_workbench_groups_edit_tools_and_restores_loaded_candidates(
     assert "还原所有修改" in response.text
     assert "baselineItems" in response.text
     assert "已还原本次载入后的所有修改。" in response.text
+    assert 'id="editConfirm" class="confirm"' in response.text
+    assert "function openEditConfirm(action)" in response.text
+    assert "确认删除选中的岩点？" in response.text
+    assert "还原所有修改？" in response.text
+    assert "当前未保存的编辑将丢失，但可通过撤销恢复。" in response.text
+
+
+def test_calibration_workbench_provides_undo_and_redo_controls(tmp_path):
+    response = TestClient(create_app(Settings(data_dir=tmp_path))).get("/calibrations")
+
+    assert response.status_code == 200
+    assert 'id="undo"' in response.text
+    assert 'id="redo"' in response.text
+    assert "function syncHistoryButtons()" in response.text
+    assert "overlay.addEventListener('click',event=>{if(mode==='add')record()},true)" in response.text
+    assert "const historyLimit=100" in response.text
+    assert 'class="history-actions"' in response.text
 
 
 def test_calibration_workbench_marks_add_hold_tool_with_the_active_style(tmp_path):
