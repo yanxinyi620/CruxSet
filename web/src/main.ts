@@ -19,6 +19,8 @@ import { WallCanvasView, ROLE_COLORS } from "./wall-canvas.js";
 import { DraftCanvasView, type DraftMode } from "./draft-canvas.js";
 import { DETECT_ROI_FALLBACK_MESSAGE, type Roi } from "./auto-detect.js";
 import { holdsForPersistence } from "./candidate-editor.js";
+import { clearDraft, loadDraft, saveDraft } from "./draft-storage.js";
+import { fromPreviewUrl, previewQuery, toPreviewUrl } from "./routes.js";
 import {
   confirmAndDelete,
   confirmWallDeletion,
@@ -101,8 +103,45 @@ let authenticated = false,
   routeFilterAngle: number | undefined,
   routeFilterGrade: Grade | undefined,
   selectedRouteId = "";
+const initialQuery = typeof window === 'undefined' ? new URLSearchParams() : previewQuery(window.location.search);
+if (initialQuery.has('panel')) panel = initialQuery.get('panel') as typeof panel;
+routeFilterAngle = initialQuery.has('angle') ? Number(initialQuery.get('angle')) : undefined;
+routeFilterGrade = (initialQuery.get('grade') || undefined) as Grade | undefined;
+selectedRouteId = initialQuery.get('problem') || '';
+const syncUiUrl = (replace = false) => {
+  const route = store.state.route;
+  const query: Record<string, string | number | undefined> = {};
+  if ((route.name === 'create' || route.name === 'me') && panel !== 'home') query.panel = panel;
+  if (route.name === 'route-browser') { query.angle = routeFilterAngle; query.grade = routeFilterGrade; query.problem = selectedRouteId; }
+  if (typeof window !== 'undefined') window.history[replace ? 'replaceState' : 'pushState']({}, '', toPreviewUrl(route, query));
+};
 const thumb = '<i class="thumb"></i>',
   back = '<button class="back-button" data-back aria-label="返回">‹</button>';
+if (typeof window !== 'undefined') window.addEventListener('popstate', () => {
+  const route = fromPreviewUrl(window.location.pathname);
+  const current = store.state.route;
+  const isMain = (name: string) => name === 'browse' || name === 'create' || name === 'me';
+  if (isMain(current.name) && !isMain(route.name)) {
+    window.history.pushState({}, '', toPreviewUrl(current));
+    return;
+  }
+  const query = previewQuery(window.location.search);
+  // A main page must never be restored with a stale secondary panel entry.
+  if (isMain(current.name) && route.name === current.name && query.has('panel')) {
+    window.history.replaceState({}, '', toPreviewUrl(current));
+    panel = 'home';
+    void render();
+    return;
+  }
+  panel = (query.get('panel') || 'home') as typeof panel;
+  routeFilterAngle = query.has('angle') ? Number(query.get('angle')) : undefined;
+  routeFilterGrade = (query.get('grade') || undefined) as Grade | undefined;
+  selectedRouteId = query.get('problem') || '';
+  if (route.name !== 'wall-editor') wallCtx = null;
+  if (route.name !== 'problem-editor') problemCtx = null;
+  if (route.name !== 'problem-detail') detailCtx = null;
+  store.navigate(route, { silentHistory: true });
+});
 const restoredShellClasses = "hero-card action-card hub-card wall-card";
 const restoredAnnotationLabels = "自动识别 确认全部 识别区域 candidate-list roi-grid";
 const privateWallVisibility = "wall.visibility === 'private'";
@@ -156,10 +195,10 @@ let problemCtx: ProblemCtx | null = null,
   detailCtx: DetailCtx | null = null,
   wallPreview: WallCanvasView | null = null;
 
-root.addEventListener("click", (event) => {
+ if (typeof root.addEventListener === "function") root.addEventListener("click", (event) => {
   root.querySelectorAll<HTMLDialogElement>("dialog[open]").forEach((dialog) => {
     if (event.target === dialog) dialog.close();
-  });
+ });
 });
 
 const renderLogin = () => {
@@ -188,15 +227,16 @@ const renderLoading = () => {
 const openProblemEditor = async (wallId: string) => {
   const sourceWall = await store.session.getWall(wallId);
   const wall = { ...sourceWall, angleOptions: routeAngles };
+  const saved = loadDraft<{ editor: string; role: HoldRole; angle: number; grade: Grade; footRule: FootRule; name: string; description: string }>(`problem:${wallId}`);
   problemCtx = {
     wall,
-    editor: new ProblemEditor(),
-    role: "start",
-    angle: routeAngles.includes(wall.angleOptions[0] ?? 0) ? wall.angleOptions[0] ?? 0 : 0,
-    grade: "V4",
-    footRule: "feet_follow",
-    name: "",
-    description: "",
+    editor: saved?.editor ? ProblemEditor.restore(saved.editor) : new ProblemEditor(),
+    role: saved?.role ?? "start",
+    angle: saved?.angle ?? (routeAngles.includes(wall.angleOptions[0] ?? 0) ? wall.angleOptions[0] ?? 0 : 0),
+    grade: saved?.grade ?? "V4",
+    footRule: saved?.footRule ?? "feet_follow",
+    name: saved?.name ?? "",
+    description: saved?.description ?? "",
     undo: 0,
     submitting: false,
   };
@@ -211,14 +251,24 @@ const renderProblemEditor = () => {
       hasStart: Boolean(assigned.start.length),
       hasFinish: Boolean(assigned.finish.length),
     });
+  saveDraft(`problem:${c.wall.id}`, { editor: c.editor.serialize(), role: c.role, angle: c.angle, grade: c.grade, footRule: c.footRule, name: c.name, description: c.description });
   if (c.canvas) c.viewportTransform = c.canvas.getTransform();
   c.canvas?.destroy();
   root.innerHTML = `<div class="device secondary-page"><main><button class="back-button" data-exit aria-label="返回">‹</button><div class="editor-head"><h1>新建线路</h1><p>${h(c.wall.name)}</p></div><div class="route-options"><button data-choice-open="angle"><small>角度</small><b>${c.angle}°</b></button><button data-choice-open="grade"><small>难度</small><b>${c.grade}</b></button><button data-choice-open="foot"><small>脚点规则</small><b>${footLabels[c.footRule]}</b></button></div><dialog class="choice-dialog" data-choice-dialog="angle"><h2>选择角度</h2>${c.wall.angleOptions.map((x) => `<button data-choice="angle" data-value="${x}">${x}°</button>`).join("")}<button data-choice-close>关闭</button></dialog><dialog class="choice-dialog" data-choice-dialog="grade"><h2>选择难度</h2>${grades.map((x) => `<button data-choice="grade" data-value="${x}">${x}</button>`).join("")}<button data-choice-close>关闭</button></dialog><dialog class="choice-dialog" data-choice-dialog="foot"><h2>脚点规则</h2>${Object.entries(footLabels).map(([x,l]) => `<button data-choice="foot" data-value="${x}">${l}</button>`).join("")}<button data-choice-close>关闭</button></dialog><div id="editor-canvas"></div><div class="legend">${roles.map((x) => `<span><i style="background:${ROLE_COLORS[x]}"></i>${roleLabels[x]}</span>`).join("")}</div><div class="role-toolbar">${roles.map((x) => `<button class="role-btn ${c.role===x?'active':''}" data-role="${x}"><i style="background:${ROLE_COLORS[x]}"></i>${roleLabels[x]}</button>`).join("")}</div><div class="editor-actions"><button data-undo ${c.undo ? "" : "disabled"}>撤销</button><button data-clear>清空</button><button class="save" data-save ${state.canSubmit ? "" : "disabled"}>保存线路</button></div><div class="field"><label for="problem-name">线路名称</label><input id="problem-name" value="${h(c.name)}"><label for="problem-description">线路说明</label><textarea id="problem-description">${h(c.description)}</textarea></div><p class="editor-toast">${h(c.toast)}</p></main></div>`;
   root.querySelector("[data-exit]")!.addEventListener("click", () => {
     c.canvas?.destroy();
     problemCtx = null;
+    clearDraft(`problem:${c.wall.id}`);
     panel = "new-route";
     store.navigate({ name: "create" });
+  });
+  root.querySelector<HTMLInputElement>('#problem-name')?.addEventListener('input', (event) => {
+    c.name = (event.target as HTMLInputElement).value;
+    saveDraft(`problem:${c.wall.id}`, { editor: c.editor.serialize(), role: c.role, angle: c.angle, grade: c.grade, footRule: c.footRule, name: c.name, description: c.description });
+  });
+  root.querySelector<HTMLTextAreaElement>('#problem-description')?.addEventListener('input', (event) => {
+    c.description = (event.target as HTMLTextAreaElement).value;
+    saveDraft(`problem:${c.wall.id}`, { editor: c.editor.serialize(), role: c.role, angle: c.angle, grade: c.grade, footRule: c.footRule, name: c.name, description: c.description });
   });
   root.querySelectorAll<HTMLButtonElement>("[data-choice-open]").forEach((button) => button.onclick = () => (root.querySelector(`[data-choice-dialog="${button.dataset.choiceOpen}"]`) as HTMLDialogElement).showModal());
   root.querySelectorAll<HTMLButtonElement>("[data-choice-close]").forEach((button) => button.onclick = () => (button.closest("dialog") as HTMLDialogElement).close());
@@ -284,6 +334,7 @@ const renderProblemEditor = () => {
         }),
     );
     if (result.ok) {
+      clearDraft(`problem:${c.wall.id}`);
       c.toast = `已保存线路 ${result.value.number}`;
       c.editor = new ProblemEditor();
       c.role = "start";
@@ -320,13 +371,14 @@ const renderProblemEditor = () => {
 
 const openWallEditor = async (wallId: string) => {
   const wall = await store.session.getWall(wallId);
+  const saved = loadDraft<{ holds: Hold[]; mode: DraftMode; selected: string | null; kind: 'hold' | 'volume'; dirty: boolean }>(`wall:${wallId}`);
   wallCtx = {
     wall,
-    editor: new WallHoldEditor(wall.holds),
-    mode: "add",
-    selected: null,
-    kind: "hold",
-    dirty: false,
+    editor: new WallHoldEditor(saved?.holds ?? wall.holds),
+    mode: saved?.mode ?? "add",
+    selected: saved?.selected ?? null,
+    kind: saved?.kind ?? "hold",
+    dirty: saved?.dirty ?? false,
     published: wall.visibility === "public",
   };
   store.navigate({ name: "wall-editor", wallId });
@@ -347,12 +399,14 @@ const renderWallEditor = () => {
       dirty: c.dirty,
       holdCount: holds.length,
     });
+  saveDraft(`wall:${c.wall.id}`, { holds, mode: c.mode, selected: c.selected, kind: c.kind, dirty: c.dirty });
   c.canvas?.destroy();
   root.innerHTML = `<div class="device secondary-page"><main><button class="back-button" data-exit aria-label="返回">‹</button><div class="editor-head"><h1>标注墙面</h1><p>${h(c.wall.name)} · ${holds.length} 个岩点</p></div><div class="draft-toolbar"><button data-mode="add" ${state.canEdit ? "" : "disabled"}>添加</button><button data-mode="move" ${state.canEdit ? "" : "disabled"}>移动</button><button data-mode="delete" ${state.canEdit ? "" : "disabled"}>删除</button><button data-undo ${state.canEdit && c.editor.canUndo() ? "" : "disabled"}>撤销</button><button data-clear ${state.canEdit ? "" : "disabled"}>清空</button></div><div class="draft-toolbar"><button data-kind="hold" ${state.canEdit ? "" : "disabled"}>岩点</button><button data-kind="volume" ${state.canEdit ? "" : "disabled"}>体积</button><span>双指缩放 · 单指平移</span></div><div id="draft-canvas"></div><div class="editor-actions"><button data-save-wall ${state.canSave ? "" : "disabled"}>保存草稿</button><button data-publish-wall ${state.canPublish ? "" : "disabled"}>发布墙面</button></div><p class="editor-toast">${h(c.toast)}</p></main></div>`;
   root.querySelector("#draft-canvas")?.insertAdjacentHTML("beforebegin", `<section class="candidate-toolbar"><b>候选岩点</b><button data-detect>自动识别</button><button data-confirm-all>确认全部</button></section><section class="candidate-list" aria-label="候选岩点"></section><section class="field"><label>识别区域</label><div class="roi-grid"><label>X<input data-roi="x" value="0"></label><label>Y<input data-roi="y" value="0"></label><label>宽<input data-roi="width" value="1"></label><label>高<input data-roi="height" value="1"></label></div></section>`);
   root.querySelector("[data-exit]")!.addEventListener("click", () => {
     c.canvas?.destroy();
     wallCtx = null;
+    clearDraft(`wall:${c.wall.id}`);
     panel = "drafts";
     store.navigate({ name: "create" });
   });
@@ -393,6 +447,7 @@ const renderWallEditor = () => {
           holdsForPersistence(c.editor.value()),
         );
         c.dirty = false;
+        clearDraft(`wall:${c.wall.id}`);
         c.toast = "草稿已保存";
       } catch (e) {
         wallActionFailure(c, e, "保存失败");
@@ -410,6 +465,7 @@ const renderWallEditor = () => {
         );
         c.published = true;
         c.dirty = false;
+        clearDraft(`wall:${c.wall.id}`);
         c.toast = "墙面已公开并锁定";
       } catch (e) {
         wallActionFailure(c, e, "发布失败");
@@ -612,16 +668,21 @@ const render = async () => {
     });
   }
   root.querySelectorAll<HTMLButtonElement>("[data-tab]").forEach(
-    (b) =>
+      (b) =>
       (b.onclick = () => {
+        if ((route.name === "create" || route.name === "me") && panel !== "home" && typeof window !== "undefined") {
+          window.history.back();
+          return;
+        }
         panel = "home";
-        store.navigate({ name: b.dataset.tab as "browse" | "create" | "me" });
+        store.navigate({ name: b.dataset.tab as "browse" | "create" | "me" }, { replace: true });
       }),
   );
   root.querySelectorAll<HTMLButtonElement>("[data-panel]").forEach(
     (b) =>
       (b.onclick = () => {
         panel = b.dataset.panel as typeof panel;
+        syncUiUrl();
         void render();
       }),
   );
@@ -637,9 +698,13 @@ const render = async () => {
     (b) =>
       (b.onclick = () => {
         panel = "home";
-        if (route.name === "route-browser" && selected)
-          store.navigate({ name: "wall", wallId: selected.id });
-        else store.navigate({ name: tab });
+        if (route.name === "route-browser" && selectedRouteId) {
+          selectedRouteId = "";
+          syncUiUrl(true);
+          void render();
+        } else if (route.name === "route-browser" && selected)
+          store.navigate({ name: "wall", wallId: selected.id }, { replace: true });
+        else store.navigate({ name: tab }, { replace: true });
       }),
   );
   root
@@ -668,6 +733,7 @@ const render = async () => {
     button.onclick = () => {
       routeFilterAngle = button.dataset.routeFilterAngle === "" ? undefined : Number(button.dataset.routeFilterAngle);
       selectedRouteId = "";
+      syncUiUrl(true);
       (button.closest("dialog") as HTMLDialogElement).close();
       void render();
     };
@@ -676,6 +742,7 @@ const render = async () => {
     button.onclick = () => {
       routeFilterGrade = (button.dataset.routeFilterGrade || undefined) as Grade | undefined;
       selectedRouteId = "";
+      syncUiUrl(true);
       (button.closest("dialog") as HTMLDialogElement).close();
       void render();
     };
@@ -683,19 +750,23 @@ const render = async () => {
   root.querySelectorAll<HTMLButtonElement>("[data-browse-problem]").forEach((button) => {
     button.onclick = () => {
       selectedRouteId = button.dataset.browseProblem!;
+      syncUiUrl();
       void render();
     };
   });
   root.querySelector<HTMLButtonElement>("[data-route-back-list]")?.addEventListener("click", () => {
     selectedRouteId = "";
+    syncUiUrl(true);
     void render();
   });
   root.querySelector<HTMLButtonElement>("[data-route-previous]")?.addEventListener("click", () => {
     if (selectedRouteIndex > 0) selectedRouteId = filteredRouteProblems[selectedRouteIndex - 1].id;
+    syncUiUrl(true);
     void render();
   });
   root.querySelector<HTMLButtonElement>("[data-route-next]")?.addEventListener("click", () => {
     if (selectedRouteIndex >= 0 && selectedRouteIndex < filteredRouteProblems.length - 1) selectedRouteId = filteredRouteProblems[selectedRouteIndex + 1].id;
+    syncUiUrl(true);
     void render();
   });
   root
@@ -826,7 +897,7 @@ const render = async () => {
     }
   });
 };
-store.subscribe(() => void render());
+store.subscribe(() => { syncUiUrl(true); void render(); });
 renderLoading();
 void api
   .currentUser()

@@ -6,6 +6,7 @@ nav { padding: 8px 15px 10px; }
 
 /* Chinese page titles need breathing room at this compact device width. */
 h1 { letter-spacing: 2px; }
+.secondary-page main > h1:not(.route-detail-title) { font-size:24px; letter-spacing:0; }
 
 .hub-card { display:flex; align-items:center; gap:14px; width:100%; margin:12px 0; padding:18px; text-align:left; color:var(--ink); border:1px solid var(--line); border-radius:20px; }
 .hub-card.walls { background:#dff5e7; border-color:#c6ebd2; }
