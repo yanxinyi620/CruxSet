@@ -34,7 +34,7 @@ h1 { letter-spacing: 2px; }
 
 /* Route browser rows are presented as a compact, scannable list. */
 .route-browser-list { gap:0; overflow:hidden; border:1px solid var(--line); border-radius:15px; background:#fff; }
-.route-browser-list .problem-row { min-height:54px; padding:12px 13px; border-bottom:1px solid #eeeef4; border-radius:0; background:#fff; }
+.route-browser-list .problem-row { min-height:48px; padding:9px 13px; border-bottom:1px solid #eeeef4; border-radius:0; background:#fff; }
 .route-browser-list .problem-row:last-child { border-bottom:0; }
 .route-browser-list .problem-row b { width:68px; flex:0 0 68px; color:#5240bb; font-size:13px; white-space:nowrap; }
 .route-browser-list .problem-row em { display:block; min-width:0; line-height:1.4; }
