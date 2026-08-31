@@ -30,7 +30,7 @@ SEG_LAB_DATA_DIR=./data uv run uvicorn segmentation_lab.api:app --host 127.0.0.1
 
 ```bash
 export CRUXSET_SEGMENTATION_PUBLISH_KEY='local-only-long-random-secret'
-export CRUXSET_SEGMENTATION_PUBLISH_OWNER_ID='<CruxSet 管理员用户 ID>'
+export CRUXSET_SEGMENTATION_PUBLISH_OWNER_ID='usr_web_lgjUPpx-3eu-s1_r'
 export CRUXSET_BASE_URL='http://127.0.0.1:8000'
 export CRUXSET_WEB_URL='http://127.0.0.1:5173'
 ```

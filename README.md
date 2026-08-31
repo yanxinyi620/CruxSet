@@ -102,7 +102,7 @@ npm run build
 
 ```bash
 export CRUXSET_SEGMENTATION_PUBLISH_KEY='local-only-long-random-secret'
-export CRUXSET_SEGMENTATION_PUBLISH_OWNER_ID='<管理员用户 ID>'
+export CRUXSET_SEGMENTATION_PUBLISH_OWNER_ID='usr_web_lgjUPpx-3eu-s1_r'
 ```
 
 终端一，启动 CruxSet API：
