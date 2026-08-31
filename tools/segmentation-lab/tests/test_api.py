@@ -164,7 +164,8 @@ def test_calibration_results_split_continue_and_export_actions(tmp_path):
 
 def test_calibration_results_offer_cruxset_publish(tmp_path):
     response = TestClient(create_app(Settings(data_dir=tmp_path))).get("/")
-    assert "发布到 CruxSet" in response.text
+    assert 'class="publish"' in response.text
+    assert '>发布</button>' in response.text
     assert "/publish" in response.text
 
 

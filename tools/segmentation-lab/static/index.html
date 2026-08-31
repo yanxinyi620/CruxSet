@@ -105,6 +105,19 @@
       background: #b84a43;
       border-color: #b84a43;
     }
+    .publish {
+      width: auto;
+      padding: 6px 10px;
+      color: #176b65;
+      border-color: #8ccfc6;
+      background: #e7f7f3;
+      font-size: 12px;
+    }
+    .publish:hover {
+      color: #fff;
+      background: #23877f;
+      border-color: #23877f;
+    }
     .status { display:inline-block; padding:3px 7px; border:1px solid var(--l); font:12px system-ui; white-space:nowrap; }
     .status.running { color:#276b49; border-color:#8ebd72; background:#f0fae7; }
     .status.succeeded { color:#276b49; border-color:#8ebd72; background:#f6fbef; }
@@ -294,7 +307,7 @@
           window.alert(error.message || "发布失败")
         } finally {
           button.disabled = false
-          button.textContent = "发布到 CruxSet"
+          button.textContent = "发布"
         }
       }
       $("#confirmDelete").onclick = async () => {
@@ -330,7 +343,7 @@
           calibrations
             .map(
               (x) =>
-                `<tr><td>${x.sourceTaskId.slice(0, 8)}</td><td>${time(x.updatedAt)}</td><td>${x.candidateCount}</td><td><a href="/calibrations?experiment=${x.experimentId}&calibration=${x.id}">继续校准</a></td><td><a href="/api/experiments/${x.experimentId}/calibrations/${x.id}/export.svg">SVG</a></td><td><button onclick="publishCalibration('${x.experimentId}','${x.id}',this)">发布到 CruxSet</button></td><td><button class="danger" onclick="del('/api/experiments/${x.experimentId}/calibrations/${x.id}')">删除</button></td></tr>`,
+                `<tr><td>${x.sourceTaskId.slice(0, 8)}</td><td>${time(x.updatedAt)}</td><td>${x.candidateCount}</td><td><a href="/calibrations?experiment=${x.experimentId}&calibration=${x.id}">继续校准</a></td><td><a href="/api/experiments/${x.experimentId}/calibrations/${x.id}/export.svg">SVG</a></td><td><button class="publish" onclick="publishCalibration('${x.experimentId}','${x.id}',this)">发布</button></td><td><button class="danger" onclick="del('/api/experiments/${x.experimentId}/calibrations/${x.id}')">删除</button></td></tr>`,
             )
             .join("") || '<tr><td colspan="6">尚无校准结果</td></tr>';
       }
