@@ -19,6 +19,22 @@
 .editor-actions button.save { background: var(--accent); border-color: var(--accent); color: #fff; }
 .editor-actions button:disabled { opacity: .45; cursor: not-allowed; }
 .field input, .field textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: #fff; font-size: 14px; color: var(--ink); }
+.field input[type="file"] { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.image-picker { display: grid; gap: 4px; width: 100%; padding: 16px; border: 1px dashed #aaa6dc; border-radius: 17px; background: #f5f3ff; color: #493eb6; font: inherit; font-weight: 800; text-align: left; cursor: pointer; }
+.image-picker small { color: #706b9b; font-size: 12px; font-weight: 600; }
+.upload-button { display: grid; place-items: center; margin-top: 8px; text-align: center; }
+.upload-button b { font-size: 16px; }
+#image-source-dialog { width: min(320px, calc(100vw - 48px)); padding: 20px; border: 0; border-radius: 20px; color: var(--ink); box-shadow: 0 20px 60px #27224455; }
+#image-source-dialog::backdrop { background: #27224466; }
+#image-source-dialog h2 { margin: 0 0 14px; font-size: 20px; }
+#image-source-dialog button { display: block; width: 100%; margin-top: 8px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: #fff; color: var(--ink); font-weight: 800; text-align: left; }
+#image-source-dialog button[data-image-source="camera"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+#wall-name-dialog { width: min(320px, calc(100vw - 48px)); padding: 20px; border: 0; border-radius: 20px; color: var(--ink); box-shadow: 0 20px 60px #27224455; }
+#wall-name-dialog::backdrop { background: #27224466; }
+#wall-name-dialog h2 { margin: 0 0 14px; font-size: 20px; }
+#wall-name-dialog input { width: 100%; padding: 11px 12px; border: 1px solid var(--line); border-radius: 12px; font: inherit; }
+#wall-name-dialog button { display: block; width: 100%; margin-top: 8px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: #fff; color: var(--ink); font-weight: 800; text-align: left; }
+#wall-name-dialog button[data-confirm-upload] { background: var(--accent); border-color: var(--accent); color: #fff; }
 .field textarea { resize: vertical; min-height: 54px; }
 .editor-toast { margin-top: 12px; padding: 10px 12px; border-radius: 12px; background: #e8f7ee; color: #397355; font-size: 13px; font-weight: 700; }
 .problem-row { display: flex; align-items: center; gap: 10px; padding: 11px; border-radius: 12px; background: #f8f8fc; }

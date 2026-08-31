@@ -18,6 +18,7 @@ export interface WallCanvasOptions {
   imageUrl: string
   imageWidth: number
   imageHeight: number
+  polygonCoordinates?: 'normalized' | 'pixels'
   holds: Hold[]
   getAssignments: () => Record<HoldRole, readonly string[]>
   getSelectedRole: () => HoldRole | null
@@ -26,6 +27,8 @@ export interface WallCanvasOptions {
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value))
 export const wallHoldAt = (point: Point, holds: Hold[], tolerance: number) => holds.find(hold => hold.polygon?.length ? polygonHitTest(point, hold) : circleHitTest(point, hold)) ?? nearestHold(point, holds, tolerance)
+export const imageUrlFor = (imageFileId: string) => /^(https?:\/\/|\/)/.test(imageFileId) ? imageFileId : `/api/v1/media/${encodeURIComponent(imageFileId)}`
+export const projectHoldPoint = (point: Point, scale: number, imageWidth: number, pixels = false): Point => [point[0] * scale / (pixels ? imageWidth : 1), point[1] * scale / (pixels ? imageWidth : 1)]
 
 export class WallCanvasView {
   private canvas: HTMLCanvasElement
@@ -68,7 +71,7 @@ export class WallCanvasView {
     const img = new Image()
     img.onload = () => { this.image = img; this.redraw() }
     img.onerror = () => { this.imageError = true; this.redraw() }
-    img.src = opts.imageUrl
+    img.src = imageUrlFor(opts.imageUrl)
   }
 
   private updatePinch() {
@@ -166,7 +169,8 @@ export class WallCanvasView {
 
   private tap(screenX: number, screenY: number) {
     const point = screenToImage([screenX, screenY], { scale: this.scale, offsetX: this.offsetX, offsetY: this.offsetY })
-    const hold = wallHoldAt(point, this.opts.holds, SNAP_PX / this.scale)
+    const polygonPoint: Point = this.opts.polygonCoordinates === 'pixels' ? [point[0] * this.opts.imageWidth, point[1] * this.opts.imageWidth] : point
+    const hold = this.opts.holds.find(item => item.polygon?.length ? polygonHitTest(polygonPoint, item) : circleHitTest(point, item)) ?? nearestHold(point, this.opts.holds.filter(item => !item.polygon?.length), SNAP_PX / this.scale)
     if (hold) this.opts.onTapHold(hold.id)
   }
 
@@ -178,8 +182,9 @@ export class WallCanvasView {
     return null
   }
 
-  toScreen(point: Point): Point {
-    return [point[0] * this.scale + this.offsetX, point[1] * this.scale + this.offsetY]
+  toScreen(point: Point, pixels = false): Point {
+    const [x, y] = projectHoldPoint(point, this.scale, this.opts.imageWidth, pixels)
+    return [x + this.offsetX, y + this.offsetY]
   }
 
   redraw() {
@@ -209,7 +214,7 @@ export class WallCanvasView {
       const role = this.roleOf(hold.id)
       ctx.beginPath()
       if (hold.polygon && hold.polygon.length >= 3) {
-        hold.polygon.forEach((point, index) => { const [x, y] = this.toScreen(point); if (index) ctx.lineTo(x, y); else ctx.moveTo(x, y) })
+        hold.polygon.forEach((point, index) => { const [x, y] = this.toScreen(point, this.opts.polygonCoordinates === 'pixels'); if (index) ctx.lineTo(x, y); else ctx.moveTo(x, y) })
         ctx.closePath()
       } else {
         const [sx, sy] = this.toScreen([hold.x, hold.y])

@@ -93,7 +93,7 @@ const root = document.querySelector<HTMLElement>("#app")!,
   api = new LocalApiClient();
 let authenticated = false,
   loginError = "",
-  panel: "home" | "drafts" | "new-wall" | "my-walls" | "my-problems" = "home",
+  panel: "home" | "drafts" | "new-wall" | "new-route" | "my-walls" | "my-problems" = "home",
   expandedWall = "",
   managementError = "";
 const thumb = '<i class="thumb"></i>',
@@ -160,7 +160,8 @@ type WallCtx = {
 type DetailCtx = { problem: Problem; wall: Wall; canvas?: WallCanvasView };
 let problemCtx: ProblemCtx | null = null,
   wallCtx: WallCtx | null = null,
-  detailCtx: DetailCtx | null = null;
+  detailCtx: DetailCtx | null = null,
+  wallPreview: WallCanvasView | null = null;
 
 const renderLogin = () => {
   root.innerHTML = `<div class="device"><main class="login-page"><div class="login-card"><small>CRUXSET</small><h1>本地创作工作台</h1><p class="lead">把墙面、岩点和线路整理成可分享的攀岩资料库。</p><div class="field"><label for="email">邮箱</label><input id="email" autocomplete="email"></div><div class="field"><label for="password">密码</label><input id="password" type="password" autocomplete="current-password"></div><button class="hero-card" data-login>登录工作台</button><p>${h(loginError)}</p></div></main></div>`;
@@ -285,6 +286,7 @@ const renderProblemEditor = () => {
       imageUrl: c.wall.imageFileId,
       imageWidth: c.wall.imageWidth,
       imageHeight: c.wall.imageHeight,
+      polygonCoordinates: c.wall.geometryType === "polygon" ? "pixels" : "normalized",
       holds: c.wall.holds,
       getAssignments: () => c.editor.value().holds,
       getSelectedRole: () => c.role,
@@ -498,6 +500,8 @@ const render = async () => {
     if (detailCtx) renderDetail();
     return;
   }
+  wallPreview?.destroy();
+  wallPreview = null;
   const tab =
       route.name === "create"
         ? "create"
@@ -513,20 +517,22 @@ const render = async () => {
         ? publicWalls.find((w) => w.id === route.wallId)
         : undefined;
   const browse = selected
-    ? `${back}<h1>${h(selected.name)}</h1><p>${selected.holds.length} 个岩点</p><button data-new-problem="${h(selected.id)}">新建线路</button>${problems
+    ? `${back}<h1>${h(selected.name)}</h1><p>${selected.holds.length} 个岩点</p><div id="wall-preview"></div><h2>浏览线路</h2>${problems
         .filter((p) => p.wallId === selected.id)
         .map(
           (p) =>
             `<button class="problem-row" data-problem="${h(p.id)}"><b>${h(p.number)}</b><em>${h(p.name || "未命名线路")} · ${p.grade}</em></button>`,
         )
         .join("")}`
-    : `<h1>线路</h1><p>选择一面公开墙面。</p>${publicWalls.map((w) => `<button class="wall-card" data-wall="${h(w.id)}">${thumb}<span><b>${h(w.name)}</b><em>${w.holds.length} 个岩点 · ${problems.filter((p) => p.wallId === w.id).length} 条线路</em></span></button>`).join("")}`;
+    : `<div class="editor-head"><h1>线路</h1><p>选择一面公开墙面。</p></div>${publicWalls.map((w) => `<button class="wall-card" data-wall="${h(w.id)}">${thumb}<span><b>${h(w.name)}</b><em>${w.holds.length} 个岩点 · ${problems.filter((p) => p.wallId === w.id).length} 条线路</em></span></button>`).join("")}`;
   const create =
     panel === "new-wall"
-      ? `${back}<div class="editor-head"><h1>新建墙面</h1><p>上传墙面图片，开始整理岩点。</p></div><div class="field"><label for="wall-name">墙面名称</label><input id="wall-name" placeholder="例如：北墙训练区"></div><div class="field"><label for="wall-image">墙面图片</label><input id="wall-image" type="file"></div><p id="wall-error"></p><button class="action-card" data-create-wall>创建草稿墙面</button>`
-      : panel === "drafts"
-        ? `${back}<div class="editor-head"><h1>我的草稿</h1><p>继续编辑尚未发布的墙面。</p></div>${drafts.map((w) => `<button class="mine-card hub-card" data-edit-wall="${h(w.id)}">${thumb}<span><b>${h(w.name)}</b><em>${w.holds.length} 个岩点 · 私有草稿</em></span><strong>›</strong></button>`).join("") || "<p class=\"lead\">没有私有墙面草稿</p>"}`
-        : `<div class="editor-head"><h1>创建</h1><p class="lead">从一面墙开始，逐步建立你的线路资料。</p></div><button class="hub-card walls" data-panel="new-wall"><i>＋</i><span><b>新建墙面</b><em>上传图片并标注岩点</em></span><strong>›</strong></button><button class="hub-card problems" data-panel="drafts"><i>□</i><span><b>我的草稿</b><em>继续编辑 ${drafts.length} 面私有墙</em></span><strong>›</strong></button><p class="lead">发布即公开并锁定。</p>`;
+      ? `${back}<div class="editor-head"><h1>新建墙面</h1></div><div class="field"><input id="wall-image-library" type="file" accept="image/*"><input id="wall-image-camera" type="file" accept="image/*" capture="environment"><button class="image-picker" data-open-image-picker><span id="image-picker-label">选择图片</span><small id="image-picker-hint">从相册、文件或相机添加</small></button></div><dialog id="image-source-dialog"><h2>选择图片来源</h2><button data-image-source="library">相册 / 文件</button><button data-image-source="camera">拍照</button><button data-close-image-picker>取消</button></dialog><dialog id="wall-name-dialog"><h2>墙面名称</h2><input id="wall-name" maxlength="100"><button data-confirm-upload>确认上传</button></dialog><p id="wall-error"></p><button class="hero-card upload-button" data-create-wall><b>上传</b></button>`
+      : panel === "new-route"
+        ? `${back}<div class="editor-head"><h1>新建线路</h1><p>选择一面已发布墙面开始定线。</p></div>${publicWalls.filter((w) => w.holds.length >= 2).map((w) => `<button class="wall-card" data-new-problem="${h(w.id)}">${thumb}<span><b>${h(w.name)}</b><em>${w.holds.length} 个岩点</em></span></button>`).join("") || "<p class=\"lead\">没有可定线的已发布墙面</p>"}`
+        : panel === "drafts"
+          ? `${back}<div class="editor-head"><h1>标注岩点</h1><p>选择一面草稿墙面，继续标注岩点。</p></div>${drafts.map((w) => `<button class="mine-card hub-card" data-edit-wall="${h(w.id)}">${thumb}<span><b>${h(w.name)}</b><em>${w.holds.length} 个岩点 · 私有草稿</em></span><strong>›</strong></button>`).join("") || "<p class=\"lead\">没有待标注的草稿墙面</p>"}`
+          : `<div class="editor-head"><h1>创建</h1><p class="lead">从墙面或线路开始创作。</p></div><button class="hub-card walls" data-panel="new-wall"><i>＋</i><span><b>新建墙面</b><em>上传墙面图片</em></span><strong>›</strong></button><button class="hub-card problems" data-panel="drafts"><i>□</i><span><b>标注岩点</b><em>标注后可保存草稿或发布</em></span><strong>›</strong></button><button class="hub-card problems" data-panel="new-route"><i>◇</i><span><b>新建线路</b><em>选择已发布墙面后定线</em></span><strong>›</strong></button><p class="lead">发布即公开并锁定。</p>`;
   const cards = mine
       .map(
         (w) =>
@@ -547,7 +553,19 @@ const render = async () => {
       : panel === "my-problems"
         ? `${back}<h1>我的线路</h1>${managementError ? `<p class="editor-toast">${h(managementError)}</p>` : ""}${groups}`
         : `<div class="editor-head"><h1>我的</h1><p class="lead">管理你创建的墙面与线路。</p></div><button class="hub-card walls" data-panel="my-walls"><i>▧</i><span><b>我的墙面</b><em>已创建 ${mine.length} 面墙</em></span><strong>›</strong></button><button class="hub-card problems" data-panel="my-problems"><i>◇</i><span><b>我的线路</b><em>共 ${problems.length} 条线路</em></span><strong>›</strong></button>`;
-  root.innerHTML = `<div class="device"><header><small>CRUXSET</small></header><main>${tab === "browse" ? browse : tab === "create" ? create : me}</main><nav>${(["browse", "create", "me"] as const).map((x) => `<button data-tab="${x}">${x === "browse" ? "线路" : x === "create" ? "创建" : "我的"}</button>`).join("")}</nav></div>`;
+  root.innerHTML = `<div class="device"><header><small>CRUXSET</small></header><main>${tab === "browse" ? browse : tab === "create" ? create : me}</main><nav>${(["browse", "create", "me"] as const).map((x) => `<button class="${tab === x ? "active" : ""}" data-tab="${x}">${x === "browse" ? "线路" : x === "create" ? "创建" : "我的"}</button>`).join("")}</nav></div>`;
+  if (selected) {
+    wallPreview = new WallCanvasView(root.querySelector("#wall-preview") as HTMLElement, {
+      imageUrl: selected.imageFileId,
+      imageWidth: selected.imageWidth,
+      imageHeight: selected.imageHeight,
+      polygonCoordinates: selected.geometryType === 'polygon' ? 'pixels' : 'normalized',
+      holds: selected.holds,
+      getAssignments: () => ({ start: [], foot: [], hand: [], assist: [], finish: [] }),
+      getSelectedRole: () => null,
+      onTapHold: () => {},
+    });
+  }
   root.querySelectorAll<HTMLButtonElement>("[data-tab]").forEach(
     (b) =>
       (b.onclick = () => {
@@ -627,32 +645,64 @@ const render = async () => {
         void render();
       }),
   );
+  root.querySelector<HTMLButtonElement>("[data-open-image-picker]")?.addEventListener("click", () => {
+    (root.querySelector("#image-source-dialog") as HTMLDialogElement).showModal();
+  });
+  root.querySelectorAll<HTMLButtonElement>("[data-image-source]").forEach((button) => {
+    button.addEventListener("click", () => {
+      (root.querySelector("#image-source-dialog") as HTMLDialogElement).close();
+      root.querySelector<HTMLInputElement>(`#wall-image-${button.dataset.imageSource}`)?.click();
+    });
+  });
+  root.querySelector<HTMLButtonElement>("[data-close-image-picker]")?.addEventListener("click", () => {
+    (root.querySelector("#image-source-dialog") as HTMLDialogElement).close();
+  });
+  root.querySelectorAll<HTMLInputElement>("#wall-image-library, #wall-image-camera").forEach((input) => {
+    input.addEventListener("change", () => {
+      const image = input.files?.[0];
+      if (!image) return;
+      root.querySelector("#image-picker-label")!.textContent = image.name;
+      root.querySelector("#image-picker-hint")!.textContent = "图片已选择，可以上传";
+      (root.querySelector("#wall-error") as HTMLElement).textContent = "";
+    });
+  });
   root
     .querySelector<HTMLButtonElement>("[data-create-wall]")
-    ?.addEventListener("click", async () => {
-      const name = (
-          root.querySelector("#wall-name") as HTMLInputElement
-        ).value.trim(),
-        image = (root.querySelector("#wall-image") as HTMLInputElement)
-          .files?.[0],
+    ?.addEventListener("click", () => {
+      const image = root.querySelector<HTMLInputElement>("#wall-image-library")?.files?.[0]
+          ?? root.querySelector<HTMLInputElement>("#wall-image-camera")?.files?.[0],
         error = root.querySelector("#wall-error")!;
-      if (!name || !image) {
-        error.textContent = "请填写名称并选择图片。";
+      if (!image) {
+        error.textContent = "请选择一张图片。";
         return;
       }
-      try {
-        const size = await imageDimensions(image),
-          wall = await store.session.createWall({
-            name,
-            image,
-            imageWidth: size.width,
-            imageHeight: size.height,
-          });
-        await openWallEditor(wall.id);
-      } catch (e) {
-        error.textContent = (e as Error).message;
-      }
+      (root.querySelector("#wall-name") as HTMLInputElement).value = image.name.replace(/\.[^.]+$/, "") || "未命名墙面";
+      (root.querySelector("#wall-name-dialog") as HTMLDialogElement).showModal();
     });
+  root.querySelector<HTMLButtonElement>("[data-confirm-upload]")?.addEventListener("click", async () => {
+    const image = root.querySelector<HTMLInputElement>("#wall-image-library")?.files?.[0]
+        ?? root.querySelector<HTMLInputElement>("#wall-image-camera")?.files?.[0],
+      error = root.querySelector("#wall-error")!,
+      name = (root.querySelector("#wall-name") as HTMLInputElement).value.trim();
+    if (!image || !name) {
+      error.textContent = "请填写墙面名称并选择图片。";
+      return;
+    }
+    try {
+      const size = await imageDimensions(image),
+        wall = await store.session.createWall({
+          name,
+          image,
+          imageWidth: size.width,
+          imageHeight: size.height,
+        });
+      (root.querySelector("#wall-name-dialog") as HTMLDialogElement).close();
+      panel = "drafts";
+      store.navigate({ name: "create" });
+    } catch (e) {
+      error.textContent = (e as Error).message;
+    }
+  });
 };
 store.subscribe(() => void render());
 void api
