@@ -670,10 +670,6 @@ const render = async () => {
   root.querySelectorAll<HTMLButtonElement>("[data-tab]").forEach(
       (b) =>
       (b.onclick = () => {
-        if ((route.name === "create" || route.name === "me") && panel !== "home" && typeof window !== "undefined") {
-          window.history.back();
-          return;
-        }
         panel = "home";
         store.navigate({ name: b.dataset.tab as "browse" | "create" | "me" }, { replace: true });
       }),
@@ -697,6 +693,10 @@ const render = async () => {
   root.querySelectorAll<HTMLButtonElement>("[data-back]").forEach(
     (b) =>
       (b.onclick = () => {
+        if ((route.name === "create" || route.name === "me") && panel !== "home" && typeof window !== "undefined") {
+          window.history.back();
+          return;
+        }
         panel = "home";
         if (route.name === "route-browser" && selectedRouteId) {
           selectedRouteId = "";
