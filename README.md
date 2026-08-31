@@ -39,14 +39,23 @@ npm run verify:phase1
 
 当前开发默认使用本地 Mock 数据，不需要部署 CloudBase。固定数据为一面日坛 Spraywall 和四条示例线路；创建、标注、发布等操作只保留到本次运行结束，重新编译即恢复初始数据。
 
-本地 Web：
+本地 Web 与实验台发布：
 
 ```bash
-cd server && SESSION_COOKIE_SECURE=false PYTHONPATH=. uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
-# 另开终端：npm run web -- --host 0.0.0.0
+# 终端一：启动 CruxSet API
+export CRUXSET_SEGMENTATION_PUBLISH_KEY='local-only-long-random-secret'
+export CRUXSET_SEGMENTATION_PUBLISH_OWNER_ID='usr_web_lgjUPpx-3eu-s1_r'
+cd server
+SESSION_COOKIE_SECURE=false \
+CRUXSET_SEGMENTATION_PUBLISH_KEY="$CRUXSET_SEGMENTATION_PUBLISH_KEY" \
+CRUXSET_SEGMENTATION_PUBLISH_OWNER_ID="$CRUXSET_SEGMENTATION_PUBLISH_OWNER_ID" \
+PYTHONPATH=. uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
+
+# 终端二：从仓库根目录启动 Web
+npm run web -- --host 0.0.0.0
 ```
 
-电脑打开 `http://localhost:5173`；手机使用电脑局域网 IP，例如 `http://192.168.x.x:5173`。Web 会将 `/api` 请求代理到电脑本机的 FastAPI `127.0.0.1:8000`，手机无需直接访问 8000 端口。首次创建本地管理员：`cd server && PYTHONPATH=. uv run python scripts/create_local_admin.py name@example.com`。
+电脑打开 `http://localhost:5173`；手机使用电脑局域网 IP，例如 `http://192.168.x.x:5173`。Web 会将 `/api` 请求代理到电脑本机的 FastAPI `127.0.0.1:8000`，手机无需直接访问 8000 端口。首次创建本地管理员：`cd server && PYTHONPATH=. uv run python scripts/create_local_admin.py name@example.com`。如需启动分割实验台并发布校准结果，请继续使用下面“手动启动并从实验台发布”的终端三命令。
 
 运行模式配置位于 [runtime.ts](miniprogram/config/runtime.ts)：
 
@@ -98,7 +107,7 @@ npm run build
 
 以下是本机手动启动 Web、CruxSet API 与分割实验台的完整方式。发布使用同一个仅本机使用的密钥；不要把密钥写入仓库或浏览器代码。
 
-先准备一个随机密钥，并将 `<管理员用户 ID>` 替换为本地管理员对应的 CruxSet 用户 ID：
+选择一个随机密钥。由于终端环境变量不会自动共享，请在**终端一和终端三分别**执行以下两行，并确保密钥完全相同：
 
 ```bash
 export CRUXSET_SEGMENTATION_PUBLISH_KEY='local-only-long-random-secret'
