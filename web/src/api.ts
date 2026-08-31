@@ -6,7 +6,7 @@ export type ProblemInput = { wallId: string; angle: number; grade: string; footR
 export class ApiError extends Error {
   constructor(message: string, readonly code?: string) { super(message); this.name = 'ApiError' }
 }
-export function localApiBaseUrl(location: Pick<Location, 'protocol' | 'hostname'> = window.location): string { return `${location.protocol}//${location.hostname}:8000` }
+export function localApiBaseUrl(_location: Pick<Location, 'protocol' | 'hostname'> = window.location): string { return '' }
 export class LocalApiClient {
   private fetcher: typeof fetch
   constructor(private baseUrl = localApiBaseUrl(), fetcher?: typeof fetch) { this.fetcher = fetcher ?? ((input, init) => globalThis.fetch(input, init)) }

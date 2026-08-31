@@ -23,7 +23,7 @@ it('calls the default browser fetch with globalThis as its receiver', async () =
     globalThis.fetch = originalFetch
   }
 })
-it('uses the current LAN host instead of phone localhost for the local API', () => { expect(localApiBaseUrl({ protocol: 'http:', hostname: '192.168.43.179' })).toBe('http://192.168.43.179:8000') })
+it('uses a same-origin API base for LAN and localhost pages', () => { expect(localApiBaseUrl({ protocol: 'http:', hostname: '192.168.43.179' })).toBe(''); expect(localApiBaseUrl({ protocol: 'http:', hostname: 'localhost' })).toBe('') })
 
 it('loads only walls and problems from the local API', async () => {
   const fetcher = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ walls: [{ id: 'wall_demo' }] }))).mockResolvedValueOnce(new Response(JSON.stringify({ problems: [{ id: 'problem_1' }] })))
