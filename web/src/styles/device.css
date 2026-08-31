@@ -36,7 +36,7 @@ h1 { letter-spacing: 2px; }
 .route-browser-list { gap:0; overflow:hidden; border:1px solid var(--line); border-radius:15px; background:#fff; }
 .route-browser-list .problem-row { min-height:54px; padding:12px 13px; border-bottom:1px solid #eeeef4; border-radius:0; background:#fff; }
 .route-browser-list .problem-row:last-child { border-bottom:0; }
-.route-browser-list .problem-row b { width:68px; flex:0 0 68px; color:#5240bb; font-size:13px; }
+.route-browser-list .problem-row b { width:68px; flex:0 0 68px; color:#5240bb; font-size:13px; white-space:nowrap; }
 .route-browser-list .problem-row em { display:block; min-width:0; line-height:1.4; }
 
 .hub-card.profile { background:#fff3dd; border-color:#f1dfbf; }.profile-card { margin:5px 0 16px; padding:22px 19px; border:1px solid #f1dfbf; border-radius:20px; background:#fffaf0; }.profile-card small { color:#8b7143; font-size:12px; font-weight:800; }.profile-card h1 { margin:12px 0 7px; letter-spacing:0; font-size:28px; }.profile-card p { margin:0; color:#6f7187; font-size:13px; overflow-wrap:anywhere; }.profile-logout { width:100%; min-height:44px; border:1px solid #efc1b7; border-radius:13px; background:#fff; color:#c75b49; font-size:14px; font-weight:800; }
