@@ -10,6 +10,10 @@ it('does not bind a supplied fetch function to the API client instance', async (
   const fetcher = function (this: unknown) { if (this !== undefined) throw new Error('illegal invocation'); return Promise.resolve(new Response(JSON.stringify({ user: { id: 'usr_1', isAdmin: true } }))) }
   await expect(new LocalApiClient('http://localhost:8000', fetcher as typeof fetch).currentUser()).resolves.toEqual({ id: 'usr_1', isAdmin: true })
 })
+it('does not bind the browser fetch function while logging in', async () => {
+  const fetcher = function (this: unknown) { if (this !== undefined) throw new Error('illegal invocation'); return Promise.resolve(new Response(JSON.stringify({ user: { id: 'usr_1', isAdmin: true } }))) }
+  await expect(new LocalApiClient('http://localhost:8000', fetcher as typeof fetch).login('admin@example.com', 'correct horse')).resolves.toEqual({ id: 'usr_1', isAdmin: true })
+})
 it('uses the current LAN host instead of phone localhost for the local API', () => { expect(localApiBaseUrl({ protocol: 'http:', hostname: '192.168.43.179' })).toBe('http://192.168.43.179:8000') })
 
 it('loads only walls and problems from the local API', async () => {
