@@ -277,8 +277,11 @@ async def create_problem(payload: ProblemInput, request: Request, user=Depends(r
     if len(set(assigned)) != len(assigned) or not set(assigned).issubset(known):
         raise ApiError("INVALID_INPUT", "Invalid route holds", 422)
     now = _now()
+    walls = sorted(_repo(request).list_walls(), key=lambda item: (item.get("createdAt", 0), item.get("id", "")))
+    wall_number = next((index for index, item in enumerate(walls, 1) if item.get("id") == wall["id"]), 1)
+    route_number = _repo(request).count_problems_for_wall(wall["id"]) + 1
     problem = {
-        "id": _id("problem"), "number": f"CS-{len(_repo(request).list_problems()) + 1:06d}",
+        "id": _id("problem"), "number": f"CS-{wall_number:02d}{route_number:04d}",
         "wallId": wall["id"], "name": payload.name, "description": payload.description,
         "angle": payload.angle, "grade": payload.grade, "footRule": payload.footRule, "holds": holds,
         "createdBy": user["id"], "createdAt": now, "updatedAt": now,
