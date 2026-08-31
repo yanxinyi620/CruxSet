@@ -7,8 +7,9 @@ from fastapi.testclient import TestClient
 from app.auth.passwords import create_admin_account
 from app.auth.sessions import create_session, session_cookie_name
 from app.main import app
-from app.migrations import flatten_legacy_documents, migrate_sqlite_wall_only
+from app.migrations import flatten_legacy_documents, migrate_sqlite_wall_only, reassign_sqlite_document_ownership
 from app.repositories.memory import MemoryRepository
+from app.repositories.sqlite import SQLiteRepository
 
 
 def _legacy_documents():
@@ -170,3 +171,22 @@ def test_sqlite_migration_backup_includes_committed_wal_data(tmp_path):
     backup_ids = {row[0] for row in sqlite3.connect(backup).execute("SELECT document_id FROM documents WHERE collection_name = 'problems'")}
     writer.close()
     assert "problem_wal" in backup_ids
+
+
+def test_ownership_reassignment_backs_up_and_updates_legacy_wall_and_problem_owners(tmp_path):
+    database = tmp_path / "cruxset.db"
+    backup = tmp_path / "cruxset.before-owner-reassignment.db"
+    _write_legacy_database(
+        database,
+        [{"id": "wall_1", "ownerId": "usr_legacy"}],
+        [],
+        [{"id": "problem_1", "wallId": "wall_1", "createdBy": "usr_legacy"}],
+    )
+
+    reassign_sqlite_document_ownership(database, backup, "usr_legacy", "usr_admin")
+
+    repository = SQLiteRepository(database)
+    assert repository.find_wall("wall_1")["ownerId"] == "usr_admin"
+    assert repository.find_problem("problem_1")["createdBy"] == "usr_admin"
+    repository.close()
+    assert sqlite3.connect(backup).execute("SELECT body FROM documents WHERE document_id = 'wall_1'").fetchone()[0].find("usr_legacy") >= 0

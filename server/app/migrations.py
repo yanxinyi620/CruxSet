@@ -123,3 +123,45 @@ def migrate_sqlite_wall_only(database: str | Path, backup: str | Path) -> None:
         raise
     finally:
         connection.close()
+
+
+def reassign_sqlite_document_ownership(
+    database: str | Path, backup: str | Path, previous_owner_id: str, new_owner_id: str
+) -> None:
+    """Back up and transactionally reassign legacy Wall and Problem ownership."""
+    database_path = Path(database)
+    backup_path = Path(backup)
+    if backup_path.exists():
+        raise FileExistsError(f"Migration backup already exists: {backup_path}")
+    connection = sqlite3.connect(database_path, isolation_level=None)
+    try:
+        connection.execute("BEGIN IMMEDIATE")
+        backup_connection = sqlite3.connect(backup_path)
+        snapshot_connection = sqlite3.connect(database_path)
+        try:
+            snapshot_connection.backup(backup_connection)
+        finally:
+            snapshot_connection.close()
+            backup_connection.close()
+
+        for collection, owner_field in (("walls", "ownerId"), ("problems", "createdBy")):
+            rows = connection.execute(
+                "SELECT document_id, body FROM documents WHERE collection_name = ?", (collection,)
+            ).fetchall()
+            replacements = []
+            for document_id, body in rows:
+                document = json.loads(body)
+                if document.get(owner_field) != previous_owner_id:
+                    continue
+                document[owner_field] = new_owner_id
+                replacements.append((json.dumps(document, ensure_ascii=False, separators=(",", ":")), document_id))
+            connection.executemany(
+                "UPDATE documents SET body = ? WHERE collection_name = ? AND document_id = ?",
+                [(body, collection, document_id) for body, document_id in replacements],
+            )
+        connection.commit()
+    except BaseException:
+        connection.rollback()
+        raise
+    finally:
+        connection.close()
