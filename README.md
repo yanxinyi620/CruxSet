@@ -1,38 +1,26 @@
 # CruxSet
 
-CruxSet 现有两条独立产品路径：
+CruxSet 是用于数字化真实攀岩墙的系统：用户通过微信小程序浏览、筛选和创建线路；管理员通过本地 Web 工作台维护墙面、岩点和线路；独立的分割实验台用于探索 AI 岩点识别。
 
 ```text
-本地 Web：web/ → FastAPI → SQLite + 本地图片
-微信小程序：miniprogram/ → Node 云函数 → CloudBase
+本地 Web 创作台 → FastAPI → SQLite + 本地图片
+                         ↓（仅显式发布）
+                    CloudBase 发布包
+
+微信小程序 → CloudBase 云函数 → CloudBase 数据库 / 存储
+
+分割实验台：独立本地服务，不接入上述运行链路
 ```
 
-Web 是管理员的本地创作工作台；小程序独立运行。Web 草稿不与 CloudBase 自动同步，只有已发布内容可通过验证后的发布包导入 CloudBase。
-
-CruxSet 是用于数字化真实攀岩墙的微信原生小程序，目标是在真实岩馆完成：选墙、按角度和难度找线路、查看或随机线路、创建线路并微信分享。
-
-## 当前进度
-
-项目处于 Phase 1 开发阶段。目前已完成：
-
-- 微信原生小程序及页面骨架
-- Wall、Hold、Problem、User 领域类型
-- 三种脚点规则，默认 `feet_follow`
-- Problem 基础校验、筛选、搜索和随机队列
-- Circle/Polygon 基础命中与坐标变换
-- TypeScript 和 Vitest 自动检查
-- 三栏自定义底部导航（线路 / 创建 / 我的）
-- 公开 Wall 浏览、私有草稿编辑，以及“我的墙面 / 我的线路”管理入口
-
-Canvas 手势和线路编辑基础已完成；CloudBase 真机验收、线上数据与上传图像权限仍待完成。准确进度见 [实施计划](docs/IMPLEMENTATION_PLAN.md)。
+Web 与小程序共享 Wall、Hold、Problem 的字段语义，但不共享草稿、登录会话或后端。Web 草稿只保存在本地；小程序不依赖 FastAPI 在线运行。
 
 ## 文档
 
-- [开发实施计划](docs/IMPLEMENTATION_PLAN.md)：当前数据模型、阶段状态和验收门槛
-- [历史产品规格](docs/superpowers/history/CruxSet-微信小程序完整开发实施方案-v1.0.md)：已归档的旧版模型说明，不适用于当前实现
-- [架构说明](docs/architecture.md)：代码边界与运行方式
-- [CloudBase 配置清单](docs/cloudbase-setup.md)：环境、集合、索引与权限
-- [CloudBase 集合声明](config/cloudbase.collections.json)：集合、索引与写入边界
+- [使用与部署](docs/guide.md)：本地运行、CloudBase 配置、当前阶段和发布验收
+- [设计参考](docs/reference.md)：架构、数据模型、业务规则与安全边界
+- [测试与验收](docs/testing.md)：自动化检查和人工验收清单
+- [分割实验台](tools/segmentation-lab/README.md)：独立 AI 岩点分割工具的使用说明
+- [历史规格与计划](docs/superpowers/)：开发过程记录，不作为当前实现的权威说明
 
 如文档存在冲突，以完整产品与技术规格为准。
 
@@ -66,15 +54,11 @@ cd server && PYTHONPATH=. uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
 export const runtimeMode: RuntimeMode = 'mock'
 ```
 
-准备 CloudBase 验收时，将其改为 `'cloudbase'` 后重新编译；体验版或正式发布前必须使用 `'cloudbase'`。业务页面继续通过 services/repository 抽象访问数据，未来可替换为 FastAPI。接入真实 CloudBase 前，需要：
-
-1. 创建 CloudBase 环境；
-2. 在小程序初始化配置中指定环境；
-3. 按实施计划建立集合、权限和云函数。
+准备 CloudBase 验收时，将其改为 `'cloudbase'` 后重新编译；体验版或正式发布前必须使用 `'cloudbase'`。接入真实环境的完整步骤见[使用与部署](docs/guide.md)。
 
 不要把私有环境配置或密钥提交到仓库。
 
-集合与字段见 [数据模型](docs/data-model.md)，业务约束见 [产品规则](docs/product-rules.md)，真机检查见 [人工测试清单](docs/manual-test.md)。
+数据与业务约束见[设计参考](docs/reference.md)，真机检查见[测试与验收](docs/testing.md)。
 
 ## 核心规则
 
@@ -98,7 +82,7 @@ src/domain/        可测试的共享领域规则
 src/repository/    数据访问边界
 tests/             自动测试
 docs/              权威规格与实施计划
-tools/annotator/   Phase 2 本地视觉标注器（Phase 1 后开发）
+tools/segmentation-lab/  独立的 AI 岩点分割与人工校准实验台
 ```
 
 ## 当前验证命令
