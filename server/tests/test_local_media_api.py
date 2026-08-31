@@ -16,7 +16,7 @@ def test_upload_image_returns_a_readable_local_media_url(tmp_path, monkeypatch):
     assert response.status_code == 201
     media = response.json()["media"]
     assert media["url"].startswith("/api/v1/media/")
-    app.state.repository.insert_wall({"id": "wall_public", "imageFileId": media["id"], "visibility": "public", "published": True})
+    app.state.repository.insert_wall({"id": "wall_public", "imageFileId": media["url"], "visibility": "public", "published": True})
     assert TestClient(app).get(media["url"]).content == b"\xff\xd8\xff\xe0test-image"
 
 
@@ -39,3 +39,22 @@ def test_unreferenced_media_is_not_public(tmp_path, monkeypatch):
     client = TestClient(app)
     media = client.post("/api/v1/media/images", files={"file": ("wall.jpg", b"orphan", "image/jpeg")}).json()["media"]
     assert client.get(media["url"]).status_code == 404
+
+
+def test_invalid_wall_media_fields_cannot_authorize_local_media(tmp_path, monkeypatch):
+    monkeypatch.setenv("CRUXSET_MEDIA_DIR", str(tmp_path))
+    app.state.repository = MemoryRepository()
+    client = TestClient(app)
+    media = client.post("/api/v1/media/images", files={"file": ("wall.jpg", b"private", "image/jpeg")}).json()["media"]
+
+    for invalid_reference in ("../" + media["id"], "/tmp/" + media["id"], "https://example.com/" + media["id"]):
+        app.state.repository = MemoryRepository()
+        app.state.repository.insert_wall({"id": "wall_invalid", "imageFileId": invalid_reference, "visibility": "public"})
+        assert client.get(media["url"]).status_code == 404
+
+    app.state.repository = MemoryRepository()
+    app.state.repository.insert_wall({"id": "wall_id", "imageFileId": media["id"], "visibility": "public"})
+    assert client.get(media["url"]).status_code == 200
+    app.state.repository = MemoryRepository()
+    app.state.repository.insert_wall({"id": "wall_url", "imageFileId": media["url"], "visibility": "public"})
+    assert client.get(media["url"]).status_code == 200

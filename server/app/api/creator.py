@@ -12,7 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.api.auth import require_admin
 from app.api.errors import ApiError
 from app.auth.sessions import read_session, session_cookie_name
-from app.api.media import store_image
+from app.api.media import _media_basename, _media_directory, store_image
 
 router = APIRouter(prefix="/api/v1", tags=["creator"])
 
@@ -234,11 +234,28 @@ async def delete_problem(problem_id: str, request: Request, _=Depends(require_ad
 
 @router.delete("/walls/{wall_id}")
 async def delete_wall(wall_id: str, request: Request, user=Depends(require_admin)):
-    _editable_wall(request, wall_id)
+    wall = _editable_wall(request, wall_id)
     count = _repo(request).count_problems_for_wall(wall_id)
     if count:
         raise ApiError("WALL_IN_USE", "Wall is referenced by problems", 409, {"problemCount": count})
+    media_names = {
+        name for name in (_media_basename(wall.get("imageFileId")), _media_basename(wall.get("displayImageFileId"))) if name
+    }
     _repo(request).delete_wall(wall_id)
+    remaining_media_names = {
+        name
+        for remaining_wall in _repo(request).list_walls()
+        for name in (_media_basename(remaining_wall.get("imageFileId")), _media_basename(remaining_wall.get("displayImageFileId")))
+        if name
+    }
+    media_directory = _media_directory().resolve()
+    for name in media_names - remaining_media_names:
+        path = media_directory / name
+        try:
+            if path.parent == media_directory and path.is_file():
+                path.unlink()
+        except OSError:
+            pass
     return {"ok": True}
 
 

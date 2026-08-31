@@ -1,6 +1,7 @@
 import os
 import secrets
 from pathlib import Path
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
@@ -10,6 +11,22 @@ from app.auth.sessions import read_session, session_cookie_name
 router = APIRouter(prefix="/api/v1/media", tags=["media"])
 
 _allowed_types = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
+
+
+def _media_basename(value: object) -> str | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    raw = value.strip()
+    parsed = urlparse(raw)
+    if parsed.scheme or parsed.netloc:
+        return None
+    if raw.startswith("/api/v1/media/"):
+        name = urlparse(raw).path.removeprefix("/api/v1/media/")
+    elif "/" not in raw and "\\" not in raw:
+        name = raw
+    else:
+        return None
+    return name if name and name not in {".", ".."} and "/" not in name and "\\" not in name else None
 
 
 def _media_directory() -> Path:
@@ -45,7 +62,11 @@ async def read_media(media_id: str, request: Request):
         raise HTTPException(status_code=404, detail="Media not found")
     walls = [
         wall for wall in request.app.state.repository.list_walls()
-        if media_id in (wall.get("imageFileId"), wall.get("displayImageFileId"))
+        if media_id in {
+            name
+            for name in (_media_basename(wall.get("imageFileId")), _media_basename(wall.get("displayImageFileId")))
+            if name
+        }
     ]
     if not walls:
         raise HTTPException(status_code=404, detail="Media not found")
