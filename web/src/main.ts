@@ -622,7 +622,7 @@ const render = async () => {
   const cards = mine
       .map(
         (w) =>
-          `<article class="wall-management-card">${thumb}<span><b>${h(w.name)}</b><em>${w.holds.length} 个岩点</em></span><small>${w.visibility === "public" ? "公开" : "私有"}</small><button data-delete-wall="${h(w.id)}">删除</button></article>`,
+          `<article class="wall-management-card">${thumb}<span><b>${h(w.name)}</b><em>${w.holds.length} 个岩点</em></span><small>${w.visibility === "public" ? "公开" : "私有"}</small><button class="delete-button" data-delete-wall="${h(w.id)}">删除</button></article>`,
       )
       .join(""),
     groups = mine
