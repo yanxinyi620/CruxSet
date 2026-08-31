@@ -235,12 +235,12 @@ async def delete_problem(problem_id: str, request: Request, _=Depends(require_ad
 @router.delete("/walls/{wall_id}")
 async def delete_wall(wall_id: str, request: Request, user=Depends(require_admin)):
     wall = _editable_wall(request, wall_id)
-    count = _repo(request).count_problems_for_wall(wall_id)
-    if count:
-        raise ApiError("WALL_IN_USE", "Wall is referenced by problems", 409, {"problemCount": count})
+    linked_problems = [problem for problem in _repo(request).list_problems() if problem.get("wallId") == wall_id]
     media_names = {
         name for name in (_media_basename(wall.get("imageFileId")), _media_basename(wall.get("displayImageFileId"))) if name
     }
+    for problem in linked_problems:
+        _repo(request).delete_problem(problem["id"])
     _repo(request).delete_wall(wall_id)
     remaining_media_names = {
         name

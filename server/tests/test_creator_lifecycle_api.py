@@ -12,7 +12,7 @@ def _authed(repository):
     return TestClient(app), {session_cookie_name(): create_session(account["userId"])}, account
 
 
-def test_wall_deletion_is_non_cascading_and_reports_reference_count(tmp_path, monkeypatch):
+def test_wall_deletion_cascades_to_all_referencing_problems(tmp_path, monkeypatch):
     monkeypatch.setenv("CRUXSET_MEDIA_DIR", str(tmp_path))
     repository = MemoryRepository()
     client, cookie, account = _authed(repository)
@@ -20,11 +20,10 @@ def test_wall_deletion_is_non_cascading_and_reports_reference_count(tmp_path, mo
     repository.insert_wall({"id": "wall_1", "ownerId": account["userId"], "imageFileId": "wall.jpg"})
     repository.insert_problem({"id": "problem_1", "wallId": "wall_1"})
     response = client.delete("/api/v1/walls/wall_1", cookies=cookie)
-    assert response.status_code == 409
-    assert response.json()["error"] == {"code": "WALL_IN_USE", "message": "Wall is referenced by problems", "details": {"problemCount": 1}}
-    assert repository.find_wall("wall_1") is not None
-    assert repository.find_problem("problem_1") is not None
-    assert (tmp_path / "wall.jpg").exists()
+    assert response.status_code == 200
+    assert repository.find_wall("wall_1") is None
+    assert repository.find_problem("problem_1") is None
+    assert not (tmp_path / "wall.jpg").exists()
 
 
 def test_wall_deletion_removes_unreferenced_local_wall_media(tmp_path, monkeypatch):
