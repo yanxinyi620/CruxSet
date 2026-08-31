@@ -42,11 +42,11 @@ npm run verify:phase1
 本地 Web：
 
 ```bash
-cd server && PYTHONPATH=. uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
-# 另开终端：npm run web
+cd server && SESSION_COOKIE_SECURE=false PYTHONPATH=. uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
+# 另开终端：npm run web -- --host 0.0.0.0
 ```
 
-电脑打开 `http://localhost:5173`；手机使用电脑局域网 IP，例如 `http://192.168.x.x:5173`。首次创建本地管理员：`cd server && PYTHONPATH=. uv run python scripts/create_local_admin.py name@example.com`。
+电脑打开 `http://localhost:5173`；手机使用电脑局域网 IP，例如 `http://192.168.x.x:5173`。Web 会将 `/api` 请求代理到电脑本机的 FastAPI `127.0.0.1:8000`，手机无需直接访问 8000 端口。首次创建本地管理员：`cd server && PYTHONPATH=. uv run python scripts/create_local_admin.py name@example.com`。
 
 运行模式配置位于 [runtime.ts](miniprogram/config/runtime.ts)：
 
