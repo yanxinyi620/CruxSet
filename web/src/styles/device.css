@@ -1,9 +1,3 @@
-/* iPhone 13 logical viewport: 390 × 844 pt. */
-.device {
-  width: min(390px, 100vw);
-  height: 844px;
-}
-
 /* Match the native Mini Program tab bar: color and weight indicate selection. */
 nav { padding: 17px 15px calc(17px + var(--safe-bottom)); }
 nav button { padding: 6px 0; font-size: 16px; letter-spacing: .04em; }
