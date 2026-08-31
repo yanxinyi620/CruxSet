@@ -279,7 +279,8 @@ async def create_problem(payload: ProblemInput, request: Request, user=Depends(r
     now = _now()
     walls = sorted(_repo(request).list_walls(), key=lambda item: (item.get("createdAt", 0), item.get("id", "")))
     wall_number = next((index for index, item in enumerate(walls, 1) if item.get("id") == wall["id"]), 1)
-    route_number = _repo(request).count_problems_for_wall(wall["id"]) + 1
+    wall_problems = [problem for problem in _repo(request).list_problems() if problem.get("wallId") == wall["id"]]
+    route_number = max((int(str(problem.get("number", ""))[-4:]) for problem in wall_problems if str(problem.get("number", ""))[-4:].isdigit()), default=0) + 1
     problem = {
         "id": _id("problem"), "number": f"CS-{wall_number:02d}{route_number:04d}",
         "wallId": wall["id"], "name": payload.name, "description": payload.description,

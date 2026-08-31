@@ -14,6 +14,6 @@ export class MemoryProblemService {
   private readonly repository: ProblemRepository
   private counter: number
   constructor(options: { nextNumber?: number; repository?: ProblemRepository } = {}) { this.counter = options.nextNumber ?? 0; this.repository = options.repository ?? new MemoryProblemRepository() }
-  async save(input: SaveProblemInput): Promise<Problem> { const existing = await this.repository.getAll(); const routeSequence = existing.filter(problem => problem.wallId === input.wall.id).length + 1; const wallNumber = Number((input.wall as Wall & { number?: string }).number) || 1; const number = createProblemNumber(wallNumber, routeSequence); const problem = createProblem({ ...input.draft, id: createId('problem'), number }, input.wall); await this.repository.create(problem); this.counter += 1; return problem }
+  async save(input: SaveProblemInput): Promise<Problem> { const existing = await this.repository.getAll(); const routeSequence = Math.max(0, ...existing.filter(problem => problem.wallId === input.wall.id).map(problem => Number(problem.number.slice(-4)) || 0)) + 1; const wallNumber = Number((input.wall as Wall & { number?: string }).number) || 1; const number = createProblemNumber(wallNumber, routeSequence); const problem = createProblem({ ...input.draft, id: createId('problem'), number }, input.wall); await this.repository.create(problem); this.counter += 1; return problem }
   list() { return this.repository.getAll() }
 }
