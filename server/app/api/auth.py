@@ -61,13 +61,14 @@ async def login(payload: AdminLoginRequest, request: Request, response: Response
         samesite="lax",
         max_age=60 * 60 * 8,
     )
-    return {"user": {"id": admin["userId"], "isAdmin": True}}
+    return {"user": {"id": admin["userId"], "email": normalized_email, "isAdmin": True}}
 
 
 @router.get("/me")
 async def me(request: Request):
     user = _current_admin(request)
-    return {"user": {"id": user["id"], "isAdmin": True}}
+    admin = _repository(request).find_admin_by_user_id(str(user["id"]))
+    return {"user": {"id": user["id"], "email": admin["emailNormalized"], "isAdmin": True}}
 
 
 @router.post("/logout")

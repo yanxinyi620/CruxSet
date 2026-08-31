@@ -266,7 +266,7 @@ async def create_problem(payload: ProblemInput, request: Request, user=Depends(r
         raise ApiError("NOT_FOUND", "Resource not found", 404)
     if not wall.get("published") or wall.get("visibility") != "public" or len(wall.get("holds", [])) < 2:
         raise ApiError("WALL_NOT_ROUTABLE", "Wall is not public and routable", 409)
-    if payload.angle not in wall["angleOptions"] or payload.grade not in {f"V{i}" for i in range(13)}:
+    if payload.angle < 0 or payload.angle > 70 or payload.angle % 5 or payload.grade not in {f"V{i}" for i in range(17)}:
         raise ApiError("INVALID_INPUT", "Invalid route data", 422)
     roles = ("start", "foot", "hand", "assist", "finish")
     holds = {role: payload.holds.get(role, []) for role in roles}

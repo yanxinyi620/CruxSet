@@ -2,6 +2,7 @@
 nav { padding: 17px 15px calc(17px + var(--safe-bottom)); }
 nav button { padding: 6px 0; font-size: 16px; letter-spacing: .04em; }
 nav button.active { color: #fff; font-weight: 900; }
+nav { padding: 8px 15px 10px; }
 
 /* Chinese page titles need breathing room at this compact device width. */
 h1 { letter-spacing: 2px; }
@@ -16,8 +17,13 @@ h1 { letter-spacing: 2px; }
 .hub-card em { color:#6f7187; font-style:normal; font-size:13px; line-height:1.45; }
 .hub-card strong { color:#6046d6; font-size:25px; }
 
-.back-button { display:grid; place-items:center; width:34px; height:34px; margin:0 0 16px -4px; border:1px solid var(--line); border-radius:11px; background:#fff; color:#6046d6; font-size:30px; line-height:1; }
+.back-button { display:flex; align-items:center; justify-content:center; width:34px; height:34px; margin:0 0 16px -4px; padding:0; border:1px solid var(--line); border-radius:11px; background:#fff; color:transparent; font-size:0; }
+.back-button::before { content:"‹"; color:#6046d6; font-size:30px; line-height:1; transform:translate(1px, -2px); }
 
 .wall-management-card { display:flex; align-items:center; gap:12px; margin:12px 0; padding:13px 76px 13px 15px; min-height:74px; position:relative; background:#fff; border:1px solid var(--line); border-radius:18px; }
 .wall-management-card span { display:grid; gap:3px; flex:1; min-width:0; }.wall-management-card b { font-size:16px; }.wall-management-card em { color:#6f7187; font-size:12px; font-style:normal; }.wall-management-card small { padding:4px 8px; border-radius:999px; font-size:11px; font-weight:800; }.wall-management-card .delete-button { position:absolute; right:15px; top:50%; transform:translateY(-50%); }.delete-button { padding:7px 9px; border:1px solid #efc1b7; border-radius:10px; background:#fff; color:#c75b49; font-size:12px; font-weight:800; }
 .problem-group { margin:12px 0; overflow:hidden; border:1px solid var(--line); border-radius:18px; background:#fff; }.group-head { display:flex; align-items:center; gap:12px; width:100%; padding:14px; text-align:left; border:0; background:#fff; color:var(--ink); }.group-head span { display:grid; gap:3px; flex:1; }.group-head b { font-size:16px; }.group-head em { color:#6f7187; font-size:12px; font-style:normal; }.group-head strong { color:#6046d6; font-size:18px; }.problem-list { display:grid; gap:8px; padding:0 14px 14px; }.problem-row { display:flex; align-items:center; gap:10px; padding:11px; border-radius:12px; background:#f8f8fc; }.problem-row span { display:grid; gap:2px; flex:1; min-width:0; }.problem-row b { font-size:12px; color:#6046d6; }.problem-row em { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#4d4f66; font-size:12px; font-style:normal; }
+
+.route-browser-entry { margin-top:14px; text-align:center; }.route-browser-filters { display:flex; gap:8px; margin:13px 0; }.route-browser-filters button { flex:1; padding:9px 6px; border:1px solid #d8d2f4; border-radius:11px; background:#fff; color:#5240bb; font-size:12px; font-weight:800; }.route-browser-list { display:grid; gap:8px; }.route-browser-list .problem-row { width:100%; border:0; text-align:left; }.route-pager { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:14px; }.route-pager button,.route-list-return { min-height:38px; border:1px solid #d8d2f4; border-radius:11px; background:#fff; color:#5240bb; font-size:12px; font-weight:800; }.route-pager button:disabled { color:#aaa8b8; border-color:#e6e5ea; background:#f5f5f7; cursor:default; }.route-list-return { display:block; width:100%; margin-top:9px; }
+
+.hub-card.profile { background:#fff3dd; border-color:#f1dfbf; }.profile-card { margin:5px 0 16px; padding:22px 19px; border:1px solid #f1dfbf; border-radius:20px; background:#fffaf0; }.profile-card small { color:#8b7143; font-size:12px; font-weight:800; }.profile-card h1 { margin:12px 0 7px; letter-spacing:0; font-size:28px; }.profile-card p { margin:0; color:#6f7187; font-size:13px; overflow-wrap:anywhere; }.profile-logout { width:100%; min-height:44px; border:1px solid #efc1b7; border-radius:13px; background:#fff; color:#c75b49; font-size:14px; font-weight:800; }

@@ -11,6 +11,9 @@ html, body, #app { width: 100%; height: 100%; min-height: 100%; margin: 0; paddi
 }
 
 header { padding-top: calc(20px + env(safe-area-inset-top)); }
+.secondary-page main { padding-top: calc(62px + env(safe-area-inset-top)); }
+.secondary-page main:has(#editor-canvas) { padding-top: calc(46px + env(safe-area-inset-top)); }
+.secondary-page .back-button { position: fixed; top: calc(12px + env(safe-area-inset-top)); left: 14px; z-index: 10; margin: 0; }
 .login-page { display:grid; place-items:center; padding-bottom:calc(28px + env(safe-area-inset-bottom)); }
 .login-card { width:min(100%,420px); display:grid; gap:12px; padding:24px; border:1px solid var(--line); border-radius:24px; background:#fff; box-shadow:0 16px 36px #27224418; }
 .login-card h1 { margin:0; }.login-card label { display:grid; gap:6px; color:#6f7187; font-size:12px; font-weight:800; }.login-card input { width:100%; padding:12px; border:1px solid var(--line); border-radius:12px; color:var(--ink); background:#fff; }.eyebrow { margin:0; color:var(--accent); font-size:12px; font-weight:900; }.login-submit { padding:13px; border:0; border-radius:13px; background:var(--accent); color:#fff; font-weight:900; }.login-error { min-height:18px; margin:0; color:#c75b49; font-size:12px; }

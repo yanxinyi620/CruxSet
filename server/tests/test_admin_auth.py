@@ -19,6 +19,7 @@ def test_admin_login_sets_http_only_session():
 
     assert response.status_code == 200
     assert response.json()["user"]["isAdmin"] is True
+    assert response.json()["user"]["email"] == "admin@example.com"
     assert "httponly" in response.headers["set-cookie"].lower()
     assert "secure" in response.headers["set-cookie"].lower()
 
@@ -52,6 +53,22 @@ def test_me_rejects_a_signed_session_for_a_non_admin_user():
     )
 
     assert response.status_code == 401
+
+
+def test_me_returns_the_signed_in_email():
+    repository = MemoryRepository()
+    create_admin_account(repository, "profile@example.com", "correct horse")
+    app.state.repository = repository
+    app.state.login_rate_limiter = LoginRateLimiter()
+    admin = repository.find_admin_by_email("profile@example.com")
+    from app.auth.sessions import create_session, session_cookie_name
+
+    response = TestClient(app).get(
+        "/api/v1/auth/me",
+        cookies={session_cookie_name(): create_session(str(admin["userId"]))},
+    )
+
+    assert response.json()["user"]["email"] == "profile@example.com"
 
 
 def test_login_rate_limits_repeated_failures():

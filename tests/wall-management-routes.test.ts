@@ -9,6 +9,7 @@ describe('wall-only web routes', () => {
     [{ name: 'create' }, '/create'],
     [{ name: 'me' }, '/me'],
     [{ name: 'wall', wallId: 'wall 1' }, '/wall/wall%201'],
+    [{ name: 'route-browser', wallId: 'wall 1' }, '/wall/wall%201/routes'],
     [{ name: 'wall-editor', wallId: 'wall 1' }, '/wall-editor/wall%201'],
     [{ name: 'problem-editor', wallId: 'wall 1' }, '/problem-editor/wall%201'],
     [{ name: 'problem-detail', problemId: 'problem 1' }, '/problem/problem%201'],
@@ -39,7 +40,7 @@ describe('wall-only web routes', () => {
   it('renders a read-only wall preview before creating a route', () => {
     const source = readFileSync('web/src/main.ts', 'utf8')
     expect(source).toContain('id="wall-preview"')
-    expect(source).toContain("polygonCoordinates: selected.geometryType === 'polygon' ? 'pixels' : 'normalized'")
+  expect(source).toContain('polygonCoordinates: "normalized"')
   })
 
   it('only offers route creation for walls with enough holds', () => {
@@ -49,6 +50,61 @@ describe('wall-only web routes', () => {
   it('starts route creation from the create tab instead of a wall detail', () => {
     const source = readFileSync('web/src/main.ts', 'utf8')
     expect(source).toContain('data-panel="new-route"')
-    expect(source).toContain('panel === "new-route"')
+  expect(source).toContain('panel === "new-route"')
+  expect(source).toContain('panel = "new-route"')
+  })
+
+  it('keeps route browsing behind an explicit wall-detail entry', () => {
+    const source = readFileSync('web/src/main.ts', 'utf8')
+    expect(source).toContain('data-open-route-browser')
+    expect(source).toContain('data-route-angle')
+    expect(source).toContain('data-route-grade')
+    expect(source).toContain('data-route-previous')
+    expect(source).toContain('data-route-next')
+  })
+
+  it('offers a profile page with email-derived name and logout', () => {
+    const source = readFileSync('web/src/main.ts', 'utf8')
+    expect(source).toContain('data-panel="profile"')
+    expect(source).toContain('data-logout')
+    expect(source).toContain('profileEmail.split("@", 1)[0]')
+  })
+
+  it('opens the save dialog before sizing its full-wall route preview', () => {
+    const source = readFileSync('web/src/main.ts', 'utf8')
+    const openDialog = source.indexOf('saveDialog.showModal()')
+    const createPreview = source.indexOf('new WallCanvasView(preview,')
+    expect(openDialog).toBeGreaterThan(-1)
+    expect(createPreview).toBeGreaterThan(openDialog)
+  })
+
+  it('clears the prior save preview before creating a new canvas', () => {
+    const source = readFileSync('web/src/main.ts', 'utf8')
+    const clearPreview = source.indexOf('preview.replaceChildren()')
+    const createPreview = source.indexOf('new WallCanvasView(preview,')
+    expect(clearPreview).toBeGreaterThan(-1)
+    expect(createPreview).toBeGreaterThan(clearPreview)
+  })
+
+  it('keeps the uploaded wall name editable without focusing the keyboard', () => {
+    const source = readFileSync('web/src/main.ts', 'utf8')
+    expect(source).toContain('<span class="wall-name-heading">墙面名称<small>（可修改）</small></span>')
+    expect(source).toContain('wallNameDialog.tabIndex = -1')
+    expect(source).toContain('wallNameDialog.focus()')
+  })
+
+  it('renders route canvases at the device pixel ratio while keeping logical coordinates', () => {
+    const source = readFileSync('web/src/wall-canvas.ts', 'utf8')
+    expect(source).toContain('window.devicePixelRatio')
+    expect(source).toContain('this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0)')
+    expect(source).toContain('this.viewportWidth')
+  })
+
+  it('dims the original wall image only while creating a route', () => {
+    const canvasSource = readFileSync('web/src/wall-canvas.ts', 'utf8')
+    const mainSource = readFileSync('web/src/main.ts', 'utf8')
+    expect(canvasSource).toContain('dimImage?: boolean')
+    expect(canvasSource).toContain('if (this.opts.dimImage)')
+    expect(mainSource).toMatch(/viewportHeight: 420,\s+dimImage: true/)
   })
 })

@@ -50,6 +50,15 @@ it('defensively clones API data on ingest and return', async () => {
   await expect(session.listProblems()).resolves.toEqual([expect.objectContaining({ grade: 'V0' })])
 })
 
+it('treats legacy walls without a holds field as walls with no holds', async () => {
+  const { api, session } = fixture()
+  api.loadBrowseData.mockResolvedValue({ walls: [{ ...wall({ visibility: 'public' }), holds: undefined }], problems: [] })
+
+  await session.refresh()
+
+  await expect(session.listWalls()).resolves.toEqual([expect.objectContaining({ id: 'wall_1', holds: [] })])
+})
+
 it('refreshes saved holds into cache when publication fails', async () => {
   const { api, session } = fixture()
   api.publishWall.mockRejectedValue(new Error('WALL_NOT_ROUTABLE'))

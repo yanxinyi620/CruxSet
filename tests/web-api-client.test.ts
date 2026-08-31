@@ -6,6 +6,15 @@ it('sends login requests with browser credentials and parses the current user', 
   await expect(api.login('admin@example.com', 'correct horse')).resolves.toEqual({ id: 'usr_1', isAdmin: true }); expect(fetcher).toHaveBeenCalledWith('http://localhost:8000/api/v1/auth/admin/login', expect.objectContaining({ credentials: 'include', method: 'POST' }))
 })
 it('returns null when no local administrator session exists', async () => { await expect(new LocalApiClient('http://localhost:8000', vi.fn().mockResolvedValue(new Response('', { status: 401 }))).currentUser()).resolves.toBeNull() })
+it('loads the signed-in email and clears its session on logout', async () => {
+  const fetcher = vi.fn()
+    .mockResolvedValueOnce(new Response(JSON.stringify({ user: { id: 'usr_1', email: 'alex@example.com', isAdmin: true } })))
+    .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true })))
+  const api = new LocalApiClient('http://localhost:8000', fetcher)
+  await expect(api.currentUser()).resolves.toEqual({ id: 'usr_1', email: 'alex@example.com', isAdmin: true })
+  await expect(api.logout()).resolves.toEqual({ ok: true })
+  expect(fetcher).toHaveBeenNthCalledWith(2, 'http://localhost:8000/api/v1/auth/logout', expect.objectContaining({ credentials: 'include', method: 'POST' }))
+})
 it('does not bind a supplied fetch function to the API client instance', async () => {
   const fetcher = function (this: unknown) { if (this !== undefined) throw new Error('illegal invocation'); return Promise.resolve(new Response(JSON.stringify({ user: { id: 'usr_1', isAdmin: true } }))) }
   await expect(new LocalApiClient('http://localhost:8000', fetcher as typeof fetch).currentUser()).resolves.toEqual({ id: 'usr_1', isAdmin: true })
@@ -28,6 +37,20 @@ it('uses a same-origin API base for LAN and localhost pages', () => { expect(loc
 it('loads only walls and problems from the local API', async () => {
   const fetcher = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ walls: [{ id: 'wall_demo' }] }))).mockResolvedValueOnce(new Response(JSON.stringify({ problems: [{ id: 'problem_1' }] })))
   await expect(new LocalApiClient('http://localhost:8000', fetcher).loadBrowseData()).resolves.toEqual({ walls: [{ id: 'wall_demo' }], problems: [{ id: 'problem_1' }] }); expect(fetcher).toHaveBeenCalledTimes(2)
+})
+
+it('starts walls and problems requests together during the initial browse load', async () => {
+  let resolveWalls!: (response: Response) => void
+  let resolveProblems!: (response: Response) => void
+  const fetcher = vi.fn((url: string) => new Promise<Response>((resolve) => {
+    if (url.endsWith('/walls')) resolveWalls = resolve
+    if (url.endsWith('/problems')) resolveProblems = resolve
+  }))
+  const loading = new LocalApiClient('http://localhost:8000', fetcher as typeof fetch).loadBrowseData()
+  expect(fetcher).toHaveBeenCalledTimes(2)
+  resolveWalls(new Response(JSON.stringify({ walls: [] })))
+  resolveProblems(new Response(JSON.stringify({ problems: [] })))
+  await expect(loading).resolves.toEqual({ walls: [], problems: [] })
 })
 
 it('uploads an image and creates one complete private wall', async () => {

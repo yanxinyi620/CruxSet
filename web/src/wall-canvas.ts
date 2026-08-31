@@ -19,6 +19,10 @@ export interface WallCanvasOptions {
   imageWidth: number
   imageHeight: number
   polygonCoordinates?: 'normalized' | 'pixels'
+  viewportHeight?: number
+  initialTransform?: ViewTransform
+  fitContain?: boolean
+  dimImage?: boolean
   holds: Hold[]
   getAssignments: () => Record<HoldRole, readonly string[]>
   getSelectedRole: () => HoldRole | null
@@ -39,6 +43,8 @@ export class WallCanvasView {
   private offsetX = 0
   private offsetY = 0
   private readonly aspect: number
+  private readonly viewportWidth: number
+  private readonly viewportHeight: number
   private readonly minScale: number
   private readonly maxScale: number
   private down = false
@@ -58,14 +64,22 @@ export class WallCanvasView {
 
     this.aspect = opts.imageHeight / opts.imageWidth
     const width = Math.max(container.clientWidth || 360, 200)
-    this.scale = this.minScale = width
+    const canvasHeight = Math.round(opts.viewportHeight ?? width * this.aspect)
+    const dpr = Math.max(window.devicePixelRatio || 1, 1)
+    this.viewportWidth = width
+    this.viewportHeight = canvasHeight
+    const fitScale = opts.fitContain ? Math.min(width, canvasHeight / this.aspect) : canvasHeight / this.aspect
+    this.scale = this.minScale = fitScale
     this.maxScale = width * 5
-    this.canvas.width = Math.round(width)
-    this.canvas.height = Math.round(width * this.aspect)
+    this.canvas.width = Math.round(width * dpr)
+    this.canvas.height = Math.round(canvasHeight * dpr)
     this.canvas.style.width = width + "px"
-    this.canvas.style.height = width * this.aspect + "px"
+    this.canvas.style.height = canvasHeight + "px"
     this.canvas.style.touchAction = "none"
-    this.offsetY = 0
+    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    this.offsetX = (width - fitScale) / 2
+    this.offsetY = (canvasHeight - fitScale * this.aspect) / 2
+    if (opts.initialTransform) this.applyTransform(opts.initialTransform)
 
     this.bindEvents()
     const img = new Image()
@@ -164,13 +178,14 @@ export class WallCanvasView {
   }
 
   private clampTransform() {
-    this.applyTransform(clampTransform({ scale: this.scale, offsetX: this.offsetX, offsetY: this.offsetY }, this.canvas.width, this.canvas.height, 1, this.aspect))
+    this.applyTransform(clampTransform({ scale: this.scale, offsetX: this.offsetX, offsetY: this.offsetY }, this.viewportWidth, this.viewportHeight, 1, this.aspect))
   }
 
   private tap(screenX: number, screenY: number) {
     const point = screenToImage([screenX, screenY], { scale: this.scale, offsetX: this.offsetX, offsetY: this.offsetY })
-    const polygonPoint: Point = this.opts.polygonCoordinates === 'pixels' ? [point[0] * this.opts.imageWidth, point[1] * this.opts.imageWidth] : point
-    const hold = this.opts.holds.find(item => item.polygon?.length ? polygonHitTest(polygonPoint, item) : circleHitTest(point, item)) ?? nearestHold(point, this.opts.holds.filter(item => !item.polygon?.length), SNAP_PX / this.scale)
+    const normalizedPoint: Point = [point[0], point[1] / this.aspect]
+    const polygonPoint: Point = this.opts.polygonCoordinates === 'pixels' ? [point[0] * this.opts.imageWidth, point[1] * this.opts.imageWidth] : normalizedPoint
+    const hold = this.opts.holds.find(item => item.polygon?.length ? polygonHitTest(polygonPoint, item) : circleHitTest(normalizedPoint, item)) ?? nearestHold(normalizedPoint, this.opts.holds.filter(item => !item.polygon?.length), SNAP_PX / this.scale)
     if (hold) this.opts.onTapHold(hold.id)
   }
 
@@ -184,19 +199,24 @@ export class WallCanvasView {
 
   toScreen(point: Point, pixels = false): Point {
     const [x, y] = projectHoldPoint(point, this.scale, this.opts.imageWidth, pixels)
-    return [x + this.offsetX, y + this.offsetY]
+    const screenY = pixels ? y : y * this.aspect
+    return [x + this.offsetX, screenY + this.offsetY]
   }
 
   redraw() {
     const ctx = this.ctx
-    const w = this.canvas.width
-    const h = this.canvas.height
+    const w = this.viewportWidth
+    const h = this.viewportHeight
     ctx.clearRect(0, 0, w, h)
     ctx.fillStyle = "#f2f2fa"
     ctx.fillRect(0, 0, w, h)
 
     if (this.image) {
       ctx.drawImage(this.image, this.offsetX, this.offsetY, this.scale, this.scale * this.aspect)
+      if (this.opts.dimImage) {
+        ctx.fillStyle = "rgba(8,12,24,.10)"
+        ctx.fillRect(this.offsetX, this.offsetY, this.scale, this.scale * this.aspect)
+      }
     } else if (this.imageError) {
       ctx.fillStyle = "#e6e3f5"
       ctx.font = "14px sans-serif"
@@ -209,7 +229,6 @@ export class WallCanvasView {
       ctx.fillText("加载墙图中…", w / 2, h / 2)
     }
 
-    const selected = this.opts.getSelectedRole()
     for (const hold of this.opts.holds) {
       const role = this.roleOf(hold.id)
       ctx.beginPath()
@@ -220,14 +239,22 @@ export class WallCanvasView {
         const [sx, sy] = this.toScreen([hold.x, hold.y])
         ctx.arc(sx, sy, hold.radius * this.scale, 0, Math.PI * 2)
       }
-      ctx.fillStyle = role ? ROLE_COLORS[role] : NEUTRAL
-      ctx.fill()
-      ctx.lineWidth = role ? 2 : 1
-      ctx.strokeStyle = role ? ROLE_COLORS[role] : NEUTRAL_EDGE
-      ctx.stroke()
-      if (selected && role !== selected) {
-        ctx.lineWidth = 2.5
-        ctx.strokeStyle = "rgba(99,82,226,.45)"
+      if (hold.polygon?.length) {
+        // Polygon interiors remain transparent so the original wall texture stays visible.
+      } else {
+        ctx.fillStyle = role ? ROLE_COLORS[role] : NEUTRAL
+        ctx.fill()
+      }
+      if (role) {
+        ctx.lineWidth = 5
+        ctx.strokeStyle = "#ffffff"
+        ctx.stroke()
+        ctx.lineWidth = 2
+        ctx.strokeStyle = ROLE_COLORS[role]
+        ctx.stroke()
+      } else {
+        ctx.lineWidth = 1
+        ctx.strokeStyle = hold.polygon?.length ? "rgba(255,255,255,0)" : NEUTRAL_EDGE
         ctx.stroke()
       }
     }
@@ -236,4 +263,7 @@ export class WallCanvasView {
   destroy() {
     this.canvas.remove()
   }
+
+  getTransform(): ViewTransform { return { scale: this.scale, offsetX: this.offsetX, offsetY: this.offsetY } }
+  toDataURL(): string { return this.canvas.toDataURL("image/png") }
 }

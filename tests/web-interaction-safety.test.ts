@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { confirmAndDelete, escapeHtml, guardedAction, isWallLockedError, problemEditorState, wallEditorState } from '../web/src/ui-behavior.js'
+import { confirmAndDelete, confirmWallDeletion, escapeHtml, guardedAction, isWallLockedError, problemEditorState, wallEditorState } from '../web/src/ui-behavior.js'
 import { ApiError, LocalApiClient } from '../web/src/api.js'
 
 describe('web interaction safety', () => {
@@ -41,5 +41,15 @@ describe('web interaction safety', () => {
     expect(await confirmAndDelete(() => false, remove)).toEqual({ ok: false, cancelled: true })
     expect(remove).not.toHaveBeenCalled()
     expect(await confirmAndDelete(() => true, remove)).toEqual({ ok: false, message: 'DELETE_DENIED' })
+  })
+
+  it('requires a second destructive warning before deleting a wall', async () => {
+    const messages: string[] = []
+    const remove = vi.fn().mockResolvedValue(undefined)
+    await expect(confirmWallDeletion((message) => { messages.push(message); return true }, remove)).resolves.toEqual({ ok: true })
+    expect(messages).toHaveLength(2)
+    expect(messages[1]).toContain('所有相关线路')
+    expect(messages[1]).toContain('原始关联图片文件')
+    expect(remove).toHaveBeenCalledOnce()
   })
 })

@@ -1,10 +1,16 @@
 import type { Hold, Problem, Wall } from '../../../miniprogram/domain/types.js'
 import { LocalApiClient } from '../api.js'
 import { PreviewSession, type CreateWallInput } from './preview-session.js'
+
+const normalizeWall = (wall: unknown): Wall => {
+  const value = wall as Partial<Wall>
+  return { ...value, holds: Array.isArray(value.holds) ? value.holds : [] } as Wall
+}
+
 export class ApiSession extends PreviewSession {
   private walls: Wall[] = []; private problems: Problem[] = []; private currentUserId: string | null = null
   constructor(private api: LocalApiClient) { super() }
-  async refresh() { const [data, user] = await Promise.all([this.api.loadBrowseData(), this.api.currentUser()]); this.walls = structuredClone(data.walls) as Wall[]; this.problems = structuredClone(data.problems) as Problem[]; this.currentUserId = user?.id ?? null }
+  async refresh() { const [data, user] = await Promise.all([this.api.loadBrowseData(), this.api.currentUser()]); this.walls = structuredClone(data.walls.map(normalizeWall)); this.problems = structuredClone(data.problems) as Problem[]; this.currentUserId = user?.id ?? null }
   override async listWalls() { return structuredClone(this.walls.filter(wall => wall.visibility === 'public')) }
   override async listMyWalls() { return structuredClone(this.walls.filter(wall => wall.ownerId === this.currentUserId)) }
   override async getWall(id: string) { const wall = this.walls.find(item => item.id === id); if (!wall) throw new Error('WALL_NOT_FOUND'); return structuredClone(wall) }

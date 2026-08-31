@@ -21,6 +21,7 @@ import { DETECT_ROI_FALLBACK_MESSAGE, type Roi } from "./auto-detect.js";
 import { holdsForPersistence } from "./candidate-editor.js";
 import {
   confirmAndDelete,
+  confirmWallDeletion,
   escapeHtml as h,
   guardedAction,
   isWallLockedError,
@@ -93,9 +94,13 @@ const root = document.querySelector<HTMLElement>("#app")!,
   api = new LocalApiClient();
 let authenticated = false,
   loginError = "",
-  panel: "home" | "drafts" | "new-wall" | "new-route" | "my-walls" | "my-problems" = "home",
+  profileEmail = "",
+  panel: "home" | "profile" | "drafts" | "new-wall" | "new-route" | "my-walls" | "my-problems" = "home",
   expandedWall = "",
-  managementError = "";
+  managementError = "",
+  routeFilterAngle: number | undefined,
+  routeFilterGrade: Grade | undefined,
+  selectedRouteId = "";
 const thumb = '<i class="thumb"></i>',
   back = '<button class="back-button" data-back aria-label="返回">‹</button>';
 const restoredShellClasses = "hero-card action-card hub-card wall-card";
@@ -111,25 +116,12 @@ const roleLabels: Record<HoldRole, string> = {
   finish: "终点",
 };
 const footLabels: Record<FootRule, string> = {
-  feet_follow: "手脚同点",
+  feet_follow: "跟随手点",
   specified: "指定脚点",
   all: "全墙脚点",
 };
-const grades: Grade[] = [
-  "V0",
-  "V1",
-  "V2",
-  "V3",
-  "V4",
-  "V5",
-  "V6",
-  "V7",
-  "V8",
-  "V9",
-  "V10",
-  "V11",
-  "V12",
-];
+const grades: Grade[] = Array.from({ length: 17 }, (_, index) => `V${index}` as Grade);
+const routeAngles = Array.from({ length: 15 }, (_, index) => index * 5);
 
 type ProblemCtx = {
   wall: Wall;
@@ -145,6 +137,7 @@ type ProblemCtx = {
   saved?: string;
   toast?: string;
   submitting: boolean;
+  viewportTransform?: import("../../miniprogram/domain/types.js").ViewTransform;
 };
 type WallCtx = {
   wall: Wall;
@@ -167,10 +160,11 @@ const renderLogin = () => {
   root.innerHTML = `<div class="device"><main class="login-page"><div class="login-card"><small>CRUXSET</small><h1>本地创作工作台</h1><p class="lead">把墙面、岩点和线路整理成可分享的攀岩资料库。</p><div class="field"><label for="email">邮箱</label><input id="email" autocomplete="email"></div><div class="field"><label for="password">密码</label><input id="password" type="password" autocomplete="current-password"></div><button class="hero-card" data-login>登录工作台</button><p>${h(loginError)}</p></div></main></div>`;
   root.querySelector<HTMLButtonElement>("[data-login]")!.onclick = async () => {
     try {
-      await api.login(
+      const user = await api.login(
         (root.querySelector("#email") as HTMLInputElement).value,
         (root.querySelector("#password") as HTMLInputElement).value,
       );
+      profileEmail = user.email;
       await store.useApi(api);
       authenticated = true;
       void render();
@@ -181,13 +175,18 @@ const renderLogin = () => {
   };
 };
 
+const renderLoading = () => {
+  root.innerHTML = `<div class="device"><main class="loading-page"><span class="loading-mark" aria-hidden="true"></span><small>CRUXSET</small><p>正在加载墙面与线路…</p></main></div>`;
+};
+
 const openProblemEditor = async (wallId: string) => {
-  const wall = await store.session.getWall(wallId);
+  const sourceWall = await store.session.getWall(wallId);
+  const wall = { ...sourceWall, angleOptions: routeAngles };
   problemCtx = {
     wall,
     editor: new ProblemEditor(),
-    role: "hand",
-    angle: wall.angleOptions[0] ?? 20,
+    role: "start",
+    angle: routeAngles.includes(wall.angleOptions[0] ?? 0) ? wall.angleOptions[0] ?? 0 : 0,
     grade: "V4",
     footRule: "feet_follow",
     name: "",
@@ -206,43 +205,39 @@ const renderProblemEditor = () => {
       hasStart: Boolean(assigned.start.length),
       hasFinish: Boolean(assigned.finish.length),
     });
+  if (c.canvas) c.viewportTransform = c.canvas.getTransform();
   c.canvas?.destroy();
-  root.innerHTML = `<div class="device"><main><button class="back-button" data-exit aria-label="返回">‹</button><div class="editor-head"><h1>新建线路</h1><p>${h(c.wall.name)}</p></div><div class="field"><label>墙面角度</label><div class="chips">${c.wall.angleOptions.map((x) => `<button class="chip ${c.angle===x?'active':''}" data-angle="${x}">${x}°</button>`).join("")}</div></div><div class="field"><label>难度等级</label><div class="chips">${grades.map((x) => `<button class="chip ${c.grade===x?'active':''}" data-grade="${x}">${x}</button>`).join("")}</div></div><div class="field"><label>脚点规则</label><div class="chips">${Object.entries(
-    footLabels,
-  )
-    .map(([x, l]) => `<button data-foot="${x}">${l}</button>`)
-    .join(
-      "",
-    )}</div></div><div id="editor-canvas"></div><div class="legend">${roles.map((x) => `<span><i style="background:${ROLE_COLORS[x]}"></i>${roleLabels[x]}</span>`).join("")}</div><div class="role-toolbar">${roles.map((x) => `<button class="role-btn ${c.role===x?'active':''}" data-role="${x}"><i style="background:${ROLE_COLORS[x]}"></i>${roleLabels[x]}</button>`).join("")}</div><div class="editor-actions"><button data-undo ${c.undo ? "" : "disabled"}>撤销</button><button data-clear>清空</button><button class="save" data-save ${state.canSubmit ? "" : "disabled"}>保存线路</button></div><div class="field"><label for="problem-name">线路名称</label><input id="problem-name" value="${h(c.name)}"><label for="problem-description">线路说明</label><textarea id="problem-description">${h(c.description)}</textarea></div><p class="editor-toast">${h(c.toast)}</p></main></div>`;
+  root.innerHTML = `<div class="device secondary-page"><main><button class="back-button" data-exit aria-label="返回">‹</button><div class="editor-head"><h1>新建线路</h1><p>${h(c.wall.name)}</p></div><div class="route-options"><button data-choice-open="angle"><small>角度</small><b>${c.angle}°</b></button><button data-choice-open="grade"><small>难度</small><b>${c.grade}</b></button><button data-choice-open="foot"><small>脚点规则</small><b>${footLabels[c.footRule]}</b></button></div><dialog class="choice-dialog" data-choice-dialog="angle"><h2>选择角度</h2>${c.wall.angleOptions.map((x) => `<button data-choice="angle" data-value="${x}">${x}°</button>`).join("")}<button data-choice-close>关闭</button></dialog><dialog class="choice-dialog" data-choice-dialog="grade"><h2>选择难度</h2>${grades.map((x) => `<button data-choice="grade" data-value="${x}">${x}</button>`).join("")}<button data-choice-close>关闭</button></dialog><dialog class="choice-dialog" data-choice-dialog="foot"><h2>脚点规则</h2>${Object.entries(footLabels).map(([x,l]) => `<button data-choice="foot" data-value="${x}">${l}</button>`).join("")}<button data-choice-close>关闭</button></dialog><div id="editor-canvas"></div><div class="legend">${roles.map((x) => `<span><i style="background:${ROLE_COLORS[x]}"></i>${roleLabels[x]}</span>`).join("")}</div><div class="role-toolbar">${roles.map((x) => `<button class="role-btn ${c.role===x?'active':''}" data-role="${x}"><i style="background:${ROLE_COLORS[x]}"></i>${roleLabels[x]}</button>`).join("")}</div><div class="editor-actions"><button data-undo ${c.undo ? "" : "disabled"}>撤销</button><button data-clear>清空</button><button class="save" data-save ${state.canSubmit ? "" : "disabled"}>保存线路</button></div><div class="field"><label for="problem-name">线路名称</label><input id="problem-name" value="${h(c.name)}"><label for="problem-description">线路说明</label><textarea id="problem-description">${h(c.description)}</textarea></div><p class="editor-toast">${h(c.toast)}</p></main></div>`;
   root.querySelector("[data-exit]")!.addEventListener("click", () => {
     c.canvas?.destroy();
     problemCtx = null;
-    store.navigate({ name: "wall", wallId: c.wall.id });
+    panel = "new-route";
+    store.navigate({ name: "create" });
   });
-  root.querySelectorAll<HTMLElement>("[data-angle]").forEach(
-    (x) =>
-      (x.onclick = () => {
-        c.angle = Number(x.dataset.angle);
-      }),
-  );
-  root.querySelectorAll<HTMLElement>("[data-grade]").forEach(
-    (x) =>
-      (x.onclick = () => {
-        c.grade = x.dataset.grade as Grade;
-      }),
-  );
-  root.querySelectorAll<HTMLElement>("[data-foot]").forEach(
-    (x) =>
-      (x.onclick = () => {
-        c.footRule = x.dataset.foot as FootRule;
-      }),
-  );
+  root.querySelectorAll<HTMLButtonElement>("[data-choice-open]").forEach((button) => button.onclick = () => (root.querySelector(`[data-choice-dialog="${button.dataset.choiceOpen}"]`) as HTMLDialogElement).showModal());
+  root.querySelectorAll<HTMLButtonElement>("[data-choice-close]").forEach((button) => button.onclick = () => (button.closest("dialog") as HTMLDialogElement).close());
+  root.querySelectorAll<HTMLButtonElement>("[data-choice]").forEach((button) => button.onclick = () => {
+    if (button.dataset.choice === "angle") c.angle = Number(button.dataset.value);
+    if (button.dataset.choice === "grade") c.grade = button.dataset.value as Grade;
+    if (button.dataset.choice === "foot") c.footRule = button.dataset.value as FootRule;
+    (button.closest("dialog") as HTMLDialogElement).close();
+    renderProblemEditor();
+  });
   root.querySelectorAll<HTMLElement>("[data-role]").forEach(
     (x) =>
       (x.onclick = () => {
         c.role = x.dataset.role as HoldRole;
+        renderProblemEditor();
       }),
   );
+  const toast = root.querySelector<HTMLParagraphElement>(".editor-toast");
+  if (toast) root.querySelector("#editor-canvas")!.before(toast);
+  root.querySelector("#editor-canvas")!.insertAdjacentHTML("beforebegin", `<dialog class="problem-save-dialog" id="problem-save-dialog"><h2>保存线路</h2><p class="generated-number" id="generated-problem-number"></p><label>线路名称（选填）<input id="dialog-problem-name" placeholder="可不填写"></label><label>线路说明（选填）<textarea id="dialog-problem-description" placeholder="可不填写"></textarea></label><button data-confirm-problem-save>确认保存</button><button data-close-problem-save>返回</button></dialog>`);
+  const saveDialog = root.querySelector<HTMLDialogElement>("#problem-save-dialog")!;
+  saveDialog.tabIndex = -1;
+  const generated = root.querySelector<HTMLElement>("#generated-problem-number");
+  if (generated) generated.outerHTML = `<div id="problem-preview-canvas" class="problem-preview" aria-label="线路预览图"></div>`;
+  root.querySelector("[data-close-problem-save]")!.addEventListener("click", () => saveDialog.close());
   root.querySelector("[data-undo]")!.addEventListener("click", () => {
     c.editor.undo();
     c.undo = Math.max(0, c.undo - 1);
@@ -253,11 +248,19 @@ const renderProblemEditor = () => {
     c.undo++;
     renderProblemEditor();
   });
-  root.querySelector("[data-save]")!.addEventListener("click", async () => {
+  root.querySelector("[data-save]")!.addEventListener("click", () => {
     if (!state.canSubmit) return;
-    c.name = (root.querySelector("#problem-name") as HTMLInputElement).value;
+    saveDialog.showModal();
+    const preview = root.querySelector("#problem-preview-canvas") as HTMLElement;
+    preview.replaceChildren();
+    new WallCanvasView(preview, { imageUrl: c.wall.imageFileId, imageWidth: c.wall.imageWidth, imageHeight: c.wall.imageHeight, polygonCoordinates: "normalized", viewportHeight: 220, fitContain: true, holds: c.wall.holds, getAssignments: () => c.editor.value().holds, getSelectedRole: () => null, onTapHold: () => {} });
+    saveDialog.focus();
+  });
+  root.querySelector("[data-confirm-problem-save]")!.addEventListener("click", async () => {
+    if (!state.canSubmit) return;
+    c.name = (root.querySelector("#dialog-problem-name") as HTMLInputElement).value.trim();
     c.description = (
-      root.querySelector("#problem-description") as HTMLTextAreaElement
+      root.querySelector("#dialog-problem-description") as HTMLTextAreaElement
     ).value;
     const result = await guardedAction(
       () => c.submitting,
@@ -275,9 +278,15 @@ const renderProblemEditor = () => {
         }),
     );
     if (result.ok) {
-      c.saved = result.value.number;
       c.toast = `已保存线路 ${result.value.number}`;
+      c.editor = new ProblemEditor();
+      c.role = "start";
+      c.undo = 0;
+      c.name = "";
+      c.description = "";
+      c.saved = undefined;
     } else if (!("skipped" in result)) c.toast = `保存失败：${result.message}`;
+    saveDialog.close();
     renderProblemEditor();
   });
   c.canvas = new WallCanvasView(
@@ -286,7 +295,10 @@ const renderProblemEditor = () => {
       imageUrl: c.wall.imageFileId,
       imageWidth: c.wall.imageWidth,
       imageHeight: c.wall.imageHeight,
-      polygonCoordinates: c.wall.geometryType === "polygon" ? "pixels" : "normalized",
+      polygonCoordinates: "normalized",
+      viewportHeight: 420,
+      dimImage: true,
+      initialTransform: c.viewportTransform,
       holds: c.wall.holds,
       getAssignments: () => c.editor.value().holds,
       getSelectedRole: () => c.role,
@@ -330,7 +342,7 @@ const renderWallEditor = () => {
       holdCount: holds.length,
     });
   c.canvas?.destroy();
-  root.innerHTML = `<div class="device"><main><button data-exit aria-label="返回">‹</button><div class="editor-head"><h1>标注墙面</h1><p>${h(c.wall.name)} · ${holds.length} 个岩点</p></div><div class="draft-toolbar"><button data-mode="add" ${state.canEdit ? "" : "disabled"}>添加</button><button data-mode="move" ${state.canEdit ? "" : "disabled"}>移动</button><button data-mode="delete" ${state.canEdit ? "" : "disabled"}>删除</button><button data-undo ${state.canEdit && c.editor.canUndo() ? "" : "disabled"}>撤销</button><button data-clear ${state.canEdit ? "" : "disabled"}>清空</button></div><div class="draft-toolbar"><button data-kind="hold" ${state.canEdit ? "" : "disabled"}>岩点</button><button data-kind="volume" ${state.canEdit ? "" : "disabled"}>体积</button><span>双指缩放 · 单指平移</span></div><div id="draft-canvas"></div><div class="editor-actions"><button data-save-wall ${state.canSave ? "" : "disabled"}>保存草稿</button><button data-publish-wall ${state.canPublish ? "" : "disabled"}>发布墙面</button></div><p class="editor-toast">${h(c.toast)}</p></main></div>`;
+  root.innerHTML = `<div class="device secondary-page"><main><button class="back-button" data-exit aria-label="返回">‹</button><div class="editor-head"><h1>标注墙面</h1><p>${h(c.wall.name)} · ${holds.length} 个岩点</p></div><div class="draft-toolbar"><button data-mode="add" ${state.canEdit ? "" : "disabled"}>添加</button><button data-mode="move" ${state.canEdit ? "" : "disabled"}>移动</button><button data-mode="delete" ${state.canEdit ? "" : "disabled"}>删除</button><button data-undo ${state.canEdit && c.editor.canUndo() ? "" : "disabled"}>撤销</button><button data-clear ${state.canEdit ? "" : "disabled"}>清空</button></div><div class="draft-toolbar"><button data-kind="hold" ${state.canEdit ? "" : "disabled"}>岩点</button><button data-kind="volume" ${state.canEdit ? "" : "disabled"}>体积</button><span>双指缩放 · 单指平移</span></div><div id="draft-canvas"></div><div class="editor-actions"><button data-save-wall ${state.canSave ? "" : "disabled"}>保存草稿</button><button data-publish-wall ${state.canPublish ? "" : "disabled"}>发布墙面</button></div><p class="editor-toast">${h(c.toast)}</p></main></div>`;
   root.querySelector("#draft-canvas")?.insertAdjacentHTML("beforebegin", `<section class="candidate-toolbar"><b>候选岩点</b><button data-detect>自动识别</button><button data-confirm-all>确认全部</button></section><section class="candidate-list" aria-label="候选岩点"></section><section class="field"><label>识别区域</label><div class="roi-grid"><label>X<input data-roi="x" value="0"></label><label>Y<input data-roi="y" value="0"></label><label>宽<input data-roi="width" value="1"></label><label>高<input data-roi="height" value="1"></label></div></section>`);
   root.querySelector("[data-exit]")!.addEventListener("click", () => {
     c.canvas?.destroy();
@@ -451,7 +463,7 @@ const openDetail = async (problemId: string) => {
 };
 const renderDetail = () => {
   const c = detailCtx!;
-  root.innerHTML = `<div class="device"><main><button data-exit aria-label="返回">‹</button><h1>${h(c.problem.name || c.problem.number)}</h1><p>${h(c.wall.name)} · ${c.problem.angle}° · ${c.problem.grade}</p><div id="detail-canvas"></div></main></div>`;
+  root.innerHTML = `<div class="device secondary-page"><main><button class="back-button" data-exit aria-label="返回">‹</button><h1>${h(c.problem.name || c.problem.number)}</h1><p>${h(c.wall.name)} · ${c.problem.angle}° · ${c.problem.grade}</p><div id="detail-canvas"></div><div class="legend">${roles.map((x) => `<span><i style="background:${ROLE_COLORS[x]}"></i>${roleLabels[x]}</span>`).join("")}</div></main></div>`;
   root.querySelector("[data-exit]")!.addEventListener("click", () => {
     c.canvas?.destroy();
     detailCtx = null;
@@ -513,21 +525,33 @@ const render = async () => {
     problems = await store.session.listProblems(),
     drafts = mine.filter((wall) => wall.visibility === "private"),
     selected =
-      route.name === "wall"
+      route.name === "wall" || route.name === "route-browser"
         ? publicWalls.find((w) => w.id === route.wallId)
         : undefined;
-  const browse = selected
-    ? `${back}<h1>${h(selected.name)}</h1><p>${selected.holds.length} 个岩点</p><div id="wall-preview"></div><h2>浏览线路</h2>${problems
-        .filter((p) => p.wallId === selected.id)
-        .map(
-          (p) =>
-            `<button class="problem-row" data-problem="${h(p.id)}"><b>${h(p.number)}</b><em>${h(p.name || "未命名线路")} · ${p.grade}</em></button>`,
-        )
-        .join("")}`
-    : `<div class="editor-head"><h1>线路</h1><p>选择一面公开墙面。</p></div>${publicWalls.map((w) => `<button class="wall-card" data-wall="${h(w.id)}">${thumb}<span><b>${h(w.name)}</b><em>${w.holds.length} 个岩点 · ${problems.filter((p) => p.wallId === w.id).length} 条线路</em></span></button>`).join("")}`;
+  const wallProblems = selected
+      ? problems.filter((p) => p.wallId === selected.id)
+      : [],
+    filteredRouteProblems = wallProblems.filter(
+      (p) =>
+        (routeFilterAngle === undefined || p.angle === routeFilterAngle) &&
+        (routeFilterGrade === undefined || p.grade === routeFilterGrade),
+    ),
+    selectedRoute = filteredRouteProblems.find((p) => p.id === selectedRouteId),
+    selectedRouteIndex = selectedRoute
+      ? filteredRouteProblems.findIndex((p) => p.id === selectedRoute.id)
+      : -1,
+    routeBrowser =
+      route.name === "route-browser" && selected
+        ? selectedRoute
+          ? `${back}<h1>${h(selectedRoute.name || selectedRoute.number)}</h1><p>${h(selected.name)} · ${selectedRoute.angle}° · ${selectedRoute.grade}</p><div id="route-preview"></div><div class="legend">${roles.map((x) => `<span><i style="background:${ROLE_COLORS[x]}"></i>${roleLabels[x]}</span>`).join("")}</div><div class="route-pager"><button data-route-previous ${selectedRouteIndex === 0 ? "disabled" : ""}>‹ 上一条</button><button data-route-next ${selectedRouteIndex === filteredRouteProblems.length - 1 ? "disabled" : ""}>下一条 ›</button></div><button class="route-list-return" data-route-back-list>返回线路列表</button>`
+          : `${back}<h1>${h(selected.name)}</h1><div class="route-browser-filters"><button data-route-angle>角度：${routeFilterAngle === undefined ? "全部" : `${routeFilterAngle}°`}</button><button data-route-grade>难度：${routeFilterGrade ?? "全部"}</button></div><dialog class="choice-dialog" data-route-filter-dialog="angle"><h2>筛选角度</h2><button data-route-filter-angle="">全部</button>${routeAngles.map((angle) => `<button data-route-filter-angle="${angle}">${angle}°</button>`).join("")}<button data-route-filter-close>关闭</button></dialog><dialog class="choice-dialog" data-route-filter-dialog="grade"><h2>筛选难度</h2><button data-route-filter-grade="">全部</button>${grades.map((grade) => `<button data-route-filter-grade="${grade}">${grade}</button>`).join("")}<button data-route-filter-close>关闭</button></dialog><div class="route-browser-list">${filteredRouteProblems.map((p) => `<button class="problem-row" data-browse-problem="${h(p.id)}"><b>${h(p.number)}</b><em>${h(p.name || "未命名线路")} · ${p.angle}° · ${p.grade}</em></button>`).join("") || '<p class="lead">没有符合筛选条件的线路</p>'}</div>`
+        : "",
+    browse = routeBrowser || (selected
+      ? `${back}<h1>${h(selected.name)}</h1><p>${selected.holds.length} 个岩点 · ${wallProblems.length} 条线路</p><div id="wall-preview"></div><button class="hero-card route-browser-entry" data-open-route-browser><b>浏览线路</b><span>按角度、难度查找并查看线路</span></button>`
+      : `<div class="editor-head"><h1>线路</h1><p>选择一面公开墙面。</p></div>${publicWalls.map((w) => `<button class="wall-card" data-wall="${h(w.id)}">${thumb}<span><b>${h(w.name)}</b><em>${w.holds.length} 个岩点 · ${problems.filter((p) => p.wallId === w.id).length} 条线路</em></span></button>`).join("")}`);
   const create =
     panel === "new-wall"
-      ? `${back}<div class="editor-head"><h1>新建墙面</h1></div><div class="field"><input id="wall-image-library" type="file" accept="image/*"><input id="wall-image-camera" type="file" accept="image/*" capture="environment"><button class="image-picker" data-open-image-picker><span id="image-picker-label">选择图片</span><small id="image-picker-hint">从相册、文件或相机添加</small></button></div><dialog id="image-source-dialog"><h2>选择图片来源</h2><button data-image-source="library">相册 / 文件</button><button data-image-source="camera">拍照</button><button data-close-image-picker>取消</button></dialog><dialog id="wall-name-dialog"><h2>墙面名称</h2><input id="wall-name" maxlength="100"><button data-confirm-upload>确认上传</button></dialog><p id="wall-error"></p><button class="hero-card upload-button" data-create-wall><b>上传</b></button>`
+      ? `${back}<div class="editor-head"><h1>新建墙面</h1></div><div class="field"><input id="wall-image-library" type="file" accept="image/*"><input id="wall-image-camera" type="file" accept="image/*" capture="environment"><button class="image-picker" data-open-image-picker><span id="image-picker-label">选择图片</span><small id="image-picker-hint">从相册、文件或相机添加</small></button></div><dialog id="image-source-dialog"><h2>选择图片来源</h2><button data-image-source="library">相册 / 文件</button><button data-image-source="camera">拍照</button><button data-close-image-picker>取消</button></dialog><dialog id="wall-name-dialog"><label><span class="wall-name-heading">墙面名称<small>（可修改）</small></span><input id="wall-name" maxlength="100" readonly></label><button data-confirm-upload>确认上传</button></dialog><p id="wall-error"></p><button class="hero-card upload-button" data-create-wall><b>上传</b></button>`
       : panel === "new-route"
         ? `${back}<div class="editor-head"><h1>新建线路</h1><p>选择一面已发布墙面开始定线。</p></div>${publicWalls.filter((w) => w.holds.length >= 2).map((w) => `<button class="wall-card" data-new-problem="${h(w.id)}">${thumb}<span><b>${h(w.name)}</b><em>${w.holds.length} 个岩点</em></span></button>`).join("") || "<p class=\"lead\">没有可定线的已发布墙面</p>"}`
         : panel === "drafts"
@@ -548,20 +572,35 @@ const render = async () => {
       })
       .join("");
   const me =
-    panel === "my-walls"
+    panel === "profile"
+      ? `${back}<div class="profile-card"><small>个人资料</small><h1>${h(profileEmail.split("@", 1)[0] || "用户")}</h1><p>${h(profileEmail)}</p></div><button class="profile-logout" data-logout>退出登录</button>`
+      : panel === "my-walls"
       ? `${back}<h1>我的墙面</h1>${managementError ? `<p class="editor-toast">${h(managementError)}</p>` : ""}${cards}`
       : panel === "my-problems"
         ? `${back}<h1>我的线路</h1>${managementError ? `<p class="editor-toast">${h(managementError)}</p>` : ""}${groups}`
-        : `<div class="editor-head"><h1>我的</h1><p class="lead">管理你创建的墙面与线路。</p></div><button class="hub-card walls" data-panel="my-walls"><i>▧</i><span><b>我的墙面</b><em>已创建 ${mine.length} 面墙</em></span><strong>›</strong></button><button class="hub-card problems" data-panel="my-problems"><i>◇</i><span><b>我的线路</b><em>共 ${problems.length} 条线路</em></span><strong>›</strong></button>`;
-  root.innerHTML = `<div class="device"><header><small>CRUXSET</small></header><main>${tab === "browse" ? browse : tab === "create" ? create : me}</main><nav>${(["browse", "create", "me"] as const).map((x) => `<button class="${tab === x ? "active" : ""}" data-tab="${x}">${x === "browse" ? "线路" : x === "create" ? "创建" : "我的"}</button>`).join("")}</nav></div>`;
-  if (selected) {
+        : `<div class="editor-head"><h1>我的</h1><p class="lead">管理你的资料、墙面与线路。</p></div><button class="hub-card profile" data-panel="profile"><i>◎</i><span><b>个人资料</b><em>${h(profileEmail)}</em></span><strong>›</strong></button><button class="hub-card walls" data-panel="my-walls"><i>▧</i><span><b>我的墙面</b><em>已创建 ${mine.length} 面墙</em></span><strong>›</strong></button><button class="hub-card problems" data-panel="my-problems"><i>◇</i><span><b>我的线路</b><em>共 ${problems.length} 条线路</em></span><strong>›</strong></button>`;
+  const isPrimaryPage = (tab === "browse" && !selected) || (tab === "create" && panel === "home") || (tab === "me" && panel === "home");
+  root.innerHTML = `<div class="device ${isPrimaryPage ? "" : "secondary-page"}">${isPrimaryPage ? "<header><small>CRUXSET</small></header>" : ""}<main>${tab === "browse" ? browse : tab === "create" ? create : me}</main><nav>${(["browse", "create", "me"] as const).map((x) => `<button class="${tab === x ? "active" : ""}" data-tab="${x}">${x === "browse" ? "线路" : x === "create" ? "创建" : "我的"}</button>`).join("")}</nav></div>`;
+  if (selected && route.name === "wall") {
     wallPreview = new WallCanvasView(root.querySelector("#wall-preview") as HTMLElement, {
       imageUrl: selected.imageFileId,
       imageWidth: selected.imageWidth,
       imageHeight: selected.imageHeight,
-      polygonCoordinates: selected.geometryType === 'polygon' ? 'pixels' : 'normalized',
+      polygonCoordinates: "normalized",
       holds: selected.holds,
       getAssignments: () => ({ start: [], foot: [], hand: [], assist: [], finish: [] }),
+      getSelectedRole: () => null,
+      onTapHold: () => {},
+    });
+  }
+  if (selected && selectedRoute && route.name === "route-browser") {
+    wallPreview = new WallCanvasView(root.querySelector("#route-preview") as HTMLElement, {
+      imageUrl: selected.imageFileId,
+      imageWidth: selected.imageWidth,
+      imageHeight: selected.imageHeight,
+      polygonCoordinates: "normalized",
+      holds: selected.holds,
+      getAssignments: () => selectedRoute.holds,
       getSelectedRole: () => null,
       onTapHold: () => {},
     });
@@ -580,11 +619,21 @@ const render = async () => {
         void render();
       }),
   );
+  root.querySelector<HTMLButtonElement>("[data-logout]")?.addEventListener("click", async () => {
+    await api.logout();
+    authenticated = false;
+    profileEmail = "";
+    panel = "home";
+    loginError = "";
+    renderLogin();
+  });
   root.querySelectorAll<HTMLButtonElement>("[data-back]").forEach(
     (b) =>
       (b.onclick = () => {
         panel = "home";
-        store.navigate({ name: tab });
+        if (route.name === "route-browser" && selected)
+          store.navigate({ name: "wall", wallId: selected.id });
+        else store.navigate({ name: tab });
       }),
   );
   root
@@ -594,6 +643,55 @@ const render = async () => {
         (b.onclick = () =>
           store.navigate({ name: "wall", wallId: b.dataset.wall! })),
     );
+  root.querySelector<HTMLButtonElement>("[data-open-route-browser]")?.addEventListener("click", () => {
+    routeFilterAngle = undefined;
+    routeFilterGrade = undefined;
+    selectedRouteId = "";
+    store.navigate({ name: "route-browser", wallId: selected!.id });
+  });
+  root.querySelector<HTMLButtonElement>("[data-route-angle]")?.addEventListener("click", () => {
+    (root.querySelector('[data-route-filter-dialog="angle"]') as HTMLDialogElement).showModal();
+  });
+  root.querySelector<HTMLButtonElement>("[data-route-grade]")?.addEventListener("click", () => {
+    (root.querySelector('[data-route-filter-dialog="grade"]') as HTMLDialogElement).showModal();
+  });
+  root.querySelectorAll<HTMLButtonElement>("[data-route-filter-close]").forEach((button) => {
+    button.onclick = () => (button.closest("dialog") as HTMLDialogElement).close();
+  });
+  root.querySelectorAll<HTMLButtonElement>("[data-route-filter-angle]").forEach((button) => {
+    button.onclick = () => {
+      routeFilterAngle = button.dataset.routeFilterAngle === "" ? undefined : Number(button.dataset.routeFilterAngle);
+      selectedRouteId = "";
+      (button.closest("dialog") as HTMLDialogElement).close();
+      void render();
+    };
+  });
+  root.querySelectorAll<HTMLButtonElement>("[data-route-filter-grade]").forEach((button) => {
+    button.onclick = () => {
+      routeFilterGrade = (button.dataset.routeFilterGrade || undefined) as Grade | undefined;
+      selectedRouteId = "";
+      (button.closest("dialog") as HTMLDialogElement).close();
+      void render();
+    };
+  });
+  root.querySelectorAll<HTMLButtonElement>("[data-browse-problem]").forEach((button) => {
+    button.onclick = () => {
+      selectedRouteId = button.dataset.browseProblem!;
+      void render();
+    };
+  });
+  root.querySelector<HTMLButtonElement>("[data-route-back-list]")?.addEventListener("click", () => {
+    selectedRouteId = "";
+    void render();
+  });
+  root.querySelector<HTMLButtonElement>("[data-route-previous]")?.addEventListener("click", () => {
+    if (selectedRouteIndex > 0) selectedRouteId = filteredRouteProblems[selectedRouteIndex - 1].id;
+    void render();
+  });
+  root.querySelector<HTMLButtonElement>("[data-route-next]")?.addEventListener("click", () => {
+    if (selectedRouteIndex >= 0 && selectedRouteIndex < filteredRouteProblems.length - 1) selectedRouteId = filteredRouteProblems[selectedRouteIndex + 1].id;
+    void render();
+  });
   root
     .querySelectorAll<HTMLButtonElement>("[data-new-problem]")
     .forEach(
@@ -633,7 +731,14 @@ const render = async () => {
       (b.onclick = async () => {
         managementError = "";
         try {
-          await store.session.deleteWall(b.dataset.deleteWall!);
+          const result = await confirmWallDeletion(
+            (message) => confirm(message),
+            () => store.session.deleteWall(b.dataset.deleteWall!),
+          );
+          if (!result.ok && !('cancelled' in result)) {
+            if (result.message === 'DELETE_CANCELLED') return;
+            throw new Error(result.message);
+          }
         } catch (e) {
           const count = (
             await store.session.listProblems({ wallId: b.dataset.deleteWall })
@@ -666,6 +771,14 @@ const render = async () => {
       (root.querySelector("#wall-error") as HTMLElement).textContent = "";
     });
   });
+  const wallNameDialog = root.querySelector<HTMLDialogElement>("#wall-name-dialog");
+  const wallNameInput = root.querySelector<HTMLInputElement>("#wall-name");
+  if (wallNameDialog && wallNameInput) {
+    wallNameDialog.tabIndex = -1;
+    wallNameInput.addEventListener("pointerdown", () => {
+      wallNameInput.readOnly = false;
+    });
+  }
   root
     .querySelector<HTMLButtonElement>("[data-create-wall]")
     ?.addEventListener("click", () => {
@@ -676,8 +789,11 @@ const render = async () => {
         error.textContent = "请选择一张图片。";
         return;
       }
-      (root.querySelector("#wall-name") as HTMLInputElement).value = image.name.replace(/\.[^.]+$/, "") || "未命名墙面";
-      (root.querySelector("#wall-name-dialog") as HTMLDialogElement).showModal();
+      if (!wallNameInput || !wallNameDialog) return;
+      wallNameInput.value = image.name.replace(/\.[^.]+$/, "") || "未命名墙面";
+      wallNameInput.readOnly = true;
+      wallNameDialog.showModal();
+      wallNameDialog.focus();
     });
   root.querySelector<HTMLButtonElement>("[data-confirm-upload]")?.addEventListener("click", async () => {
     const image = root.querySelector<HTMLInputElement>("#wall-image-library")?.files?.[0]
@@ -705,11 +821,15 @@ const render = async () => {
   });
 };
 store.subscribe(() => void render());
+renderLoading();
 void api
   .currentUser()
-  .then(async (user) => {
-    authenticated = Boolean(user);
-    if (user) await store.useApi(api);
+    .then(async (user) => {
+      authenticated = Boolean(user);
+      if (user) {
+        profileEmail = user.email;
+        await store.useApi(api);
+      }
     await render();
   })
   .catch(() => {

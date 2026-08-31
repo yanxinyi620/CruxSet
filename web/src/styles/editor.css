@@ -1,9 +1,31 @@
 .editor-head { margin-bottom: 14px; }
+.secondary-page main:has(#editor-canvas) > .editor-head { display: none; }
+.secondary-page main:has(#editor-canvas) .legend { display: none; }
+.secondary-page main:has(#editor-canvas) > .field:has(#problem-name) { display: none; }
+.problem-save-dialog { width: min(320px, calc(100vw - 48px)); padding: 18px; border: 0; border-radius: 18px; box-shadow: 0 20px 60px #27224455; }
+.problem-preview { display: block; width: 100%; height: auto; object-fit: contain; border-radius: 10px; background: #f2f2fa; }
+.problem-save-dialog::backdrop { background: #27224466; }
+.problem-save-dialog label { display: grid; gap: 5px; margin-top: 10px; color: #6f7187; font-size: 12px; font-weight: 800; }
+.problem-save-dialog input, .problem-save-dialog textarea { width: 100%; padding: 9px; border: 1px solid var(--line); border-radius: 10px; font: inherit; }
+.problem-save-dialog button { width: 100%; margin-top: 10px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: #fff; font-weight: 800; }
+.problem-save-dialog button[data-confirm-problem-save] { background: var(--accent); color: #fff; }
+.generated-number { color: var(--accent); font-weight: 800; }
+.secondary-page main:has(#editor-canvas) { position: relative; }
+.secondary-page main:has(#editor-canvas) > .editor-toast:not(:empty) { position: fixed; top: calc(21px + env(safe-area-inset-top)); left: 56px; right: 14px; z-index: 11; margin: 0; padding: 0; border-radius: 0; background: transparent; color: #397355; font-size: 12px; line-height: 16px; }
 .editor-head h1 { font-size: 24px; letter-spacing: 0; margin: 0 0 4px; }
 .editor-head p { margin: 0; color: #6a6b88; font-size: 13px; }
 .field { margin: 13px 0; }
 .field > label { display: block; font-size: 12px; font-weight: 800; color: #6f7187; margin-bottom: 7px; letter-spacing: .04em; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.route-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin: 13px 0; }
+.route-options button { display: grid; gap: 2px; padding: 7px 6px; border: 1px solid var(--line); border-radius: 10px; background: #fff; color: var(--ink); text-align: left; }
+.route-options small { color: #6f7187; font-size: 10px; font-weight: 800; }
+.route-options b { font-size: 12px; }
+.choice-dialog { width: min(300px, calc(100vw - 48px)); max-height: min(70vh, 460px); padding: 18px; border: 0; border-radius: 18px; color: var(--ink); box-shadow: 0 20px 60px #27224455; }
+.choice-dialog::backdrop { background: #27224466; }
+.choice-dialog h2 { margin: 0 0 10px; font-size: 18px; }
+.choice-dialog button { display: block; width: 100%; margin-top: 7px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: #fff; color: var(--ink); font-weight: 800; text-align: left; }
+.choice-dialog button[data-choice-close] { color: #6f7187; }
 .chip { padding: 6px 11px; border: 1px solid var(--line); border-radius: 999px; background: #fff; color: #4d4f66; font-size: 13px; font-weight: 700; }
 .chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 #editor-canvas { border-radius: 16px; overflow: hidden; box-shadow: 0 8px 24px #3e39721a; background: #f2f2fa; }
@@ -11,8 +33,8 @@
 .legend { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 9px; font-size: 11px; color: #6f7187; }
 .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: -1px; }
 .role-toolbar { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 13px; }
-.role-btn { display: grid; gap: 4px; justify-items: center; padding: 8px 2px; border: 1px solid var(--line); border-radius: 12px; background: #fff; font-size: 12px; font-weight: 800; color: #4d4f66; }
-.role-btn i { width: 14px; height: 14px; border-radius: 50%; }
+.role-btn { display: grid; gap: 3px; justify-items: center; padding: 6px 2px; border: 1px solid var(--line); border-radius: 10px; background: #fff; font-size: 11px; font-weight: 800; color: #4d4f66; }
+.role-btn i { width: 12px; height: 12px; border-radius: 50%; }
 .role-btn.active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
 .editor-actions { display: flex; gap: 8px; margin-top: 14px; }
 .editor-actions button { flex: 1; padding: 11px; border-radius: 12px; border: 1px solid var(--line); background: #fff; font-weight: 800; font-size: 14px; color: #4d4f66; }
@@ -31,12 +53,15 @@
 #image-source-dialog button[data-image-source="camera"] { background: var(--accent); border-color: var(--accent); color: #fff; }
 #wall-name-dialog { width: min(320px, calc(100vw - 48px)); padding: 20px; border: 0; border-radius: 20px; color: var(--ink); box-shadow: 0 20px 60px #27224455; }
 #wall-name-dialog::backdrop { background: #27224466; }
-#wall-name-dialog h2 { margin: 0 0 14px; font-size: 20px; }
+#wall-name-dialog label { display: grid; gap: 9px; }
+.wall-name-heading { color: var(--ink); font-size: 20px; font-weight: 800; line-height: 1.2; }
+.wall-name-heading small { margin-left: 5px; color: #6f7187; font-size: 12px; font-weight: 400; }
 #wall-name-dialog input { width: 100%; padding: 11px 12px; border: 1px solid var(--line); border-radius: 12px; font: inherit; }
 #wall-name-dialog button { display: block; width: 100%; margin-top: 8px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: #fff; color: var(--ink); font-weight: 800; text-align: left; }
 #wall-name-dialog button[data-confirm-upload] { background: var(--accent); border-color: var(--accent); color: #fff; }
 .field textarea { resize: vertical; min-height: 54px; }
 .editor-toast { margin-top: 12px; padding: 10px 12px; border-radius: 12px; background: #e8f7ee; color: #397355; font-size: 13px; font-weight: 700; }
+.editor-toast:empty { display: none; }
 .problem-row { display: flex; align-items: center; gap: 10px; padding: 11px; border-radius: 12px; background: #f8f8fc; }
 .problem-row span { display: grid; gap: 2px; flex: 1; min-width: 0; }
 .problem-row b { font-size: 12px; color: #6046d6; }
