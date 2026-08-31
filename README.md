@@ -16,7 +16,6 @@ Web 与小程序共享 Wall、Hold、Problem 的字段语义，但不共享草�
 
 ## 文档
 
-- [使用与部署](docs/guide.md)：本地运行、CloudBase 配置、当前阶段和发布验收
 - [设计参考](docs/reference.md)：架构、数据模型、业务规则与安全边界
 - [测试与验收](docs/testing.md)：自动化检查和人工验收清单
 - [分割实验台](tools/segmentation-lab/README.md)：独立 AI 岩点分割工具的使用说明
@@ -34,10 +33,6 @@ npm test
 npm run build
 npm run verify:phase1
 ```
-
-使用微信开发者工具导入仓库根目录；工具会读取 `project.config.json`，小程序源码位于 `miniprogram/`。
-
-当前开发默认使用本地 Mock 数据，不需要部署 CloudBase。固定数据为一面日坛 Spraywall 和四条示例线路；创建、标注、发布等操作只保留到本次运行结束，重新编译即恢复初始数据。
 
 本地 Web 与实验台发布：
 
@@ -57,15 +52,30 @@ npm run web -- --host 0.0.0.0
 
 电脑打开 `http://localhost:5173`；手机使用电脑局域网 IP，例如 `http://192.168.x.x:5173`。Web 会将 `/api` 请求代理到电脑本机的 FastAPI `127.0.0.1:8000`，手机无需直接访问 8000 端口。首次创建本地管理员：`cd server && PYTHONPATH=. uv run python scripts/create_local_admin.py name@example.com`。如需启动分割实验台并发布校准结果，请继续使用下面“手动启动并从实验台发布”的终端三命令。
 
+## 微信小程序
+
+使用微信开发者工具导入仓库根目录；工具会读取 `project.config.json`，小程序源码位于 `miniprogram/`。
+
 运行模式配置位于 [runtime.ts](miniprogram/config/runtime.ts)：
 
 ```ts
 export const runtimeMode: RuntimeMode = 'mock'
 ```
 
-准备 CloudBase 验收时，将其改为 `'cloudbase'` 后重新编译；体验版或正式发布前必须使用 `'cloudbase'`。接入真实环境的完整步骤见[使用与部署](docs/guide.md)。
+默认 `mock` 模式使用固定的日坛 Spraywall 和四条示例线路，不需要部署 CloudBase；创建、标注、发布等数据只在本次运行期间保留。准备 CloudBase 验收时改为 `'cloudbase'` 并重新编译；体验版或正式发布前必须使用该模式。
+
+小程序通过 CloudBase 云函数访问线上数据，不依赖 FastAPI 在线运行；Web 草稿也不会自动同步到 CloudBase。部署步骤见下一节。
 
 不要把私有环境配置或密钥提交到仓库。
+
+## CloudBase 部署与验收
+
+将 `miniprogram/config/runtime.ts` 的 `runtimeMode` 改为 `cloudbase`，并在 `miniprogram/app.ts` 配置实际 CloudBase 环境 ID。随后：
+
+1. 创建 `users`、`walls`、`problems`、`admins`、`counters` 五个集合，导入 [集合声明](config/cloudbase.collections.json)，并应用 [权限规则](config/cloudbase.rules.json)。
+2. 部署 `login`、`adminWall`、`wallManager`、`saveProblem`、`deleteProblem`、`getWallImageUrl` 六个云函数；每个函数均在云端安装 `wx-server-sdk` 依赖。
+3. 为已有 Wall 补齐 `ownerId` 与 `visibility`；墙图保持私有存储，经 `getWallImageUrl` 权限校验后提供短期访问地址。
+4. 运行 `npm run verify:phase1`；正式发布前运行 `npm run verify:phase1 -- --release`，再按[测试与验收](docs/testing.md)完成 CloudBase 和 Android/iPhone 真机检查。
 
 数据与业务约束见[设计参考](docs/reference.md)，真机检查见[测试与验收](docs/testing.md)。
 
