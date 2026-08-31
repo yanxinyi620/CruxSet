@@ -4,7 +4,7 @@ import { expect, it } from 'vitest'
 it('uses a stable dynamic viewport height for the responsive preview shell', () => {
   const css = readFileSync('web/src/styles/responsive.css', 'utf8')
   expect(css).toMatch(/\n  height: 100dvh;/)
-  expect(css).toMatch(/\n    height: calc\(100dvh - 48px\);/)
+  expect(css).not.toMatch(/height: calc\(100dvh - 48px\)/)
 })
 
 it('styles owned wall cards without layout-specific selectors', () => {
@@ -20,7 +20,7 @@ it('uses an edge-to-edge mobile viewport shell without legacy device dimensions'
   expect(legacyDeviceCss).not.toMatch(/width: min\(390px, 100vw\);|height: 844px;/)
 })
 
-it('limits the framed shell to wide pointer-based desktop devices', () => {
+it('does not add an outer framed shell around the viewport', () => {
   const css = readFileSync('web/src/styles/responsive.css', 'utf8')
-  expect(css).toContain('@media (min-width: 720px) and (hover: hover) and (pointer: fine)')
+  expect(css).not.toMatch(/@media[^{]*\{[\s\S]*\.device[\s\S]*margin: 24px auto;/)
 })
