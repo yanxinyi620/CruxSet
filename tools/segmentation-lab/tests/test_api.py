@@ -193,7 +193,7 @@ def test_primary_actions_use_distinct_muted_colors(tmp_path):
 
 def test_workbench_uses_modern_display_title_and_sans_interface_type(tmp_path):
     response = TestClient(create_app(Settings(data_dir=tmp_path))).get("/")
-    assert '--font-display: "Inter"' in response.text
+    assert '--font-display: -apple-system' in response.text
     assert '--font-sans: "Noto Sans SC"' in response.text
     assert "font-family: var(--font-display)" in response.text
     assert "font: 16px var(--font-sans)" in response.text
