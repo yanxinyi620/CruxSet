@@ -147,6 +147,11 @@
     .confirm-actions { display: flex; gap: 9px; justify-content: flex-end; }
     .confirm-actions button { width: auto; }
     .confirm-actions .confirm-delete { background: #b84a43; border-color: #b84a43; color: #fff; }
+    .confirm-actions .confirm-publish { background: #23877f; border-color: #23877f; color: #fff; }
+    .publish-form label { display: block; margin: 14px 0; color: #536158; font: 13px system-ui; }
+    .publish-form input { width: 100%; margin-top: 6px; box-sizing: border-box; }
+    .publish-message { min-height: 21px; margin: 12px 0; }
+    .publish-message.error { color: #8e302b; }
     .run-modal { display:none; position:fixed; inset:0; z-index:9; align-items:center; justify-content:center; background:#17211d55; }
     .run-modal.open { display:flex; }
     .run-card { width:min(520px,calc(100vw - 40px)); padding:22px; background:var(--c); border:1px solid var(--i); box-shadow:7px 7px #17211d; }
@@ -263,6 +268,15 @@
         <div class="confirm-actions"><button onclick="closeConfirm()">取消</button><button id="confirmDelete" class="confirm-delete">确认删除</button></div>
       </div>
     </div>
+    <div id="publishConfirm" class="confirm" role="dialog" aria-modal="true">
+      <div class="confirm-card publish-form">
+        <h2>发布到 CruxSet</h2>
+        <p>将当前校准结果发布为一面新的公开墙面，原图和岩点会一并保存。</p>
+        <label>墙面名称<input id="publishName" type="text" maxlength="100" placeholder="例如：日坛 Spraywall · 2026-08-31" /></label>
+        <p id="publishMessage" class="publish-message"></p>
+        <div class="confirm-actions"><button id="publishCancel">取消</button><button id="publishSubmit" class="confirm-publish">确认发布</button></div>
+      </div>
+    </div>
     <div id="runModal" class="run-modal" role="dialog" aria-modal="true"><div class="run-card"><h2 id="runTitle">配置分割任务</h2><label>墙图<select id="runImage"></select></label><div class="row"><button onclick="preset('base')">基线</button><button onclick="preset('recall')">少漏检</button><button onclick="preset('dense')">密集墙</button></div><div id="runFields"><label>点密度<input id="runPoints" value="48" type="number"></label><label>批量<input id="runBatch" value="8" type="number"></label><label>IoU<input id="runIou" value="0.85" step=".01" type="number"></label><label>稳定度<input id="runStable" value="0.90" step=".01" type="number"></label><label>裁剪层<input id="runCrop" value="0" type="number"></label></div><p id="runCropNote" class="note"></p><div class="confirm-actions"><button onclick="closeRun()">取消</button><button id="runConfirm" class="primary">确认并运行</button></div></div></div>
     <script>
       const $ = (s) => document.querySelector(s);
@@ -292,22 +306,39 @@
       }
       function del(url) { pendingDelete = url; $("#confirm").classList.add("open"); }
       function closeConfirm() { pendingDelete = undefined; $("#confirm").classList.remove("open"); }
-      async function publishCalibration(experimentId, calibrationId, button) {
-        const wallName = window.prompt("发布为墙面名称", "")
-        if (wallName === null) return
+      let pendingPublish;
+      function closePublish() { pendingPublish = undefined; $("#publishConfirm").classList.remove("open"); $("#publishMessage").className = "publish-message"; $("#publishMessage").textContent = ""; $("#publishSubmit").disabled = false; $("#publishSubmit").textContent = "确认发布"; }
+      function publishCalibration(experimentId, calibrationId, button) {
+        pendingPublish = { experimentId, calibrationId, button }
+        $("#publishName").value = ""
+        $("#publishConfirm").classList.add("open")
+        $("#publishName").focus()
+        $("#publishSubmit").onclick = submitPublish
+      }
+      $("#publishCancel").onclick = closePublish
+      async function submitPublish() {
+        if (!pendingPublish) return
+        const wallName = $("#publishName").value.trim()
+        if (!wallName) { $("#publishMessage").className = "publish-message error"; $("#publishMessage").textContent = "请输入墙面名称。"; return }
+        const { experimentId, calibrationId, button } = pendingPublish
+        $("#publishSubmit").disabled = true
+        $("#publishSubmit").textContent = "发布中…"
         button.disabled = true
-        button.textContent = "发布中…"
         try {
           const response = await fetch(`/api/experiments/${experimentId}/calibrations/${calibrationId}/publish`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ wallName }) })
           const result = await response.json()
           if (!response.ok) throw new Error(result.message || result.detail || "发布失败")
-          window.alert(`已发布 ${result.holdCount} 个岩点。Wall ID: ${result.wallId}`)
-          if (result.browseUrl) window.open(result.browseUrl, "_blank")
+          $("#publishMessage").className = "publish-message"
+          $("#publishMessage").innerHTML = `已发布 ${result.holdCount} 个岩点。${result.browseUrl ? `<a href="${result.browseUrl}" target="_blank">打开 CruxSet</a>` : ""}`
+          $("#publishSubmit").disabled = false
+          $("#publishSubmit").textContent = "完成"
+          $("#publishSubmit").onclick = closePublish
         } catch (error) {
-          window.alert(error.message || "发布失败")
-        } finally {
+          $("#publishMessage").className = "publish-message error"
+          $("#publishMessage").textContent = error.message || "发布失败"
+          $("#publishSubmit").disabled = false
+          $("#publishSubmit").textContent = "重试"
           button.disabled = false
-          button.textContent = "发布"
         }
       }
       $("#confirmDelete").onclick = async () => {

@@ -167,6 +167,9 @@ def test_calibration_results_offer_cruxset_publish(tmp_path):
     assert 'class="publish"' in response.text
     assert '>发布</button>' in response.text
     assert "/publish" in response.text
+    assert 'id="publishConfirm"' in response.text
+    assert 'id="publishName"' in response.text
+    assert "确认发布" in response.text
 
 
 def test_continue_calibration_link_includes_the_saved_result_identity(tmp_path):
