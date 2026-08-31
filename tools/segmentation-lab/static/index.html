@@ -6,7 +6,11 @@
       --i: #17211d;
       --p: #f2f0e8;
       --l: #b9c4b9;
-      --g: #a7e75d;
+      --g: #d8e2c4;
+      --a1: #d8e2c4;
+      --a2: #d6e2ec;
+      --a3: #e4dce9;
+      --a4: #d8e7e2;
       --c: #fffdf7;
     }
     * {
@@ -55,6 +59,14 @@
       margin: 0;
       font-size: 22px;
     }
+    .step:nth-of-type(1) .num { background: var(--a1); }
+    .step:nth-of-type(1) h2 { color: #596846; }
+    .step:nth-of-type(2) .num { background: var(--a2); }
+    .step:nth-of-type(2) h2 { color: #52677a; }
+    .step:nth-of-type(3) .num { background: var(--a3); }
+    .step:nth-of-type(3) h2 { color: #705e75; }
+    .step:nth-of-type(4) .num { background: var(--a4); }
+    .step:nth-of-type(4) h2 { color: #4f7067; }
     .sub {
       margin-left: auto;
       color: #536158;
@@ -78,6 +90,8 @@
       background: var(--g);
       font-weight: bold;
     }
+    .upload-action { background: #cfdcb5; border-color: #aebf91; color: #3f512e; font-weight: 700; }
+    .calibrate-action { background: #cbd9e7; border-color: #a7bbcf; color: #3f566b; font-weight: 700; }
     .table {
       width: 100%;
       border-collapse: collapse;
@@ -203,7 +217,7 @@
         <div class="row" style="margin-top: 14px">
           <input id="file" type="file" accept="image/png,image/jpeg" /><button
             id="upload"
-            class="primary"
+            class="upload-action"
           >
             校正并导入
           </button>
@@ -260,7 +274,7 @@
         <p>选择分割结果后在独立工作台进行删除、补点和保存。</p>
         <p>
           <a href="/calibrations"
-            ><button class="primary">选择分割结果并开始校准</button></a
+            ><button class="calibrate-action">选择分割结果并开始校准</button></a
           >
         </p>
         <table class="table">
@@ -415,7 +429,7 @@
       let cropImage, cropPoints=[], dragCropPoint;
       const cropCanvas=$("#crop"), cropCtx=cropCanvas.getContext("2d");
       function cropCanvasPoint(event){let r=cropCanvas.getBoundingClientRect();return [Math.max(0,Math.min(cropImage.naturalWidth,(event.clientX-r.left)*cropImage.naturalWidth/r.width)),Math.max(0,Math.min(cropImage.naturalHeight,(event.clientY-r.top)*cropImage.naturalHeight/r.height))]}
-      function drawCrop(){if(!cropImage)return;cropCtx.clearRect(0,0,cropCanvas.width,cropCanvas.height);cropCtx.drawImage(cropImage,0,0,cropCanvas.width,cropCanvas.height);let scaleX=cropCanvas.width/cropImage.naturalWidth,scaleY=cropCanvas.height/cropImage.naturalHeight;cropCtx.strokeStyle="#a7e75d";cropCtx.fillStyle="#17211d";cropCtx.lineWidth=3;if(cropPoints.length){cropCtx.beginPath();cropPoints.forEach((p,i)=>{let x=p[0]*scaleX,y=p[1]*scaleY;i?cropCtx.lineTo(x,y):cropCtx.moveTo(x,y)});if(cropPoints.length>=3)cropCtx.closePath();cropCtx.stroke()}cropPoints.forEach((p,i)=>{let x=p[0]*scaleX,y=p[1]*scaleY;cropCtx.beginPath();cropCtx.arc(x,y,7,0,Math.PI*2);cropCtx.fill();cropCtx.strokeStyle="#fffdf7";cropCtx.lineWidth=2;cropCtx.stroke();cropCtx.strokeStyle="#a7e75d";cropCtx.lineWidth=3});$("#upload").disabled=cropPoints.length<3;$("#cropHint").textContent=cropPoints.length<3?`点击图片添加角点，拖动圆点微调；还需 ${3-cropPoints.length} 个角点才能导入。`:`已选择 ${cropPoints.length} 个角点；校正并导入会保留闭合区域。`}
+      function drawCrop(){if(!cropImage)return;cropCtx.clearRect(0,0,cropCanvas.width,cropCanvas.height);cropCtx.drawImage(cropImage,0,0,cropCanvas.width,cropCanvas.height);let scaleX=cropCanvas.width/cropImage.naturalWidth,scaleY=cropCanvas.height/cropImage.naturalHeight;cropCtx.strokeStyle="#b8c99b";cropCtx.fillStyle="#17211d";cropCtx.lineWidth=3;if(cropPoints.length){cropCtx.beginPath();cropPoints.forEach((p,i)=>{let x=p[0]*scaleX,y=p[1]*scaleY;i?cropCtx.lineTo(x,y):cropCtx.moveTo(x,y)});if(cropPoints.length>=3)cropCtx.closePath();cropCtx.stroke()}cropPoints.forEach((p,i)=>{let x=p[0]*scaleX,y=p[1]*scaleY;cropCtx.beginPath();cropCtx.arc(x,y,7,0,Math.PI*2);cropCtx.fill();cropCtx.strokeStyle="#fffdf7";cropCtx.lineWidth=2;cropCtx.stroke();cropCtx.strokeStyle="#b8c99b";cropCtx.lineWidth=3});$("#upload").disabled=cropPoints.length<3;$("#cropHint").textContent=cropPoints.length<3?`点击图片添加角点，拖动圆点微调；还需 ${3-cropPoints.length} 个角点才能导入。`:`已选择 ${cropPoints.length} 个角点；校正并导入会保留闭合区域。`}
       $("#upload").onclick = async () => {
         let f = $("#file").files[0];
         if (!f || cropPoints.length<3) return;
