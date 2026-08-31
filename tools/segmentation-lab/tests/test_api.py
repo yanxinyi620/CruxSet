@@ -167,6 +167,12 @@ def test_calibration_results_offer_cruxset_publish(tmp_path):
     assert 'class="publish"' in response.text
     assert '>发布</button>' in response.text
     assert "/publish" in response.text
+
+
+def test_calibration_results_use_short_calibrate_label(tmp_path):
+    response = TestClient(create_app(Settings(data_dir=tmp_path))).get("/")
+    assert '>校准</a>' in response.text
+    assert '继续校准' not in response.text
     assert 'id="publishConfirm"' in response.text
     assert 'id="publishName"' in response.text
     assert "确认发布" in response.text
