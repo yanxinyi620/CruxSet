@@ -8,7 +8,8 @@ export class ApiError extends Error {
 }
 export function localApiBaseUrl(location: Pick<Location, 'protocol' | 'hostname'> = window.location): string { return `${location.protocol}//${location.hostname}:8000` }
 export class LocalApiClient {
-  constructor(private baseUrl = localApiBaseUrl(), private fetcher: typeof fetch = fetch) {}
+  private fetcher: typeof fetch
+  constructor(private baseUrl = localApiBaseUrl(), fetcher?: typeof fetch) { this.fetcher = fetcher ?? ((input, init) => globalThis.fetch(input, init)) }
   async login(email: string, password: string): Promise<LocalUser> { const fetcher = this.fetcher; const response = await fetcher(`${this.baseUrl}/api/v1/auth/admin/login`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) }); if (!response.ok) throw new Error('登录失败，请检查邮箱和密码'); return (await response.json()).user as LocalUser }
   async currentUser(): Promise<LocalUser | null> { const fetcher = this.fetcher; const response = await fetcher(`${this.baseUrl}/api/v1/auth/me`, { credentials: 'include' }); if (response.status === 401) return null; if (!response.ok) throw new Error('无法检查登录状态'); return (await response.json()).user as LocalUser }
   async loadBrowseData(): Promise<BrowseData> { const walls = (await this.get('/api/v1/walls')).walls as unknown[]; const problems = (await this.get('/api/v1/problems')).problems as unknown[]; return { walls, problems } }
