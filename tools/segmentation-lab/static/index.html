@@ -9,6 +9,8 @@
       --g: #d8e2c4;
       --section-accent: #d8e0e7;
       --c: #fffdf7;
+      --font-serif: "Cormorant Garamond", "Libre Baskerville", "DM Serif Display", Georgia, serif;
+      --font-sans: "Noto Sans SC", "Source Han Sans SC", "Microsoft YaHei", sans-serif;
     }
     * {
       box-sizing: border-box;
@@ -17,10 +19,7 @@
       margin: 0;
       background: var(--p);
       color: var(--i);
-      font:
-        16px Georgia,
-        "Noto Serif SC",
-        serif;
+      font: 16px var(--font-sans);
     }
     .shell {
       max-width: 1120px;
@@ -34,6 +33,8 @@
     h1 {
       margin: 0;
       font-size: 40px;
+      font-family: var(--font-serif);
+      letter-spacing: 0.02em;
     }
     .step {
       margin-top: 20px;
@@ -51,11 +52,13 @@
       background: transparent;
       padding: 0;
       color: #5f6c79;
-      font: 700 20px system-ui;
+      font: 700 20px var(--font-sans);
     }
     h2 {
       margin: 0;
       font-size: 22px;
+      font-family: var(--font-sans);
+      font-weight: 700;
     }
     .step .num { background: transparent; }
     .step h2 { color: #5f6c79; }
@@ -75,7 +78,7 @@
       padding: 9px 12px;
       border: 1px solid var(--i);
       background: var(--c);
-      font: 14px system-ui;
+      font: 14px var(--font-sans);
       cursor: pointer;
     }
     .primary {
