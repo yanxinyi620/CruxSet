@@ -591,7 +591,7 @@ const render = async () => {
         ? publicWalls.find((w) => w.id === route.wallId)
         : undefined;
   const wallProblems = selected
-      ? problems.filter((p) => p.wallId === selected.id)
+      ? problems.filter((p) => p.wallId === selected.id).sort((a, b) => a.number.localeCompare(b.number))
       : [],
     filteredRouteProblems = wallProblems.filter(
       (p) =>
@@ -628,7 +628,7 @@ const render = async () => {
     groups = mine
       .filter((w) => w.visibility === "public")
       .map((w) => {
-        const ps = problems.filter((p) => p.wallId === w.id),
+        const ps = problems.filter((p) => p.wallId === w.id).sort((a, b) => a.number.localeCompare(b.number)),
           open = expandedWall === w.id;
         return `<article class="problem-group"><button class="group-head" data-expand="${h(w.id)}"><span><b>${h(w.name)}</b><em>${ps.length} 条线路</em></span><strong>${open ? "⌃" : "›"}</strong></button>${open ? `<div class="problem-list">${ps.map((p) => `<div class="problem-row"><span><b>${h(p.number)}</b><em>${h(p.name || "未命名线路")}</em></span><button class="delete-button" data-delete-problem="${h(p.id)}">删除</button></div>`).join("")}</div>` : ""}</article>`;
       })
