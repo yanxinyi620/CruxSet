@@ -582,8 +582,8 @@ const render = async () => {
         : route.name === "me"
           ? "me"
           : "browse",
-    publicWalls = await store.session.listWalls(),
-    mine = await store.session.listMyWalls(),
+    publicWalls = (await store.session.listWalls()).sort((a, b) => b.updatedAt - a.updatedAt || b.createdAt - a.createdAt),
+    mine = (await store.session.listMyWalls()).sort((a, b) => b.updatedAt - a.updatedAt || b.createdAt - a.createdAt),
     problems = await store.session.listProblems(),
     drafts = mine.filter((wall) => wall.visibility === "private"),
     selected =
