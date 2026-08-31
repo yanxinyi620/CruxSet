@@ -28,6 +28,10 @@ npm run web
 cd server && PYTHONPATH=. uv run python scripts/create_local_admin.py name@example.com
 ```
 
+### 实验台发布到本机 Web
+
+启动步骤与环境变量见[根 README 的手动启动说明](../README.md#手动启动并从实验台发布)。这条发布路径只支持本机 `127.0.0.1` 服务：实验台提交原图和已校准 polygon，FastAPI 创建新的公开 Wall，Web 刷新后即可浏览和定线。每次发布都是新增 Wall，不覆盖任何已有墙面或线路。
+
 ## 当前交付状态
 
 Phase 1 已完成小程序页面与核心领域逻辑、本地 Mock、CloudBase 云函数适配，以及 Web 创作台的本地 FastAPI/SQLite 流程。尚未完成真实 CloudBase 环境部署、真机验收及线上数据初始化。

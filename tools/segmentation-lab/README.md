@@ -2,7 +2,7 @@
 
 本地运行的攀岩训练墙岩点分割实验台。它面向一面固定 Spraywall：上传并裁剪墙图，使用 SAM 2.1 自动产生岩点候选，再在浏览器中以 SVG polygon 进行人工校准并导出结果。
 
-它是 CruxSet 的独立研究工具：不读取或写入小程序、Web 创作台、FastAPI 或 CloudBase 数据。有关主项目运行、部署与业务规则，请回到[根 README](../../README.md)。
+它是 CruxSet 的独立研究工具：不读取或写入小程序、CloudBase 数据；但可以通过显式的本机发布操作将已校准结果创建为 FastAPI 中的一面新 Wall。有关完整手动启动方式，请回到[根 README](../../README.md#手动启动并从实验台发布)。
 
 当前版本优先支持无 NVIDIA 显卡的 CPU 环境；推理可能需要数分钟。
 
@@ -26,7 +26,7 @@ SEG_LAB_DATA_DIR=./data uv run uvicorn segmentation_lab.api:app --host 127.0.0.1
 
 ## 发布到本机 CruxSet
 
-先启动 CruxSet API（默认 `http://127.0.0.1:8000`）并设置同一个本机密钥。密钥只用于两个本机服务之间的发布，不会发送到浏览器，也不要提交到版本库：
+完整的三终端启动命令见[根 README](../../README.md#手动启动并从实验台发布)。CruxSet API 与实验台必须配置同一个本机密钥；密钥不会发送到浏览器，也不要提交到版本库：
 
 ```bash
 export CRUXSET_SEGMENTATION_PUBLISH_KEY='local-only-long-random-secret'
@@ -35,7 +35,7 @@ export CRUXSET_BASE_URL='http://127.0.0.1:8000'
 export CRUXSET_WEB_URL='http://127.0.0.1:5173'
 ```
 
-CruxSet 和实验台都使用 `CRUXSET_SEGMENTATION_PUBLISH_KEY`。在校准结果列表点击“发布到 CruxSet”，确认墙面名称后会创建一面新的公开 Wall；重复发布会创建新的 Wall。发布结果会保存在校准记录中，并可打开 CruxSet 浏览地址。
+CruxSet 和实验台都使用 `CRUXSET_SEGMENTATION_PUBLISH_KEY`。在校准结果列表点击“发布”，确认墙面名称后会创建一面新的公开 Wall；重复发布会创建新的 Wall。发布结果会保存在校准记录中，并可打开 CruxSet 浏览地址。
 
 首次运行 `sam2` / `sam2_tiled` 时，Transformers 会下载 `facebook/sam2.1-hiera-large` 权重；需要联网并预留足够的磁盘空间。模型状态会在页面的“02 选择模型”中显示。`sam3` 需要另行安装其依赖并提供本地 checkpoint；未满足条件时会保持不可用。
 

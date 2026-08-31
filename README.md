@@ -9,7 +9,7 @@ CruxSet 是用于数字化真实攀岩墙的系统：用户通过微信小程序
 
 微信小程序 → CloudBase 云函数 → CloudBase 数据库 / 存储
 
-分割实验台：独立本地服务，不接入上述运行链路
+分割实验台：独立本地服务，可显式发布已校准结果到本机 FastAPI
 ```
 
 Web 与小程序共享 Wall、Hold、Problem 的字段语义，但不共享草稿、登录会话或后端。Web 草稿只保存在本地；小程序不依赖 FastAPI 在线运行。
@@ -94,6 +94,42 @@ npm run build
 
 `npm run build` 会同时检查共享领域代码和微信小程序 TypeScript。
 
-## 分割实验台发布
+## 手动启动并从实验台发布
 
-本机可将实验台已保存的校准结果发布为新的公开 Wall。CruxSet API 与实验台启动时配置同一个仅本机使用的 `CRUXSET_SEGMENTATION_PUBLISH_KEY`，并在 CruxSet 配置 `CRUXSET_SEGMENTATION_PUBLISH_OWNER_ID` 指向管理员用户 ID；实验台另配置 `CRUXSET_BASE_URL=http://127.0.0.1:8000` 与 `CRUXSET_WEB_URL=http://127.0.0.1:5173`。密钥不会进入浏览器或版本库。
+以下是本机手动启动 Web、CruxSet API 与分割实验台的完整方式。发布使用同一个仅本机使用的密钥；不要把密钥写入仓库或浏览器代码。
+
+先准备一个随机密钥，并将 `<管理员用户 ID>` 替换为本地管理员对应的 CruxSet 用户 ID：
+
+```bash
+export CRUXSET_SEGMENTATION_PUBLISH_KEY='local-only-long-random-secret'
+export CRUXSET_SEGMENTATION_PUBLISH_OWNER_ID='<管理员用户 ID>'
+```
+
+终端一，启动 CruxSet API：
+
+```bash
+cd server
+SESSION_COOKIE_SECURE=false \
+CRUXSET_SEGMENTATION_PUBLISH_KEY="$CRUXSET_SEGMENTATION_PUBLISH_KEY" \
+CRUXSET_SEGMENTATION_PUBLISH_OWNER_ID="$CRUXSET_SEGMENTATION_PUBLISH_OWNER_ID" \
+PYTHONPATH=. uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+终端二，启动 Web：
+
+```bash
+npm run web -- --host 0.0.0.0
+```
+
+终端三，启动实验台：
+
+```bash
+cd tools/segmentation-lab
+SEG_LAB_DATA_DIR=./data \
+CRUXSET_SEGMENTATION_PUBLISH_KEY="$CRUXSET_SEGMENTATION_PUBLISH_KEY" \
+CRUXSET_BASE_URL='http://127.0.0.1:8000' \
+CRUXSET_WEB_URL='http://127.0.0.1:5173' \
+uv run uvicorn segmentation_lab.api:app --host 127.0.0.1 --port 8765
+```
+
+打开 `http://127.0.0.1:8765/`，在 **04 人工校准** 的已保存校准结果中点击“发布”。发布成功后会打开 CruxSet Web；每次发布都创建一面新的公开 Wall，不覆盖旧 Wall。
