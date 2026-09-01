@@ -221,6 +221,14 @@ const renderLogin = () => {
       renderLogin();
     }
   };
+  root.querySelector<HTMLButtonElement>("[data-register]")!.onclick = async () => {
+    const dialog = document.createElement("dialog"); dialog.className = "profile-name-dialog";
+    dialog.innerHTML = `<h2>注册普通用户</h2><input placeholder="邮箱" type="email" autocomplete="email"><input placeholder="密码（至少 8 位）" type="password" autocomplete="new-password"><input placeholder="再次输入密码" type="password" autocomplete="new-password"><div class="profile-name-actions"><button data-register-confirm>注册</button><button data-register-cancel>取消</button></div>`;
+    document.body.append(dialog); dialog.showModal(); (dialog.querySelector("h2") as HTMLElement).focus();
+    dialog.querySelector("[data-register-cancel]")!.addEventListener("click", () => dialog.close());
+    dialog.querySelector("[data-register-confirm]")!.addEventListener("click", async () => { const inputs = [...dialog.querySelectorAll("input")] as HTMLInputElement[]; try { const user = await api.register(inputs[0].value, inputs[1].value, inputs[2].value); profileEmail = user.email; profileName = user.displayName || ""; dialog.close(); dialog.remove(); authenticated = true; await store.useApi(api); void render(); } catch (error) { loginError = (error as Error).message; dialog.close(); dialog.remove(); renderLogin(); } });
+    dialog.addEventListener("close", () => dialog.remove(), { once: true });
+  };
 };
 
 const renderLoading = () => {
