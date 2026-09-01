@@ -645,10 +645,10 @@ const render = async () => {
           `<article class="wall-management-card">${thumb}<span><b>${h(w.name)}</b><em>${w.holds.length} 个岩点</em></span><small>${w.visibility === "public" ? "公开" : "私有"}</small><button class="delete-button" data-delete-wall="${h(w.id)}">删除</button></article>`,
       )
       .join(""),
-    groups = mine
-      .filter((w) => w.visibility === "public")
+    groups = publicWalls
+      .filter((w) => myProblems.some((p) => p.wallId === w.id))
       .map((w) => {
-        const ps = problems.filter((p) => p.wallId === w.id).sort((a, b) => a.number.localeCompare(b.number)),
+        const ps = myProblems.filter((p) => p.wallId === w.id).sort((a, b) => a.number.localeCompare(b.number)),
           open = expandedWall === w.id;
         return `<article class="problem-group"><button class="group-head" data-expand="${h(w.id)}"><span><b>${h(w.name)}</b><em>${ps.length} 条线路</em></span><strong>${open ? "⌃" : "›"}</strong></button>${open ? `<div class="problem-list">${ps.map((p) => `<div class="problem-row"><span><b>${h(p.number)}</b><em>${h(p.name || "未命名线路")}</em></span><button class="edit-button" data-edit-problem="${h(p.id)}">编辑</button><button class="delete-button" data-delete-problem="${h(p.id)}">删除</button></div>`).join("")}</div>` : ""}</article>`;
       })
