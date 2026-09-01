@@ -49,6 +49,7 @@ class SQLiteRepository:
         return [json.loads(row[0]) for row in rows]
 
     def insert_wall(self, wall: Document) -> None: self._put("walls", wall)
+    def replace_problem(self, problem: Document) -> None: self._put("problems", problem)
     def replace_wall(self, wall: Document) -> None: self._put("walls", wall)
     def insert_user(self, user: Document) -> None: self._put("users", user)
     def find_user(self, user_id: str) -> Document | None: return self._get("users", user_id)

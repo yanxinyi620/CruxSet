@@ -43,6 +43,14 @@ class ProblemInput(BaseModel):
     name: str | None = None
     description: str | None = None
 
+class ProblemUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    angle: int
+    grade: str
+    footRule: str
+    name: str | None = None
+    description: str | None = None
+
 
 def _repo(request: Request):
     return request.app.state.repository
@@ -230,6 +238,15 @@ async def delete_problem(problem_id: str, request: Request, _=Depends(require_ad
         raise ApiError("NOT_FOUND", "Resource not found", 404)
     _repo(request).delete_problem(problem_id)
     return {"ok": True}
+
+@router.patch("/problems/{problem_id}")
+async def update_problem(problem_id: str, payload: ProblemUpdate, request: Request, user=Depends(require_admin)):
+    problem = _repo(request).find_problem(problem_id)
+    if not problem or problem.get("createdBy") != user["id"]: raise ApiError("NOT_FOUND", "Resource not found", 404)
+    wall = _repo(request).find_wall(problem["wallId"])
+    if not wall or payload.angle not in wall.get("angleOptions", []) or payload.grade not in {f"V{i}" for i in range(17)} or payload.footRule not in {"feet_follow", "specified", "all"}: raise ApiError("INVALID_INPUT", "Invalid route data", 422)
+    problem.update(payload.model_dump()); problem["updatedAt"] = _now(); _repo(request).replace_problem(problem)
+    return {"problem": problem}
 
 
 @router.delete("/walls/{wall_id}")

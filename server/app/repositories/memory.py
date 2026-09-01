@@ -61,6 +61,7 @@ class MemoryRepository:
 
     def delete_problem(self, problem_id: str) -> None:
         self._problems.pop(problem_id, None)
+    def replace_problem(self, problem: Document) -> None: self._problems[problem["id"]] = deepcopy(problem)
 
     def delete_wall(self, wall_id: str) -> None:
         self._walls.pop(wall_id, None)
