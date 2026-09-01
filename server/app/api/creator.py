@@ -50,6 +50,7 @@ class ProblemUpdate(BaseModel):
     footRule: str
     name: str | None = None
     description: str | None = None
+    holds: dict[str, list[str]] | None = None
 
 
 def _repo(request: Request):
@@ -254,7 +255,11 @@ async def update_problem(problem_id: str, payload: ProblemUpdate, request: Reque
     if not problem or problem.get("createdBy") != user["id"]: raise ApiError("NOT_FOUND", "Resource not found", 404)
     wall = _repo(request).find_wall(problem["wallId"])
     if not wall or payload.angle < 0 or payload.angle > 70 or payload.angle % 5 or payload.grade not in {f"V{i}" for i in range(17)} or payload.footRule not in {"feet_follow", "specified", "all"}: raise ApiError("INVALID_INPUT", "Invalid route data", 422)
-    problem.update(payload.model_dump()); problem["updatedAt"] = _now(); _repo(request).replace_problem(problem)
+    if payload.holds is not None:
+        roles = ("start", "foot", "hand", "assist", "finish"); holds = {role: payload.holds.get(role, []) for role in roles}; assigned = [item for values in holds.values() for item in values]; known = {item["id"] for item in wall.get("holds", [])}
+        if not holds["start"] or not holds["finish"] or len(set(assigned)) != len(assigned) or not set(assigned).issubset(known): raise ApiError("INVALID_INPUT", "Invalid route holds", 422)
+        problem["holds"] = holds
+    problem.update({key: value for key, value in payload.model_dump().items() if key != "holds"}); problem["updatedAt"] = _now(); _repo(request).replace_problem(problem)
     return {"problem": problem}
 
 

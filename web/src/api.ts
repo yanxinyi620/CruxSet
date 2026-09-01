@@ -3,7 +3,7 @@ export type LocalUser = { id: string; email: string; displayName?: string; isAdm
 export type BrowseData = { walls: unknown[]; problems: unknown[] }
 export type NewWallDraft = { name: string; image: File; imageWidth: number; imageHeight: number }
 export type ProblemInput = { wallId: string; angle: number; grade: string; footRule: string; name?: string; description?: string; holds: Record<string, string[]> }
-export type ProblemUpdate = { angle: number; grade: string; footRule: string; name?: string; description?: string }
+export type ProblemUpdate = { angle: number; grade: string; footRule: string; name?: string; description?: string; holds?: Record<string, string[]> }
 export class ApiError extends Error {
   constructor(message: string, readonly code?: string) { super(message); this.name = 'ApiError' }
 }
