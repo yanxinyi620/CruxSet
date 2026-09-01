@@ -98,6 +98,7 @@ let authenticated = false,
   loginError = "",
   profileEmail = "",
   profileName = "",
+  profileUserId = "",
   panel: "home" | "profile" | "drafts" | "new-wall" | "new-route" | "my-walls" | "my-problems" = "home",
   expandedWall = "",
   managementError = "",
@@ -213,6 +214,7 @@ const renderLogin = () => {
       );
       profileEmail = user.email;
       profileName = user.displayName || "";
+      profileUserId = user.id;
       await store.useApi(api);
       authenticated = true;
       void render();
@@ -602,6 +604,7 @@ const render = async () => {
     publicWalls = (await store.session.listWalls()).sort((a, b) => b.updatedAt - a.updatedAt || b.createdAt - a.createdAt),
     mine = (await store.session.listMyWalls()).sort((a, b) => b.updatedAt - a.updatedAt || b.createdAt - a.createdAt),
     problems = await store.session.listProblems(),
+    myProblems = problems.filter((problem) => problem.createdBy === profileUserId),
     drafts = mine.filter((wall) => wall.visibility === "private"),
     selected =
       route.name === "wall" || route.name === "route-browser"
@@ -657,7 +660,7 @@ const render = async () => {
       ? `${back}<h1>我的墙面</h1>${managementError ? `<p class="editor-toast">${h(managementError)}</p>` : ""}${cards}`
       : panel === "my-problems"
         ? `${back}<h1>我的线路</h1>${managementError ? `<p class="editor-toast">${h(managementError)}</p>` : ""}${groups}`
-        : `<div class="editor-head"><h1>我的</h1><p class="lead">管理你的资料、墙面与线路。</p></div><button class="hub-card profile" data-panel="profile"><i>◎</i><span><b>个人资料</b><em>${h(profileEmail)}</em></span><strong>›</strong></button><button class="hub-card walls" data-panel="my-walls"><i>▧</i><span><b>我的墙面</b><em>已创建 ${mine.length} 面墙</em></span><strong>›</strong></button><button class="hub-card problems" data-panel="my-problems"><i>◇</i><span><b>我的线路</b><em>共 ${problems.length} 条线路</em></span><strong>›</strong></button>`;
+        : `<div class="editor-head"><h1>我的</h1><p class="lead">管理你的资料、墙面与线路。</p></div><button class="hub-card profile" data-panel="profile"><i>◎</i><span><b>个人资料</b><em>${h(profileEmail)}</em></span><strong>›</strong></button><button class="hub-card walls" data-panel="my-walls"><i>▧</i><span><b>我的墙面</b><em>已创建 ${mine.length} 面墙</em></span><strong>›</strong></button><button class="hub-card problems" data-panel="my-problems"><i>◇</i><span><b>我的线路</b><em>共 ${myProblems.length} 条线路</em></span><strong>›</strong></button>`;
   const isPrimaryPage = (tab === "browse" && !selected) || (tab === "create" && panel === "home") || (tab === "me" && panel === "home");
   root.innerHTML = `<div class="device ${isPrimaryPage ? "" : "secondary-page"}">${isPrimaryPage ? "<header><small>CRUXSET</small></header>" : ""}<main>${tab === "browse" ? browse : tab === "create" ? create : me}</main><nav>${(["browse", "create", "me"] as const).map((x) => `<button class="${tab === x ? "active" : ""}" data-tab="${x}">${x === "browse" ? "线路" : x === "create" ? "创建" : "我的"}</button>`).join("")}</nav></div>`;
   if (selectedRoute && route.name === "route-browser") {
@@ -931,7 +934,7 @@ void api
     .then(async (user) => {
       authenticated = Boolean(user);
       if (user) {
-        profileEmail = user.email; profileName = user.displayName || "";
+        profileEmail = user.email; profileName = user.displayName || ""; profileUserId = user.id;
         await store.useApi(api);
       }
     await render();
