@@ -341,7 +341,7 @@ const renderProblemEditor = () => {
     if (result.ok) {
       clearDraft(`problem:${c.wall.id}`);
       c.toast = `${c.problemId ? "已修改线路" : "已保存线路"} ${(result.value as Problem).number}`;
-      if (c.problemId) { problemCtx = null; panel = "my-problems"; store.navigate({ name: "me" }); return; }
+      if (c.problemId) { problemCtx = null; panel = "my-problems"; store.navigate({ name: "me" }, { replace: true }); return; }
       c.editor = new ProblemEditor();
       c.role = "start";
       c.undo = 0;
