@@ -3,6 +3,7 @@ export type LocalUser = { id: string; email: string; isAdmin: boolean }
 export type BrowseData = { walls: unknown[]; problems: unknown[] }
 export type NewWallDraft = { name: string; image: File; imageWidth: number; imageHeight: number }
 export type ProblemInput = { wallId: string; angle: number; grade: string; footRule: string; name?: string; description?: string; holds: Record<string, string[]> }
+export type ProblemUpdate = { angle: number; grade: string; footRule: string; name?: string; description?: string }
 export class ApiError extends Error {
   constructor(message: string, readonly code?: string) { super(message); this.name = 'ApiError' }
 }
@@ -25,6 +26,7 @@ export class LocalApiClient {
   async publishWall(wallId: string): Promise<{ wall: Wall }> { return this.request(`/api/v1/walls/${encodeURIComponent(wallId)}/publish`, { method: 'POST' }) as unknown as { wall: Wall } }
   async createProblem(input: ProblemInput): Promise<{ problem: { id: string; number: string } }> { return this.request('/api/v1/problems', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) }) as unknown as { problem: { id: string; number: string } } }
   async deleteProblem(id: string): Promise<{ ok: boolean }> { return this.request(`/api/v1/problems/${encodeURIComponent(id)}`, { method: 'DELETE' }) as unknown as { ok: boolean } }
+  async updateProblem(id: string, input: ProblemUpdate) { return this.request(`/api/v1/problems/${encodeURIComponent(id)}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) }) as unknown as { problem: Record<string, unknown> } }
   async deleteWall(id: string): Promise<{ ok: boolean }> { return this.request(`/api/v1/walls/${encodeURIComponent(id)}`, { method: 'DELETE' }) as unknown as { ok: boolean } }
   private get(path: string) { return this.request(path) }
   private async request(path: string, init: RequestInit = {}): Promise<Record<string, unknown>> { const fetcher = this.fetcher; const response = await fetcher(`${this.baseUrl}${path}`, { credentials: 'include', ...init }); if (!response.ok) { const body = await response.json().catch(() => null) as { error?: { code?: string; message?: string } } | null; throw new ApiError(body?.error?.message || '无法读取本地工作台数据', body?.error?.code) } return await response.json() as Record<string, unknown> }

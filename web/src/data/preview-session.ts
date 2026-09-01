@@ -13,5 +13,6 @@ export class PreviewSession {
   publishWall(id: string, holds: Hold[]) { return this.repository.publishWall(id, holds) }
   createProblem(id: string, draft: Partial<Problem>) { return this.repository.createProblem(id, draft) }
   deleteProblem(id: string) { return this.repository.deleteProblem(id) }
+  async updateProblem(id: string, input: Partial<Problem>) { const problem = (await this.repository.listProblems()).find(item => item.id === id); if (!problem) throw new Error('PROBLEM_NOT_FOUND'); Object.assign(problem, input, { id: problem.id, number: problem.number, updatedAt: Date.now() }); return problem }
   deleteWall(id: string): Promise<{ ok: true }> { return this.repository.deleteWall(id) }
 }

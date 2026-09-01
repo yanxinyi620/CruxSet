@@ -630,7 +630,7 @@ const render = async () => {
       .map((w) => {
         const ps = problems.filter((p) => p.wallId === w.id).sort((a, b) => a.number.localeCompare(b.number)),
           open = expandedWall === w.id;
-        return `<article class="problem-group"><button class="group-head" data-expand="${h(w.id)}"><span><b>${h(w.name)}</b><em>${ps.length} 条线路</em></span><strong>${open ? "⌃" : "›"}</strong></button>${open ? `<div class="problem-list">${ps.map((p) => `<div class="problem-row"><span><b>${h(p.number)}</b><em>${h(p.name || "未命名线路")}</em></span><button class="delete-button" data-delete-problem="${h(p.id)}">删除</button></div>`).join("")}</div>` : ""}</article>`;
+        return `<article class="problem-group"><button class="group-head" data-expand="${h(w.id)}"><span><b>${h(w.name)}</b><em>${ps.length} 条线路</em></span><strong>${open ? "⌃" : "›"}</strong></button>${open ? `<div class="problem-list">${ps.map((p) => `<div class="problem-row"><span><b>${h(p.number)}</b><em>${h(p.name || "未命名线路")}</em></span><button class="edit-button" data-edit-problem="${h(p.id)}">编辑</button><button class="delete-button" data-delete-problem="${h(p.id)}">删除</button></div>`).join("")}</div>` : ""}</article>`;
       })
       .join("");
   const me =
@@ -803,6 +803,16 @@ const render = async () => {
         void render();
       }),
   );
+  root.querySelectorAll<HTMLButtonElement>("[data-edit-problem]").forEach((b) => b.onclick = async () => {
+    const problem = problems.find((item) => item.id === b.dataset.editProblem);
+    if (!problem) return;
+    const name = prompt("线路名称", problem.name || "");
+    if (name === null) return;
+    const description = prompt("线路说明", problem.description || "");
+    if (description === null) return;
+    try { await (store.session as any).updateProblem(problem.id, { name, description, angle: problem.angle, grade: problem.grade, footRule: problem.footRule }); await render(); }
+    catch (error) { managementError = `修改线路失败：${(error as Error).message}`; await render(); }
+  });
   root.querySelectorAll<HTMLButtonElement>("[data-delete-wall]").forEach(
     (b) =>
       (b.onclick = async () => {
