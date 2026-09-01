@@ -19,9 +19,9 @@ export const fromPreviewUrl = (pathname: string): PreviewRoute => {
   if (detail) return { name: 'problem-detail', problemId: decodeURIComponent(detail[1]) }
   const routes = path.match(/^\/wall\/([^/]+)\/routes$/)
   if (routes) return { name: 'route-browser', wallId: decodeURIComponent(routes[1]) }
-  const wall = path.match(/^\/(wall|wall-editor|problem-editor)\/([^/]+)$/)
-  if (wall) return { name: wall[1] as 'wall' | 'wall-editor' | 'problem-editor', wallId: decodeURIComponent(wall[2]) }
   const editor = path.match(/^\/problem-editor\/([^/]+)\/([^/]+)$/)
   if (editor) return { name: 'problem-editor', wallId: decodeURIComponent(editor[1]), problemId: decodeURIComponent(editor[2]) }
+  const wall = path.match(/^\/(wall|wall-editor|problem-editor)\/([^/]+)$/)
+  if (wall) return { name: wall[1] as 'wall' | 'wall-editor' | 'problem-editor', wallId: decodeURIComponent(wall[2]) }
   return { name: 'browse' }
 }
