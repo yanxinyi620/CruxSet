@@ -49,3 +49,5 @@ h1 { letter-spacing: 2px; }
 .profile-name-dialog::backdrop { background:#27224466; }
 .profile-name-dialog h2 { margin:0 0 12px; font-size:18px; }
 .profile-name-dialog input { width:100%; padding:9px; border:1px solid var(--line); border-radius:10px; }
+.profile-name-actions { display:flex; gap:8px; margin-top:12px; }
+.profile-name-actions button { flex:1; }
