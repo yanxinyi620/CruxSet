@@ -60,11 +60,12 @@ sudo chown -R caddy:caddy /srv/cruxset/web
 
 ## 2. 配置 Caddy
 
-将 Caddy 只监听 WSL 本机的 `8080` 端口。Cloudflare 已经在公网一侧提供 HTTPS，因此此处不需要本地 TLS 证书。站点地址必须保留 `http://` 前缀：Caddy 对 IP 地址默认启用 HTTPS，缺少该前缀会使本机 HTTP 请求得到 `400 Bad Request`。
+将 Caddy 只监听 WSL 本机的 `8080` 端口。Cloudflare 已经在公网一侧提供 HTTPS，因此此处不需要本地 TLS 证书。站点地址使用无 Host 的 `:8080`，以接受 Quick Tunnel 的随机 `trycloudflare.com` Host；`bind 127.0.0.1` 确保该端口仍只在 WSL 本机监听。
 
 ```bash
 sudo tee /etc/caddy/Caddyfile >/dev/null <<'EOF'
-http://127.0.0.1:8080 {
+:8080 {
+    bind 127.0.0.1
     encode zstd gzip
 
     handle /api/* {
