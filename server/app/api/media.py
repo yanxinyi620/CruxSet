@@ -3,10 +3,11 @@ import secrets
 from pathlib import Path
 from urllib.parse import urlparse
 
-from fastapi import APIRouter, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 
 from app.auth.sessions import read_session, session_cookie_name
+from app.api.auth import require_user
 
 router = APIRouter(prefix="/api/v1/media", tags=["media"])
 
@@ -51,6 +52,15 @@ def store_image(content: bytes, content_type: str, max_bytes: int | None = None)
 async def upload_image(file: UploadFile = File(...)):
     content = await file.read()
     return {"media": store_image(content, file.content_type or "")}
+
+@router.delete("/{media_id}")
+async def delete_media(media_id: str, request: Request, _=Depends(require_user)):
+    if not _media_basename(media_id): raise HTTPException(status_code=404, detail="Media not found")
+    referenced = any(media_id in { _media_basename(wall.get("imageFileId")), _media_basename(wall.get("displayImageFileId")) } for wall in request.app.state.repository.list_walls())
+    if referenced: raise HTTPException(status_code=409, detail="Media is in use")
+    path = _media_directory() / media_id
+    if path.is_file(): path.unlink()
+    return {"ok": True}
 
 
 @router.get("/{media_id}")
