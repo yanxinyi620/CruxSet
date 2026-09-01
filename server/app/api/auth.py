@@ -70,7 +70,8 @@ async def login(payload: AdminLoginRequest, request: Request, response: Response
         samesite="lax",
         max_age=60 * 60 * 8,
     )
-    return {"user": {"id": admin["userId"], "email": normalized_email, "isAdmin": admin.get("role") == "admin"}}
+    account = _repository(request).find_user(str(admin["userId"])) or {}
+    return {"user": {"id": admin["userId"], "email": normalized_email, "displayName": account.get("displayName", ""), "isAdmin": admin.get("role") == "admin"}}
 
 @router.post("/register")
 async def register(payload: RegisterRequest, request: Request, response: Response):
