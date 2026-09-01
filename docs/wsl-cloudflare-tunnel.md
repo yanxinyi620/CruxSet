@@ -1,6 +1,6 @@
 # WSL 上长期运行 Web 工作台
 
-本手册将本机 WSL 配置为持续运行的 CruxSet Web 服务。前端使用构建产物，Caddy 提供静态文件并将 `/api` 转发给仅监听本机的 FastAPI；Cloudflare 的具名 Tunnel 再将一个固定域名转发到 Caddy。
+本手册将本机 WSL 配置为持续运行的 CruxSet Web 服务。前端使用构建产物，Caddy 提供静态文件并将 `/api` 转发给仅监听本机的 FastAPI；Cloudflare Tunnel 再将公网 HTTPS 请求转发到 Caddy。
 
 ```text
 浏览器 HTTPS → Cloudflare Tunnel → Caddy :8080
@@ -8,7 +8,7 @@
                                   └─ /api/* → FastAPI 127.0.0.1:8000
 ```
 
-请先在 Cloudflare 中托管一个域名，并将下文的 `app.example.com` 换成该域名下实际使用的子域名。所有 WSL 命令均应从仓库根目录执行，除非另有说明。
+没有域名时，使用第 4 节的 Quick Tunnel 即可获得临时 HTTPS 地址；不需要 Cloudflare 账户、Tunnel UUID 或域名。需要固定地址和访问控制时，再使用第 5 节的具名 Tunnel。所有 WSL 命令均应从仓库根目录执行，除非另有说明。
 
 ## 0. 前置检查
 
@@ -84,7 +84,7 @@ curl -I http://127.0.0.1:8080/
 ```bash
 read -rsp '输入并保存 SESSION_SECRET：' SESSION_SECRET; echo
 sudo install -m 600 /dev/null /etc/cruxset.env
-printf 'SESSION_SECRET=%s\nSESSION_COOKIE_SECURE=true\nWEB_ORIGIN=https://app.example.com\n' "$SESSION_SECRET" | sudo tee /etc/cruxset.env >/dev/null
+printf 'SESSION_SECRET=%s\nSESSION_COOKIE_SECURE=true\n' "$SESSION_SECRET" | sudo tee /etc/cruxset.env >/dev/null
 unset SESSION_SECRET
 ```
 
@@ -123,7 +123,19 @@ sudo systemctl status cruxset-api --no-pager
 
 如果项目依赖包含 `uv` 管理的 Python 环境，上述服务会在每次启动时由 `uv run` 确保环境可用。
 
-## 4. 创建并安装具名 Cloudflare Tunnel
+## 4. 无域名：运行 Quick Tunnel
+
+完成第 1–3 节后，另开一个 WSL 终端运行：
+
+```bash
+cloudflared tunnel --url http://127.0.0.1:8080
+```
+
+命令会输出随机的 `https://*.trycloudflare.com` 地址；在浏览器中打开它即可。该地址的 HTTPS 由 Cloudflare 提供，所以 FastAPI 必须保持 `SESSION_COOKIE_SECURE=true`。
+
+Quick Tunnel 不需要执行 `cloudflared tunnel login`、创建 Tunnel UUID、配置 DNS 或安装 `cloudflared` systemd 服务。保持该命令所在终端运行；一旦停止或重启，公网地址会失效并在下次启动时改变。它适合测试、演示和短期访问，知道链接的任何人都可以访问服务。
+
+## 5. 有域名时：创建并安装具名 Cloudflare Tunnel
 
 先完成 Cloudflare 登录。该命令会输出一个 URL，请在 Windows 浏览器中打开并选择持有 `app.example.com` 的域名：
 
@@ -162,12 +174,18 @@ sudo systemctl status cloudflared --no-pager
 
 现在在浏览器打开 `https://app.example.com`。外部为 HTTPS，所以 FastAPI 必须保持 `SESSION_COOKIE_SECURE=true`；Caddy 与 FastAPI 之间仍可安全地使用本机 HTTP。
 
-## 5. 上线后检查与日常更新
+## 6. 上线后检查与日常更新
 
 初次访问后，确认登录响应的 Cookie 有 `Secure` 和 `HttpOnly` 属性，并在浏览器中验证登录、退出、图片上传和 API 请求。查看服务日志：
 
 ```bash
-sudo journalctl -u cruxset-api -u caddy -u cloudflared -f
+sudo journalctl -u cruxset-api -u caddy -f
+```
+
+使用具名 Tunnel 且已安装其 systemd 服务时，可额外查看：
+
+```bash
+sudo journalctl -u cloudflared -f
 ```
 
 更新 Web 前端时，在仓库根目录执行：
@@ -197,7 +215,7 @@ sudo systemctl reload caddy
 
 ## 安全与备份
 
-- 在 Cloudflare Zero Trust 中为 `app.example.com` 配置 Cloudflare Access，限制为自己的邮箱或团队身份；不要仅依赖随机 URL 或应用登录页。
+- 使用具名 Tunnel 和自有域名时，在 Cloudflare Zero Trust 中为该域名配置 Cloudflare Access，限制为自己的邮箱或团队身份。Quick Tunnel 没有固定域名和 Access 保护，不应长期公开管理后台。
 - 不要把 `/etc/cruxset.env`、Tunnel 凭据文件或 SQLite 数据库提交到 Git。
 - 定期备份 `server/data/cruxset.db` 和项目中的本地上传图片；先停止 `cruxset-api` 再执行文件级 SQLite 备份，或使用 SQLite 的在线备份方式。
 - 此方案依赖一台 PC 持续在线，适合个人/内部工具和低流量场景，不提供云服务器级别的高可用性。
