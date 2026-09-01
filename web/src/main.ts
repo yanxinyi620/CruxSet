@@ -176,6 +176,7 @@ type ProblemCtx = {
   saved?: string;
   toast?: string;
   submitting: boolean;
+  problemId?: string;
   viewportTransform?: import("../../miniprogram/domain/types.js").ViewTransform;
 };
 type WallCtx = {
@@ -224,23 +225,25 @@ const renderLoading = () => {
   root.innerHTML = `<div class="device"><main class="loading-page"><span class="loading-mark" aria-hidden="true"></span><small>CRUXSET</small><p>正在加载墙面与线路…</p></main></div>`;
 };
 
-const openProblemEditor = async (wallId: string) => {
+const openProblemEditor = async (wallId: string, problemId?: string) => {
   const sourceWall = await store.session.getWall(wallId);
   const wall = { ...sourceWall, angleOptions: routeAngles };
+  const existing = problemId ? (await store.session.listProblems()).find((item) => item.id === problemId) : undefined;
   const saved = loadDraft<{ editor: string; role: HoldRole; angle: number; grade: Grade; footRule: FootRule; name: string; description: string }>(`problem:${wallId}`);
   problemCtx = {
     wall,
-    editor: saved?.editor ? ProblemEditor.restore(saved.editor) : new ProblemEditor(),
+    editor: saved?.editor ? ProblemEditor.restore(saved.editor) : existing ? ProblemEditor.restore(JSON.stringify(existing.holds)) : new ProblemEditor(),
     role: saved?.role ?? "start",
     angle: saved?.angle ?? (routeAngles.includes(wall.angleOptions[0] ?? 0) ? wall.angleOptions[0] ?? 0 : 0),
     grade: saved?.grade ?? "V4",
     footRule: saved?.footRule ?? "feet_follow",
-    name: saved?.name ?? "",
-    description: saved?.description ?? "",
+    name: saved?.name ?? existing?.name ?? "",
+    description: saved?.description ?? existing?.description ?? "",
     undo: 0,
     submitting: false,
+    problemId,
   };
-  store.navigate({ name: "problem-editor", wallId });
+  store.navigate({ name: "problem-editor", wallId, problemId });
 };
 const renderProblemEditor = () => {
   const c = problemCtx!,
@@ -324,18 +327,21 @@ const renderProblemEditor = () => {
         c.submitting = value;
       },
       () =>
-        store.session.createProblem(c.wall.id, {
+        c.problemId ? (store.session as any).updateProblem(c.problemId, {
           angle: c.angle,
           grade: c.grade,
           footRule: c.footRule,
           name: c.name || undefined,
           description: c.description || undefined,
           holds: c.editor.value().holds,
+        }) : store.session.createProblem(c.wall.id, {
+          angle: c.angle, grade: c.grade, footRule: c.footRule, name: c.name || undefined, description: c.description || undefined, holds: c.editor.value().holds,
         }),
     );
     if (result.ok) {
       clearDraft(`problem:${c.wall.id}`);
-      c.toast = `已保存线路 ${result.value.number}`;
+      c.toast = `${c.problemId ? "已修改线路" : "已保存线路"} ${(result.value as Problem).number}`;
+      if (c.problemId) { problemCtx = null; panel = "my-problems"; store.navigate({ name: "me" }); return; }
       c.editor = new ProblemEditor();
       c.role = "start";
       c.undo = 0;
@@ -565,7 +571,7 @@ const render = async () => {
     return;
   }
   if (route.name === "problem-editor") {
-    if (!problemCtx) await openProblemEditor(route.wallId);
+    if (!problemCtx) await openProblemEditor(route.wallId, route.problemId);
     renderProblemEditor();
     return;
   }
@@ -803,15 +809,9 @@ const render = async () => {
         void render();
       }),
   );
-  root.querySelectorAll<HTMLButtonElement>("[data-edit-problem]").forEach((b) => b.onclick = async () => {
+  root.querySelectorAll<HTMLButtonElement>("[data-edit-problem]").forEach((b) => b.onclick = () => {
     const problem = problems.find((item) => item.id === b.dataset.editProblem);
-    if (!problem) return;
-    const name = prompt("线路名称", problem.name || "");
-    if (name === null) return;
-    const description = prompt("线路说明", problem.description || "");
-    if (description === null) return;
-    try { await (store.session as any).updateProblem(problem.id, { name, description, angle: problem.angle, grade: problem.grade, footRule: problem.footRule }); await render(); }
-    catch (error) { managementError = `修改线路失败：${(error as Error).message}`; await render(); }
+    if (problem) void openProblemEditor(problem.wallId, problem.id);
   });
   root.querySelectorAll<HTMLButtonElement>("[data-delete-wall]").forEach(
     (b) =>
