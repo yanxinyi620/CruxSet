@@ -97,6 +97,7 @@ const root = document.querySelector<HTMLElement>("#app")!,
 let authenticated = false,
   loginError = "",
   profileEmail = "",
+  profileName = "",
   panel: "home" | "profile" | "drafts" | "new-wall" | "new-route" | "my-walls" | "my-problems" = "home",
   expandedWall = "",
   managementError = "",
@@ -211,6 +212,7 @@ const renderLogin = () => {
         (root.querySelector("#password") as HTMLInputElement).value,
       );
       profileEmail = user.email;
+      profileName = user.displayName || "";
       await store.useApi(api);
       authenticated = true;
       void render();
@@ -642,7 +644,7 @@ const render = async () => {
       .join("");
   const me =
     panel === "profile"
-      ? `${back}<div class="profile-card"><small>个人资料</small><h1>${h(profileEmail.split("@", 1)[0] || "用户")}</h1><p>${h(profileEmail)}</p></div><button class="profile-logout" data-logout>退出登录</button>`
+      ? `${back}<div class="profile-card"><small>个人资料</small><h1>${h(profileName || profileEmail.split("@", 1)[0] || "用户")}</h1><p>${h(profileEmail)}</p><label>用户名称<input id="profile-name" value="${h(profileName)}" maxlength="40"></label><button data-save-profile>保存名称</button></div><button class="profile-logout" data-logout>退出登录</button>`
       : panel === "my-walls"
       ? `${back}<h1>我的墙面</h1>${managementError ? `<p class="editor-toast">${h(managementError)}</p>` : ""}${cards}`
       : panel === "my-problems"
@@ -652,7 +654,7 @@ const render = async () => {
   root.innerHTML = `<div class="device ${isPrimaryPage ? "" : "secondary-page"}">${isPrimaryPage ? "<header><small>CRUXSET</small></header>" : ""}<main>${tab === "browse" ? browse : tab === "create" ? create : me}</main><nav>${(["browse", "create", "me"] as const).map((x) => `<button class="${tab === x ? "active" : ""}" data-tab="${x}">${x === "browse" ? "线路" : x === "create" ? "创建" : "我的"}</button>`).join("")}</nav></div>`;
   if (selectedRoute && route.name === "route-browser") {
     const note = root.querySelector<HTMLElement>(".route-note");
-    if (note) { const setter = (selectedRoute as Problem & { setterName?: string }).setterName || profileEmail.split("@", 1)[0] || "用户"; note.innerHTML = `<b>setter by ${h(setter)}</b>${selectedRoute.description ? `<br>${h(selectedRoute.description)}` : ""}`; }
+    if (note) { const setter = (selectedRoute as Problem & { setterName?: string }).setterName || profileName || profileEmail.split("@", 1)[0] || "用户"; note.innerHTML = `<b>setter by ${h(setter)}</b>${selectedRoute.description ? `<br>${h(selectedRoute.description)}` : ""}`; }
   }
   if (selected && route.name === "wall") {
     wallPreview = new WallCanvasView(root.querySelector("#wall-preview") as HTMLElement, {
@@ -702,6 +704,7 @@ const render = async () => {
     loginError = "";
     renderLogin();
   });
+  root.querySelector<HTMLButtonElement>("[data-save-profile]")?.addEventListener("click", async () => { const value = (root.querySelector<HTMLInputElement>("#profile-name")?.value || "").trim(); try { const result = await api.updateProfile(value); profileName = result.user.displayName || ""; await store.useApi(api); await render(); } catch (error) { managementError = `保存用户名称失败：${(error as Error).message}`; await render(); } });
   root.querySelectorAll<HTMLButtonElement>("[data-back]").forEach(
     (b) =>
       (b.onclick = () => {
@@ -920,7 +923,7 @@ void api
     .then(async (user) => {
       authenticated = Boolean(user);
       if (user) {
-        profileEmail = user.email;
+        profileEmail = user.email; profileName = user.displayName || "";
         await store.useApi(api);
       }
     await render();

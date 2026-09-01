@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, Depends, Request, Response
 from pydantic import BaseModel
 
 from app.api.errors import ApiError
@@ -12,6 +12,8 @@ router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 class AdminLoginRequest(BaseModel):
     email: str
     password: str
+class ProfileUpdate(BaseModel):
+    displayName: str
 
 
 def _repository(request: Request):
@@ -68,7 +70,14 @@ async def login(payload: AdminLoginRequest, request: Request, response: Response
 async def me(request: Request):
     user = _current_admin(request)
     admin = _repository(request).find_admin_by_user_id(str(user["id"]))
-    return {"user": {"id": user["id"], "email": admin["emailNormalized"], "isAdmin": True}}
+    return {"user": {"id": user["id"], "email": admin["emailNormalized"], "displayName": user.get("displayName", ""), "isAdmin": True}}
+
+@router.patch("/profile")
+async def update_profile(payload: ProfileUpdate, request: Request, user=Depends(require_admin)):
+    name = payload.displayName.strip()
+    if len(name) > 40: raise ApiError("INVALID_INPUT", "User name is too long", 422)
+    updated = dict(user); updated["displayName"] = name; _repository(request).insert_user(updated)
+    return {"user": {"id": user["id"], "email": _repository(request).find_admin_by_user_id(str(user["id"]))["emailNormalized"], "displayName": name, "isAdmin": True}}
 
 
 @router.post("/logout")
