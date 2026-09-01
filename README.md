@@ -52,6 +52,17 @@ npm run web -- --host 0.0.0.0
 
 电脑打开 `http://localhost:5173`；手机使用电脑局域网 IP，例如 `http://192.168.x.x:5173`。Web 会将 `/api` 请求代理到电脑本机的 FastAPI `127.0.0.1:8000`，手机无需直接访问 8000 端口。首次创建本地管理员：`cd server && PYTHONPATH=. uv run python scripts/create_local_admin.py name@example.com`。如需启动分割实验台并发布校准结果，请继续使用下面“手动启动并从实验台发布”的终端三命令。
 
+### 管理员账户初始化
+
+重新部署后如果保留原数据库，管理员账户会继续保留；如果数据库被清空，需要重新创建：
+
+```bash
+cd server
+PYTHONPATH=. uv run python scripts/create_local_admin.py admin@example.com
+```
+
+脚本会交互式要求输入密码。也可以通过 `ADMIN_BOOTSTRAP_PASSWORD` 环境变量传入密码。已有账户需要重置密码时，使用 `--reset-password` 参数。生产环境应保持稳定的 `SESSION_SECRET`，HTTPS 使用 `SESSION_COOKIE_SECURE=true`；本地 HTTP 开发使用 `SESSION_COOKIE_SECURE=false`。
+
 ## 微信小程序
 
 使用微信开发者工具导入仓库根目录；工具会读取 `project.config.json`，小程序源码位于 `miniprogram/`。
