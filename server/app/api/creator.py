@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, File, Form, Header, Request, UploadFile
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.api.auth import require_admin
+from app.api.auth import require_admin, require_user
 from app.api.errors import ApiError
 from app.auth.sessions import read_session, session_cookie_name
 from app.api.media import _media_basename, _media_directory, store_image
@@ -247,7 +247,7 @@ async def delete_problem(problem_id: str, request: Request, _=Depends(require_ad
     return {"ok": True}
 
 @router.patch("/problems/{problem_id}")
-async def update_problem(problem_id: str, payload: ProblemUpdate, request: Request, user=Depends(require_admin)):
+async def update_problem(problem_id: str, payload: ProblemUpdate, request: Request, user=Depends(require_user)):
     problem = _repo(request).find_problem(problem_id)
     if not problem or problem.get("createdBy") != user["id"]: raise ApiError("NOT_FOUND", "Resource not found", 404)
     wall = _repo(request).find_wall(problem["wallId"])
@@ -284,7 +284,7 @@ async def delete_wall(wall_id: str, request: Request, user=Depends(require_admin
 
 
 @router.post("/problems", status_code=201)
-async def create_problem(payload: ProblemInput, request: Request, user=Depends(require_admin)):
+async def create_problem(payload: ProblemInput, request: Request, user=Depends(require_user)):
     wall = _repo(request).find_wall(payload.wallId)
     if not wall:
         raise ApiError("NOT_FOUND", "Resource not found", 404)

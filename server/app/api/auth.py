@@ -45,6 +45,9 @@ def require_admin(request: Request):
     if not admin or admin.get("role") != "admin": raise ApiError("FORBIDDEN", "Administrator access required", 403)
     return user
 
+def require_user(request: Request):
+    return _current_admin(request)
+
 
 @router.post("/admin/login")
 async def login(payload: AdminLoginRequest, request: Request, response: Response):
@@ -97,7 +100,7 @@ async def me(request: Request):
     return {"user": {"id": user["id"], "email": admin["emailNormalized"], "displayName": user.get("displayName", ""), "isAdmin": admin.get("role") == "admin"}}
 
 @router.patch("/profile")
-async def update_profile(payload: ProfileUpdate, request: Request, user=Depends(require_admin)):
+async def update_profile(payload: ProfileUpdate, request: Request, user=Depends(require_user)):
     name = payload.displayName.strip()
     if len(name) > 40: raise ApiError("INVALID_INPUT", "User name is too long", 422)
     updated = dict(user); updated["displayName"] = name; _repository(request).insert_user(updated)
