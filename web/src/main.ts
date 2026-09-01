@@ -225,10 +225,10 @@ const renderLoading = () => {
   root.innerHTML = `<div class="device"><main class="loading-page"><span class="loading-mark" aria-hidden="true"></span><small>CRUXSET</small><p>正在加载墙面与线路…</p></main></div>`;
 };
 
-const openProblemEditor = async (wallId: string, problemId?: string) => {
+const openProblemEditor = async (wallId: string, problemId?: string, selectedProblem?: Problem) => {
   const sourceWall = await store.session.getWall(wallId);
   const wall = { ...sourceWall, angleOptions: routeAngles };
-  const existing = problemId ? (await store.session.listProblems()).find((item) => item.id === problemId) : undefined;
+  const existing = selectedProblem ?? (problemId ? (await store.session.listProblems()).find((item) => item.id === problemId) : undefined);
   const saved = loadDraft<{ editor: string; role: HoldRole; angle: number; grade: Grade; footRule: FootRule; name: string; description: string }>(`problem:${wallId}`);
   problemCtx = {
     wall,
@@ -811,7 +811,7 @@ const render = async () => {
   );
   root.querySelectorAll<HTMLButtonElement>("[data-edit-problem]").forEach((b) => b.onclick = () => {
     const problem = problems.find((item) => item.id === b.dataset.editProblem);
-    if (problem) void openProblemEditor(problem.wallId, problem.id);
+    if (problem) void openProblemEditor(problem.wallId, problem.id, problem);
   });
   root.querySelectorAll<HTMLButtonElement>("[data-delete-wall]").forEach(
     (b) =>
