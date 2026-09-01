@@ -64,7 +64,7 @@ sudo chown -R caddy:caddy /srv/cruxset/web
 
 ```bash
 sudo tee /etc/caddy/Caddyfile >/dev/null <<'EOF'
-127.0.0.1:8080 {
+http://127.0.0.1:8080 {
     encode zstd gzip
 
     handle /api/* {
