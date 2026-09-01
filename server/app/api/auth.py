@@ -14,6 +14,10 @@ class AdminLoginRequest(BaseModel):
     password: str
 class ProfileUpdate(BaseModel):
     displayName: str
+class RegisterRequest(BaseModel):
+    email: str
+    password: str
+    confirmPassword: str
 
 
 def _repository(request: Request):
@@ -36,7 +40,10 @@ def _current_admin(request: Request):
 
 
 def require_admin(request: Request):
-    return _current_admin(request)
+    user = _current_admin(request)
+    admin = _repository(request).find_admin_by_user_id(str(user["id"]))
+    if not admin or admin.get("role") != "admin": raise ApiError("FORBIDDEN", "Administrator access required", 403)
+    return user
 
 
 @router.post("/admin/login")
@@ -63,14 +70,30 @@ async def login(payload: AdminLoginRequest, request: Request, response: Response
         samesite="lax",
         max_age=60 * 60 * 8,
     )
-    return {"user": {"id": admin["userId"], "email": normalized_email, "isAdmin": True}}
+    return {"user": {"id": admin["userId"], "email": normalized_email, "isAdmin": admin.get("role") == "admin"}}
+
+@router.post("/register")
+async def register(payload: RegisterRequest, request: Request, response: Response):
+    if payload.password != payload.confirmPassword: raise ApiError("INVALID_INPUT", "Passwords do not match", 422)
+    if len(payload.password) < 8: raise ApiError("INVALID_INPUT", "Password must contain at least 8 characters", 422)
+    try: normalized = normalize_email(payload.email)
+    except ValueError: raise ApiError("INVALID_INPUT", "Invalid email", 422)
+    limiter = _rate_limiter(request); key = f"{request.client.host if request.client else 'unknown'}:{normalized}"
+    if limiter.is_limited(key): raise ApiError("RATE_LIMITED", "Too many registration attempts", 429)
+    if _repository(request).find_admin_by_email(normalized): limiter.register_failure(key); raise ApiError("CONFLICT", "Email already registered", 409)
+    import secrets, time
+    user_id = f"usr_web_{secrets.token_urlsafe(12)}"; now = int(time.time() * 1000)
+    _repository(request).insert_user({"id": user_id, "createdAt": now, "updatedAt": now})
+    _repository(request).insert_admin({"userId": user_id, "role": "user", "emailNormalized": normalized, "passwordHash": __import__('app.auth.passwords', fromlist=['_hasher'])._hasher.hash(payload.password), "createdAt": now, "updatedAt": now})
+    response.set_cookie(key=session_cookie_name(), value=create_session(user_id), httponly=True, secure=secure_cookie(), samesite="lax", max_age=60 * 60 * 8)
+    return {"user": {"id": user_id, "email": normalized, "isAdmin": False}}
 
 
 @router.get("/me")
 async def me(request: Request):
     user = _current_admin(request)
     admin = _repository(request).find_admin_by_user_id(str(user["id"]))
-    return {"user": {"id": user["id"], "email": admin["emailNormalized"], "displayName": user.get("displayName", ""), "isAdmin": True}}
+    return {"user": {"id": user["id"], "email": admin["emailNormalized"], "displayName": user.get("displayName", ""), "isAdmin": admin.get("role") == "admin"}}
 
 @router.patch("/profile")
 async def update_profile(payload: ProfileUpdate, request: Request, user=Depends(require_admin)):
