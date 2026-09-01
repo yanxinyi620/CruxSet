@@ -79,13 +79,16 @@ curl -I http://127.0.0.1:8080/
 
 ## 3. 将 FastAPI 设为 systemd 服务
 
-创建仅 root 可读的环境文件。命令会在终端中提示你输入一个稳定的随机会话密钥；请把它保存到密码管理器，之后不要随意更换，否则所有已登录会话都会失效。
+创建仅 root 可读的环境文件。命令会在终端中提示你输入一个稳定的随机会话密钥；请把它保存到密码管理器，之后不要随意更换，否则所有已登录会话都会失效。下面的两个分割实验台发布变量可先使用示例值；不使用分割实验台时不会影响 Web 服务，之后启用时必须替换为随机密钥和数据库中真实用户的 ID。
 
 ```bash
 read -rsp '输入并保存 SESSION_SECRET：' SESSION_SECRET; echo
+export CRUXSET_SEGMENTATION_PUBLISH_KEY='local-only-long-random-secret'
+export CRUXSET_SEGMENTATION_PUBLISH_OWNER_ID='usr_web_lgjUPpx-3eu-s1_r'
 sudo install -m 600 /dev/null /etc/cruxset.env
-printf 'SESSION_SECRET=%s\nSESSION_COOKIE_SECURE=true\n' "$SESSION_SECRET" | sudo tee /etc/cruxset.env >/dev/null
+printf 'SESSION_SECRET=%s\nSESSION_COOKIE_SECURE=true\nCRUXSET_SEGMENTATION_PUBLISH_KEY=%s\nCRUXSET_SEGMENTATION_PUBLISH_OWNER_ID=%s\n' "$SESSION_SECRET" "$CRUXSET_SEGMENTATION_PUBLISH_KEY" "$CRUXSET_SEGMENTATION_PUBLISH_OWNER_ID" | sudo tee /etc/cruxset.env >/dev/null
 unset SESSION_SECRET
+unset CRUXSET_SEGMENTATION_PUBLISH_KEY CRUXSET_SEGMENTATION_PUBLISH_OWNER_ID
 ```
 
 从仓库根目录执行以下命令，生成服务文件。这里会自动记录当前 WSL 用户、仓库绝对路径和 `uv` 的绝对路径：
