@@ -28,4 +28,4 @@ def session_cookie_name() -> str:
 
 
 def secure_cookie() -> bool:
-    return os.environ.get("SESSION_COOKIE_SECURE", "true").lower() not in {"0", "false", "no"}
+    return os.environ.get("SESSION_COOKIE_SECURE", "false").lower() not in {"0", "false", "no"}
