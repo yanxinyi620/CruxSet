@@ -51,7 +51,8 @@ describe('wall-only web routes', () => {
     const source = readFileSync('web/src/main.ts', 'utf8')
     expect(source).toContain('data-panel="new-route"')
   expect(source).toContain('panel === "new-route"')
-  expect(source).toContain('panel = "new-route"')
+  expect(source).toContain('panel = b.dataset.panel as typeof panel')
+  expect(source).toContain('syncUiUrl()')
   })
 
   it('keeps route browsing behind an explicit wall-detail entry', () => {

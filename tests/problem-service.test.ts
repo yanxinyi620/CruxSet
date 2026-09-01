@@ -7,10 +7,13 @@ it('generates the next visible route number from a server-side counter', () => {
   expect(createProblemNumber(128)).toBe('CS-000129')
 })
 
-it('validates and persists a route with a distinct generated id', async () => {
+it('numbers routes by wall number and sequence within that wall', async () => {
   const service = new MemoryProblemService({ nextNumber: 7 })
-  const problem = await service.save({ wall: demoWall, draft: { wallId: demoWall.id, angle: 35, grade: 'V4', holds: { start: ['H001'], finish: ['H002'] }, createdBy: 'usr_demo' } })
-  expect(problem.number).toBe('CS-000008')
-  expect(problem.id).not.toBe(problem.number)
+  const draft = { wallId: demoWall.id, angle: 35, grade: 'V4' as const, holds: { start: ['H001'], finish: ['H002'] }, createdBy: 'usr_demo' }
+  const first = await service.save({ wall: demoWall, draft })
+  const second = await service.save({ wall: demoWall, draft })
+  expect(first.number).toBe('CS-010001')
+  expect(second.number).toBe('CS-010002')
+  expect(first.id).not.toBe(first.number)
   expect((await service.list())[0].createdBy).toBe('usr_demo')
 })

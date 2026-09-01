@@ -22,7 +22,7 @@ describe('Wall-only visual restoration', () => {
   })
 
   it('keeps the login screen focused on sign in and registration choices', () => {
-    expect(source).toContain('<h1>CRUXSET创作工作台</h1>')
+    expect(source).toContain('<h1>CRUXSET <span>创作工作台</span></h1>')
     expect(source).toContain('data-login')
     expect(source).toContain('data-register')
     expect(source).not.toContain('<small>CRUXSET</small><h1>本地创作工作台</h1>')
@@ -30,8 +30,9 @@ describe('Wall-only visual restoration', () => {
 
   it('contains the restored problem editor presentation', () => {
     expect(source).toContain('class="field"')
-    expect(source).toMatch(/class="chip\s/)
+    expect(source).toContain('class="role-toolbar"')
     expect(source).toMatch(/class="role-btn\s/)
     expect(source).toContain('class="legend"')
+    expect(source).toContain('data-choice-open="angle"')
   })
 })
