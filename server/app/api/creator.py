@@ -188,7 +188,14 @@ async def list_walls(request: Request):
 @router.get("/problems")
 async def list_problems(request: Request):
     visible_wall_ids = {wall["id"] for wall in _visible_walls(request)}
-    return {"problems": [problem for problem in _repo(request).list_problems() if problem.get("wallId") in visible_wall_ids]}
+    problems = []
+    for problem in _repo(request).list_problems():
+        if problem.get("wallId") not in visible_wall_ids: continue
+        item = dict(problem)
+        creator = _repo(request).find_admin_by_user_id(str(problem.get("createdBy", "")))
+        if creator: item["setterName"] = str(creator.get("email", "")).split("@", 1)[0]
+        problems.append(item)
+    return {"problems": problems}
 
 
 @router.post("/walls", status_code=201)
