@@ -665,7 +665,7 @@ const render = async () => {
   root.innerHTML = `<div class="device ${isPrimaryPage ? "" : "secondary-page"}">${isPrimaryPage ? "<header><small>CRUXSET</small></header>" : ""}<main>${tab === "browse" ? browse : tab === "create" ? create : me}</main><nav>${(["browse", "create", "me"] as const).map((x) => `<button class="${tab === x ? "active" : ""}" data-tab="${x}">${x === "browse" ? "线路" : x === "create" ? "创建" : "我的"}</button>`).join("")}</nav></div>`;
   if (selectedRoute && route.name === "route-browser") {
     const note = root.querySelector<HTMLElement>(".route-note");
-    if (note) { const setter = (selectedRoute as Problem & { setterName?: string }).setterName || profileName || profileEmail.split("@", 1)[0] || "用户"; note.innerHTML = `<b>setter by ${h(setter)}</b>${selectedRoute.description ? `<br>${h(selectedRoute.description)}` : ""}`; }
+    if (note) { const setter = (selectedRoute as Problem & { setterName?: string }).setterName || (selectedRoute.createdBy === profileUserId ? profileName || profileEmail.split("@", 1)[0] : "用户"); note.innerHTML = `<b>setter by ${h(setter)}</b>${selectedRoute.description ? `<br>${h(selectedRoute.description)}` : ""}`; }
   }
   if (selected && route.name === "wall") {
     wallPreview = new WallCanvasView(root.querySelector("#wall-preview") as HTMLElement, {
