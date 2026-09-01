@@ -229,8 +229,8 @@ const openProblemEditor = async (wallId: string, problemId?: string, selectedPro
   const sourceWall = await store.session.getWall(wallId);
   const wall = { ...sourceWall, angleOptions: routeAngles };
   const existing = selectedProblem ?? (problemId ? (await store.session.listProblems()).find((item) => item.id === problemId) : undefined);
-  const draftKey = `problem:${problemId ?? wallId}`;
-  const saved = loadDraft<{ editor: string; role: HoldRole; angle: number; grade: Grade; footRule: FootRule; name: string; description: string }>(draftKey);
+  const draftKey = `problem:${wallId}`;
+  const saved = problemId ? undefined : loadDraft<{ editor: string; role: HoldRole; angle: number; grade: Grade; footRule: FootRule; name: string; description: string }>(draftKey);
   problemCtx = {
     wall,
     editor: saved?.editor ? ProblemEditor.restore(saved.editor) : existing ? ProblemEditor.restore(JSON.stringify(existing.holds)) : new ProblemEditor(),
@@ -255,7 +255,7 @@ const renderProblemEditor = () => {
       hasStart: Boolean(assigned.start.length),
       hasFinish: Boolean(assigned.finish.length),
     });
-  saveDraft(`problem:${c.problemId ?? c.wall.id}`, { editor: c.editor.serialize(), role: c.role, angle: c.angle, grade: c.grade, footRule: c.footRule, name: c.name, description: c.description });
+  if (!c.problemId) saveDraft(`problem:${c.wall.id}`, { editor: c.editor.serialize(), role: c.role, angle: c.angle, grade: c.grade, footRule: c.footRule, name: c.name, description: c.description });
   if (c.canvas) c.viewportTransform = c.canvas.getTransform();
   c.canvas?.destroy();
   root.innerHTML = `<div class="device secondary-page"><main><button class="back-button" data-exit aria-label="返回">‹</button><div class="editor-head"><h1>新建线路</h1><p>${h(c.wall.name)}</p></div><div class="route-options"><button data-choice-open="angle"><small>角度</small><b>${c.angle}°</b></button><button data-choice-open="grade"><small>难度</small><b>${c.grade}</b></button><button data-choice-open="foot"><small>脚点规则</small><b>${footLabels[c.footRule]}</b></button></div><dialog class="choice-dialog" data-choice-dialog="angle"><h2>选择角度</h2>${c.wall.angleOptions.map((x) => `<button data-choice="angle" data-value="${x}">${x}°</button>`).join("")}<button data-choice-close>关闭</button></dialog><dialog class="choice-dialog" data-choice-dialog="grade"><h2>选择难度</h2>${grades.map((x) => `<button data-choice="grade" data-value="${x}">${x}</button>`).join("")}<button data-choice-close>关闭</button></dialog><dialog class="choice-dialog" data-choice-dialog="foot"><h2>脚点规则</h2>${Object.entries(footLabels).map(([x,l]) => `<button data-choice="foot" data-value="${x}">${l}</button>`).join("")}<button data-choice-close>关闭</button></dialog><div id="editor-canvas"></div><div class="legend">${roles.map((x) => `<span><i style="background:${ROLE_COLORS[x]}"></i>${roleLabels[x]}</span>`).join("")}</div><div class="role-toolbar">${roles.map((x) => `<button class="role-btn ${c.role===x?'active':''}" data-role="${x}"><i style="background:${ROLE_COLORS[x]}"></i>${roleLabels[x]}</button>`).join("")}</div><div class="editor-actions"><button data-undo ${c.undo ? "" : "disabled"}>撤销</button><button data-clear>清空</button><button class="save" data-save ${state.canSubmit ? "" : "disabled"}>保存线路</button></div><div class="field"><label for="problem-name">线路名称</label><input id="problem-name" value="${h(c.name)}"><label for="problem-description">线路说明</label><textarea id="problem-description">${h(c.description)}</textarea></div><p class="editor-toast">${h(c.toast)}</p></main></div>`;
