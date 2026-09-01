@@ -660,6 +660,7 @@ const render = async () => {
       imageWidth: selected.imageWidth,
       imageHeight: selected.imageHeight,
       polygonCoordinates: "normalized",
+      viewportHeight: 400,
       holds: selected.holds,
       getAssignments: () => ({ start: [], foot: [], hand: [], assist: [], finish: [] }),
       getSelectedRole: () => null,
