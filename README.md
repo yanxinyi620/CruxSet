@@ -18,6 +18,7 @@ Web 与小程序共享 Wall、Hold、Problem 的字段语义，但不共享草�
 
 - [设计参考](docs/reference.md)：架构、数据模型、业务规则与安全边界
 - [测试与验收](docs/testing.md)：自动化检查和人工验收清单
+- [WSL 长期运行部署](docs/wsl-cloudflare-tunnel.md)：使用 Caddy、具名 Cloudflare Tunnel 和 systemd 在本机持续提供 Web 工作台
 - [分割实验台](tools/segmentation-lab/README.md)：独立 AI 岩点分割工具的使用说明
 - [历史规格与计划](docs/superpowers/)：开发过程记录，不作为当前实现的权威说明
 
@@ -33,6 +34,14 @@ npm test
 npm run build
 npm run verify:phase1
 ```
+
+其中 `npm run build` 只执行 TypeScript 类型检查，不会生成 Web 静态文件。需要将本地 Web 工作台构建为 Vite 静态产物时，从仓库根目录运行：
+
+```bash
+npm run web:build
+```
+
+构建结果位于 `web/dist`。部署时还需要由 Web 服务器提供该目录，并将同源的 `/api` 请求反向代理到 FastAPI；本地开发无需构建，直接按下文启动 Vite 即可。
 
 本地 Web 与实验台发布：
 
