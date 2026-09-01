@@ -262,8 +262,8 @@ const renderProblemEditor = () => {
     c.canvas?.destroy();
     problemCtx = null;
     clearDraft(`problem:${c.wall.id}`);
-    panel = "new-route";
-    store.navigate({ name: "create" });
+    panel = c.problemId ? "my-problems" : "new-route";
+    store.navigate({ name: c.problemId ? "me" : "create" });
   });
   root.querySelector<HTMLInputElement>('#problem-name')?.addEventListener('input', (event) => {
     c.name = (event.target as HTMLInputElement).value;
