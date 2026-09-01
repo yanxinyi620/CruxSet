@@ -672,7 +672,7 @@ const render = async () => {
       imageWidth: selected.imageWidth,
       imageHeight: selected.imageHeight,
       polygonCoordinates: "normalized",
-      viewportHeight: 400,
+      viewportHeight: 370,
       holds: selected.holds,
       getAssignments: () => selectedRoute.holds,
       getSelectedRole: () => null,
