@@ -291,7 +291,7 @@ const renderProblemEditor = () => {
   );
   const toast = root.querySelector<HTMLParagraphElement>(".editor-toast");
   if (toast) root.querySelector("#editor-canvas")!.before(toast);
-  root.querySelector("#editor-canvas")!.insertAdjacentHTML("beforebegin", `<dialog class="problem-save-dialog" id="problem-save-dialog" autocomplete="off"><h2>保存线路</h2><p class="generated-number" id="generated-problem-number"></p><label>线路名称（选填）<input id="dialog-problem-name" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="可不填写"></label><label>线路说明（选填）<textarea id="dialog-problem-description" autocomplete="new-password" autocapitalize="off" spellcheck="false" placeholder="可不填写"></textarea></label><button data-confirm-problem-save>确认保存</button><button data-close-problem-save>返回</button></dialog>`);
+  root.querySelector("#editor-canvas")!.insertAdjacentHTML("beforebegin", `<dialog class="problem-save-dialog" id="problem-save-dialog" autocomplete="off"><h2>保存线路</h2><p class="generated-number" id="generated-problem-number"></p><label>线路名称（选填）<input id="dialog-problem-name" value="${h(c.name)}" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="可不填写"></label><label>线路说明（选填）<textarea id="dialog-problem-description" autocomplete="new-password" autocapitalize="off" spellcheck="false" placeholder="可不填写">${h(c.description)}</textarea></label><button data-confirm-problem-save>确认保存</button><button data-close-problem-save>返回</button></dialog>`);
   const saveDialog = root.querySelector<HTMLDialogElement>("#problem-save-dialog")!;
   saveDialog.tabIndex = -1;
   const generated = root.querySelector<HTMLElement>("#generated-problem-number");
