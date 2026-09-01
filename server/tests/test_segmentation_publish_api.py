@@ -49,6 +49,7 @@ def test_segmentation_publish_requires_dedicated_bearer_key(monkeypatch):
 
 def test_segmentation_publish_creates_public_wall_with_normalized_holds(monkeypatch):
     client, repository, owner_id = _client(monkeypatch)
+    repository.insert_wall({"id": "wall_3", "wallNumber": 3})
     response = client.post(
         "/api/v1/admin/segmentation-walls",
         headers={"Authorization": "Bearer test-key"},
@@ -62,6 +63,7 @@ def test_segmentation_publish_creates_public_wall_with_normalized_holds(monkeypa
     assert wall["ownerId"] == owner_id
     assert wall["visibility"] == "public"
     assert wall["published"] is True
+    assert wall["wallNumber"] == 4
     assert wall["holds"][0]["id"] == "H001"
     assert wall["holds"][0]["polygon"][0] == [0.1, 0.1]
 

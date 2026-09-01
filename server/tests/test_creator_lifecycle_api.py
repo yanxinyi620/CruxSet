@@ -94,3 +94,34 @@ def test_unreferenced_wall_can_be_deleted_without_confirmation():
     client, cookie, account = _authed(repository)
     repository.insert_wall({"id": "wall_1", "ownerId": account["userId"]})
     assert client.delete("/api/v1/walls/wall_1", cookies=cookie).status_code == 200
+
+
+def test_new_wall_uses_current_maximum_wall_number_plus_one():
+    repository = MemoryRepository()
+    client, cookie, _ = _authed(repository)
+    repository.insert_wall({"id": "wall_1", "wallNumber": 1})
+    repository.insert_wall({"id": "wall_3", "wallNumber": 3})
+
+    response = client.post("/api/v1/walls", cookies=cookie, json={
+        "name": "新墙面", "imageFileId": "image.jpg", "imageWidth": 10, "imageHeight": 10,
+    })
+
+    assert response.status_code == 201
+    assert response.json()["wall"]["wallNumber"] == 4
+
+
+def test_new_route_uses_stored_wall_number_not_current_wall_position():
+    repository = MemoryRepository()
+    client, cookie, account = _authed(repository)
+    repository.insert_wall({
+        "id": "wall_3", "wallNumber": 3, "ownerId": account["userId"],
+        "published": True, "visibility": "public", "holds": [{"id": "H001"}, {"id": "H002"}],
+    })
+
+    response = client.post("/api/v1/problems", cookies=cookie, json={
+        "wallId": "wall_3", "angle": 20, "grade": "V1", "footRule": "feet_follow",
+        "holds": {"start": ["H001"], "finish": ["H002"]},
+    })
+
+    assert response.status_code == 201
+    assert response.json()["problem"]["number"] == "CS-030001"

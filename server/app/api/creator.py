@@ -65,6 +65,26 @@ def _now() -> int:
     return int(time.time() * 1000)
 
 
+def _ensure_wall_numbers(request: Request) -> list[dict]:
+    walls = _repo(request).list_walls()
+    numbered = [wall for wall in walls if type(wall.get("wallNumber")) is int and wall["wallNumber"] > 0]
+    missing = sorted(
+        (wall for wall in walls if wall not in numbered),
+        key=lambda item: (item.get("createdAt", 0), item.get("id", "")),
+    )
+    next_number = max((wall["wallNumber"] for wall in numbered), default=0) + 1
+    for wall in missing:
+        wall["wallNumber"] = next_number
+        _repo(request).replace_wall(wall)
+        next_number += 1
+    return _repo(request).list_walls()
+
+
+def _next_wall_number(request: Request) -> int:
+    walls = _ensure_wall_numbers(request)
+    return max((wall["wallNumber"] for wall in walls), default=0) + 1
+
+
 def _publish_key(request: Request, authorization: str | None) -> None:
     expected = getattr(request.app.state, "segmentation_publish_key", "")
     if not expected:
@@ -141,7 +161,7 @@ async def publish_segmentation_wall(request: Request, image: UploadFile = File(.
     content = await image.read()
     media = store_image(content, image.content_type or "", int(os.environ.get("SEGMENTATION_MAX_UPLOAD_BYTES", "52428800")))
     now = _now()
-    wall = {"id": _id("wall"), "name": name, "description": str(payload.get("description", "")), "imageFileId": media["id"], "imageWidth": width, "imageHeight": height, "geometryType": "polygon", "holds": holds, "published": True, "angleOptions": payload.get("angleOptions", [20, 25, 30, 35, 40, 45]), "ownerId": owner_id, "visibility": "public", "source": {"type": "segmentation_lab", "experimentId": experiment_id, "calibrationId": calibration_id, "publishRequestId": request_id}, "createdAt": now, "updatedAt": now}
+    wall = {"id": _id("wall"), "wallNumber": _next_wall_number(request), "name": name, "description": str(payload.get("description", "")), "imageFileId": media["id"], "imageWidth": width, "imageHeight": height, "geometryType": "polygon", "holds": holds, "published": True, "angleOptions": payload.get("angleOptions", [20, 25, 30, 35, 40, 45]), "ownerId": owner_id, "visibility": "public", "source": {"type": "segmentation_lab", "experimentId": experiment_id, "calibrationId": calibration_id, "publishRequestId": request_id}, "createdAt": now, "updatedAt": now}
     _repo(request).insert_wall(wall)
     return JSONResponse(status_code=201, content={"wallId": wall["id"], "wallName": wall["name"], "holdCount": len(holds), "browsePath": f"/wall/{wall['id']}", "created": True})
 
@@ -183,6 +203,7 @@ def _visible_walls(request: Request) -> list[dict]:
 
 @router.get("/walls")
 async def list_walls(request: Request):
+    _ensure_wall_numbers(request)
     return {"walls": _visible_walls(request)}
 
 
@@ -205,7 +226,7 @@ async def list_problems(request: Request):
 async def create_wall(payload: WallInput, request: Request, user=Depends(require_admin)):
     now = _now()
     wall = {
-        "id": _id("wall"), "name": payload.name, "description": payload.description,
+        "id": _id("wall"), "wallNumber": _next_wall_number(request), "name": payload.name, "description": payload.description,
         "imageFileId": payload.imageFileId, "imageWidth": payload.imageWidth, "imageHeight": payload.imageHeight,
         "geometryType": "circle", "holds": [], "published": False,
         "angleOptions": payload.angleOptions, "ownerId": user["id"], "visibility": "private",
@@ -307,9 +328,10 @@ async def create_problem(payload: ProblemInput, request: Request, user=Depends(r
     assigned = [hold for values in holds.values() for hold in values]
     if len(set(assigned)) != len(assigned) or not set(assigned).issubset(known):
         raise ApiError("INVALID_INPUT", "Invalid route holds", 422)
+    _ensure_wall_numbers(request)
+    wall = _repo(request).find_wall(payload.wallId)
     now = _now()
-    walls = sorted(_repo(request).list_walls(), key=lambda item: (item.get("createdAt", 0), item.get("id", "")))
-    wall_number = next((index for index, item in enumerate(walls, 1) if item.get("id") == wall["id"]), 1)
+    wall_number = wall["wallNumber"]
     wall_problems = [problem for problem in _repo(request).list_problems() if problem.get("wallId") == wall["id"]]
     route_number = max((int(str(problem.get("number", ""))[-4:]) for problem in wall_problems if str(problem.get("number", ""))[-4:].isdigit()), default=0) + 1
     problem = {
