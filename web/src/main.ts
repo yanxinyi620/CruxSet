@@ -644,7 +644,7 @@ const render = async () => {
       .join("");
   const me =
     panel === "profile"
-      ? `${back}<div class="profile-card"><small>个人资料</small><h1>${h(profileName || profileEmail.split("@", 1)[0] || "用户")}</h1><p>${h(profileEmail)}</p><label>用户名称<input id="profile-name" value="${h(profileName)}" maxlength="40"></label><button data-save-profile>保存名称</button></div><button class="profile-logout" data-logout>退出登录</button>`
+      ? `${back}<div class="profile-card"><small>个人资料</small><div class="profile-name-row"><h1>${h(profileName || profileEmail.split("@", 1)[0] || "用户")}</h1><button data-save-profile>修改</button></div><p>${h(profileEmail)}</p></div><button class="profile-logout" data-logout>退出登录</button>`
       : panel === "my-walls"
       ? `${back}<h1>我的墙面</h1>${managementError ? `<p class="editor-toast">${h(managementError)}</p>` : ""}${cards}`
       : panel === "my-problems"
@@ -704,7 +704,7 @@ const render = async () => {
     loginError = "";
     renderLogin();
   });
-  root.querySelector<HTMLButtonElement>("[data-save-profile]")?.addEventListener("click", async () => { const value = (root.querySelector<HTMLInputElement>("#profile-name")?.value || "").trim(); try { const result = await api.updateProfile(value); profileName = result.user.displayName || ""; await store.useApi(api); await render(); } catch (error) { managementError = `保存用户名称失败：${(error as Error).message}`; await render(); } });
+  root.querySelector<HTMLButtonElement>("[data-save-profile]")?.addEventListener("click", async () => { const dialog = document.createElement("dialog"); dialog.className = "profile-name-dialog"; dialog.innerHTML = `<h2>修改用户名称</h2><input value="${h(profileName || profileEmail.split("@", 1)[0] || "")}" maxlength="40"><button data-profile-confirm>保存</button><button data-profile-cancel>取消</button>`; document.body.append(dialog); dialog.showModal(); dialog.querySelector("[data-profile-cancel]")!.addEventListener("click", () => dialog.close()); dialog.querySelector("[data-profile-confirm]")!.addEventListener("click", async () => { const value = (dialog.querySelector("input") as HTMLInputElement).value.trim(); try { const result = await api.updateProfile(value); profileName = result.user.displayName || ""; dialog.close(); dialog.remove(); await store.useApi(api); await render(); } catch (error) { managementError = `保存用户名称失败：${(error as Error).message}`; dialog.close(); dialog.remove(); await render(); } }); dialog.addEventListener("close", () => dialog.remove(), { once: true }); });
   root.querySelectorAll<HTMLButtonElement>("[data-back]").forEach(
     (b) =>
       (b.onclick = () => {
