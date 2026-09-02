@@ -53,11 +53,13 @@ class SQLiteRepository:
     def replace_wall(self, wall: Document) -> None: self._put("walls", wall)
     def insert_user(self, user: Document) -> None: self._put("users", user)
     def find_user(self, user_id: str) -> Document | None: return self._get("users", user_id)
+    def list_users(self) -> list[Document]: return self._list("users")
     def insert_admin(self, admin: Document) -> None: self._put("admins", admin)
     def find_admin_by_email(self, email: str) -> Document | None:
         return next((item for item in self._list("admins") if item.get("emailNormalized") == email), None)
     def find_admin_by_user_id(self, user_id: str) -> Document | None:
         return next((item for item in self._list("admins") if item.get("userId") == user_id), None)
+    def list_admin_accounts(self) -> list[Document]: return self._list("admins")
     def update_admin_password(self, email: str, password_hash: str, updated_at: int) -> None:
         admin = self.find_admin_by_email(email)
         if not admin:

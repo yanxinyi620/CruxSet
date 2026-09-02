@@ -36,6 +36,12 @@ class MemoryRepository:
         user = self._users.get(user_id)
         return deepcopy(user) if user else None
 
+    def list_users(self) -> list[Document]:
+        return [deepcopy(user) for user in self._users.values()]
+
+    def list_admin_accounts(self) -> list[Document]:
+        return [deepcopy(account) for account in self._admins.values()]
+
     def insert_wall(self, wall: Document) -> None:
         self._walls[str(wall["id"])] = deepcopy(wall)
 

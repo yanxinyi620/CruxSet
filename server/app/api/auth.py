@@ -93,6 +93,28 @@ async def register(payload: RegisterRequest, request: Request, response: Respons
     return {"user": {"id": user_id, "email": normalized, "isAdmin": False}}
 
 
+@router.get("/admin/users")
+async def list_admin_users(request: Request, _=Depends(require_admin)):
+    users = {str(user["id"]): user for user in _repository(request).list_users() if user.get("id")}
+    result = []
+    for account in _repository(request).list_admin_accounts():
+        user_id = str(account.get("userId") or "")
+        user = users.get(user_id)
+        email = account.get("emailNormalized")
+        role = account.get("role")
+        if not user or not isinstance(email, str) or role not in {"admin", "user"}:
+            continue
+        result.append({
+            "id": user_id,
+            "email": email,
+            "displayName": str(user.get("displayName") or ""),
+            "role": role,
+            "createdAt": int(user.get("createdAt") or account.get("createdAt") or 0),
+        })
+    result.sort(key=lambda item: (-item["createdAt"], item["email"]))
+    return {"users": result}
+
+
 @router.get("/me")
 async def me(request: Request):
     user = _current_admin(request)

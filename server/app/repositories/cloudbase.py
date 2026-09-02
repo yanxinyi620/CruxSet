@@ -102,6 +102,9 @@ class CloudBaseRepository:
     def find_user(self, user_id: str) -> Document | None:
         return self._query_one("users", {"id": {"$eq": user_id}})
 
+    def list_users(self) -> list[Document]:
+        return self._query_all("users")
+
     def insert_admin(self, admin: Document) -> None:
         self._insert("admins", admin)
 
@@ -110,6 +113,9 @@ class CloudBaseRepository:
 
     def find_admin_by_user_id(self, user_id: str) -> Document | None:
         return self._query_one("admins", {"userId": {"$eq": user_id}, "role": {"$eq": "admin"}})
+
+    def list_admin_accounts(self) -> list[Document]:
+        return self._query_all("admins")
 
     def update_admin_password(self, email: str, password_hash: str, updated_at: int) -> None:
         self._run_commands([
