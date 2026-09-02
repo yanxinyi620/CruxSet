@@ -11,7 +11,14 @@ usage() { echo "Usage: ${0##*/} {start|stop|restart|status}" >&2; }
 parse_args() { ACTION="${1:-}"; [[ $# == 1 && "$ACTION" =~ ^(start|stop|restart|status)$ ]] || { usage; return 2; }; }
 pid_file() { printf '%s/%s.pid\n' "$RUNTIME_DIR" "$1"; }
 log_file() { printf '%s/%s.log\n' "$RUNTIME_DIR" "$1"; }
-cleanup_stale_pid() { local f; f="$(pid_file "$1")"; [[ -f "$f" ]] && ! kill -0 "$(<"$f")" 2>/dev/null && rm -f "$f"; }
+cleanup_stale_pid() {
+  local f
+  f="$(pid_file "$1")"
+  if [[ -f "$f" ]] && ! kill -0 "$(<"$f")" 2>/dev/null; then
+    rm -f "$f"
+  fi
+  return 0
+}
 port_busy() { ss -ltn "sport = :$1" | grep -q LISTEN; }
 
 start_one() {
