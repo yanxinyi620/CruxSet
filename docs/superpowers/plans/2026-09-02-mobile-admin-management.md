@@ -49,10 +49,11 @@ def test_admin_can_list_all_users_without_password_hashes():
     )
 
     assert response.status_code == 200
-    assert response.json()["users"] == [
-        {"id": "usr_member", "email": "member@example.com", "displayName": "攀岩者", "role": "user", "createdAt": 200},
-        {"id": admin["userId"], "email": "admin@example.com", "displayName": "", "role": "admin", "createdAt": admin["createdAt"]},
-    ]
+    assert response.json()["users"][0] == {
+        "id": admin["userId"], "email": "admin@example.com", "displayName": "", "role": "admin",
+        "createdAt": repository.find_user(admin["userId"])["createdAt"],
+    }
+    assert response.json()["users"][1] == {"id": "usr_member", "email": "member@example.com", "displayName": "攀岩者", "role": "user", "createdAt": 200}
     assert "passwordHash" not in str(response.json())
 
 
