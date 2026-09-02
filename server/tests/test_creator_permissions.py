@@ -62,6 +62,20 @@ def test_owner_sees_own_private_walls_and_admin_sees_all_walls():
     assert [wall["id"] for wall in client.get("/api/v1/walls", cookies=admin_cookie).json()["walls"]] == ["wall_public", "wall_private", "wall_other_private"]
 
 
+def test_regular_registered_user_cannot_list_other_users_private_walls():
+    repository = MemoryRepository()
+    repository.insert_user({"id": "usr_owner"})
+    repository.insert_user({"id": "usr_regular"})
+    repository.insert_admin({"userId": "usr_regular", "emailNormalized": "regular@example.com", "role": "user"})
+    repository.insert_wall(_wall("wall_public", "public", "usr_owner"))
+    repository.insert_wall(_wall("wall_private", "private", "usr_owner"))
+    app.state.repository = repository
+
+    response = TestClient(app).get("/api/v1/walls", cookies={session_cookie_name(): create_session("usr_regular")})
+
+    assert [wall["id"] for wall in response.json()["walls"]] == ["wall_public"]
+
+
 def test_problem_listing_follows_wall_visibility():
     repository = MemoryRepository()
     repository.insert_user({"id": "usr_owner"})

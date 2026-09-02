@@ -52,4 +52,11 @@ describe('web interaction safety', () => {
     expect(messages[1]).toContain('原始关联图片文件')
     expect(remove).toHaveBeenCalledOnce()
   })
+
+  it('names the managed wall and its linked routes in the final deletion warning', async () => {
+    const messages: string[] = []
+    await confirmWallDeletion(message => { messages.push(message); return true }, async () => undefined, '主墙')
+    expect(messages.at(-1)).toContain('主墙')
+    expect(messages.at(-1)).toContain('所有相关线路')
+  })
 })

@@ -193,7 +193,8 @@ def _editable_wall(request: Request, wall_id: str) -> dict:
 def _visible_walls(request: Request) -> list[dict]:
     repository = _repo(request)
     user_id = read_session(request.cookies.get(session_cookie_name()))
-    if user_id and repository.find_user(user_id) and repository.find_admin_by_user_id(user_id):
+    account = repository.find_admin_by_user_id(user_id) if user_id else None
+    if user_id and repository.find_user(user_id) and account and account.get("role") == "admin":
         return repository.list_walls()
     return [
         wall for wall in repository.list_walls()

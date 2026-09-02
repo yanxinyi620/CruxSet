@@ -14,7 +14,8 @@ import type {
 } from "../../miniprogram/domain/types.js";
 import { WallHoldEditor } from "./wall-hold-editor.js";
 import { PreviewStore } from "./preview-store.js";
-import { LocalApiClient } from "./api.js";
+import { LocalApiClient, type AdminUser } from "./api.js";
+import { adminUserCard } from "./admin-management.js";
 import { WallCanvasView, ROLE_COLORS } from "./wall-canvas.js";
 import { DraftCanvasView, type DraftMode } from "./draft-canvas.js";
 import { DETECT_ROI_FALLBACK_MESSAGE, type Roi } from "./auto-detect.js";
@@ -99,12 +100,18 @@ let authenticated = false,
   profileEmail = "",
   profileName = "",
   profileUserId = "",
-  panel: "home" | "profile" | "drafts" | "new-wall" | "new-route" | "my-walls" | "my-problems" = "home",
+  panel: "home" | "profile" | "drafts" | "new-wall" | "new-route" | "my-walls" | "my-problems" | "admin-management" = "home",
   expandedWall = "",
   managementError = "",
   routeFilterAngle: number | undefined,
   routeFilterGrade: Grade | undefined,
   selectedRouteId = "";
+let isAdmin = false,
+  adminTab: "walls" | "users" = "walls",
+  adminUsers: AdminUser[] = [],
+  adminWalls: Wall[] = [],
+  adminLoading = false,
+  adminLoaded = false;
 const initialQuery = typeof window === 'undefined' ? new URLSearchParams() : previewQuery(window.location.search);
 if (initialQuery.has('panel')) panel = initialQuery.get('panel') as typeof panel;
 routeFilterAngle = initialQuery.has('angle') ? Number(initialQuery.get('angle')) : undefined;
@@ -116,6 +123,22 @@ const syncUiUrl = (replace = false) => {
   if ((route.name === 'create' || route.name === 'me') && panel !== 'home') query.panel = panel;
   if (route.name === 'route-browser') { query.angle = routeFilterAngle; query.grade = routeFilterGrade; query.problem = selectedRouteId; }
   if (typeof window !== 'undefined') window.history[replace ? 'replaceState' : 'pushState']({}, '', toPreviewUrl(route, query));
+};
+const adminDate = (timestamp: number) => new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(timestamp));
+const loadAdminManagement = async () => {
+  if (!isAdmin || adminLoading) return;
+  adminLoading = true;
+  managementError = "";
+  try {
+    const [users, data] = await Promise.all([api.listAdminUsers(), api.loadBrowseData()]);
+    adminUsers = users;
+    adminWalls = data.walls as Wall[];
+    adminLoaded = true;
+  } catch (error) {
+    managementError = `加载管理数据失败：${(error as Error).message}`;
+  } finally {
+    adminLoading = false;
+  }
 };
 const thumb = '<i class="thumb"></i>',
   back = '<button class="back-button" data-back aria-label="返回">‹</button>';
@@ -215,6 +238,7 @@ const renderLogin = () => {
       profileEmail = user.email;
       profileName = user.displayName || "";
       profileUserId = user.id;
+      isAdmin = user.isAdmin;
       await store.useApi(api);
       authenticated = true;
       void render();
@@ -228,7 +252,7 @@ const renderLogin = () => {
     dialog.innerHTML = `<h2>注册普通用户</h2><input placeholder="邮箱" type="email" autocomplete="email"><input placeholder="密码（至少 8 位）" type="password" autocomplete="new-password"><input placeholder="再次输入密码" type="password" autocomplete="new-password"><div class="profile-name-actions"><button data-register-confirm>注册</button><button data-register-cancel>取消</button></div>`;
     document.body.append(dialog); dialog.showModal(); (dialog.querySelector("h2") as HTMLElement).focus();
     dialog.querySelector("[data-register-cancel]")!.addEventListener("click", () => dialog.close());
-    dialog.querySelector("[data-register-confirm]")!.addEventListener("click", async () => { const inputs = [...dialog.querySelectorAll("input")] as HTMLInputElement[]; try { const user = await api.register(inputs[0].value, inputs[1].value, inputs[2].value); profileEmail = user.email; profileName = user.displayName || ""; dialog.close(); dialog.remove(); authenticated = true; await store.useApi(api); void render(); } catch (error) { loginError = (error as Error).message; dialog.close(); dialog.remove(); renderLogin(); } });
+    dialog.querySelector("[data-register-confirm]")!.addEventListener("click", async () => { const inputs = [...dialog.querySelectorAll("input")] as HTMLInputElement[]; try { const user = await api.register(inputs[0].value, inputs[1].value, inputs[2].value); profileEmail = user.email; profileName = user.displayName || ""; profileUserId = user.id; isAdmin = user.isAdmin; dialog.close(); dialog.remove(); authenticated = true; await store.useApi(api); void render(); } catch (error) { loginError = (error as Error).message; dialog.close(); dialog.remove(); renderLogin(); } });
     dialog.addEventListener("close", () => dialog.remove(), { once: true });
   };
 };
@@ -653,14 +677,36 @@ const render = async () => {
         return `<article class="problem-group"><button class="group-head" data-expand="${h(w.id)}"><span><b>${h(w.name)}</b><em>${ps.length} 条线路</em></span><strong>${open ? "⌃" : "›"}</strong></button>${open ? `<div class="problem-list">${ps.map((p) => `<div class="problem-row"><span><b>${h(p.number)}</b><em>${h(p.name || "未命名线路")}</em></span><button class="edit-button" data-edit-problem="${h(p.id)}">编辑</button><button class="delete-button" data-delete-problem="${h(p.id)}">删除</button></div>`).join("")}</div>` : ""}</article>`;
       })
       .join("");
+  if (panel === "admin-management" && isAdmin && !adminLoaded && !adminLoading) {
+    void loadAdminManagement().then(() => void render());
+  }
+  const adminManagement = !isAdmin
+    ? `${back}<h1>管理中心</h1><p class="admin-empty">没有管理权限。</p>`
+    : (() => {
+        const usersById = new Map(adminUsers.map((user) => [user.id, adminUserCard(user)]));
+        const walls = [...adminWalls].sort((a, b) => b.createdAt - a.createdAt || b.updatedAt - a.updatedAt);
+        const wallCards = walls.map((wall) => {
+          const owner = usersById.get(wall.ownerId);
+          const number = (wall as Wall & { wallNumber?: number }).wallNumber;
+          const status = wall.visibility === "public" ? "公开" : "草稿";
+          return `<article class="admin-card"><div class="admin-card-head"><h2>${number ? `#${number}　` : ""}${h(wall.name)}</h2><small class="admin-status ${wall.visibility === "private" ? "draft" : ""}">${status}</small></div><p>创建者：${h(owner?.name || "未知用户")}<br>创建于 ${h(adminDate(wall.createdAt))}</p><button class="admin-delete" data-admin-delete-wall="${h(wall.id)}">删除墙面</button></article>`;
+        }).join("") || '<p class="admin-empty">暂无墙面。</p>';
+        const userCards = adminUsers.map((user) => {
+          const card = adminUserCard(user);
+          return `<article class="admin-card"><div class="admin-card-head"><h2>${h(card.email)}</h2><small class="admin-status">${h(card.roleLabel)}</small></div><p>用户名：${h(card.name)}<br>注册于 ${h(card.registeredAt)}</p></article>`;
+        }).join("") || '<p class="admin-empty">暂无用户。</p>';
+        return `${back}<div class="editor-head"><h1>管理中心</h1><p class="lead">查看全站墙面和用户。</p></div>${managementError ? `<p class="editor-toast">${h(managementError)}</p>` : ""}<div class="admin-tabs" role="tablist"><button role="tab" aria-selected="${adminTab === "walls"}" class="${adminTab === "walls" ? "active" : ""}" data-admin-tab="walls">墙面 ${adminWalls.length}</button><button role="tab" aria-selected="${adminTab === "users"}" class="${adminTab === "users" ? "active" : ""}" data-admin-tab="users">用户 ${adminUsers.length}</button></div>${adminLoading ? '<p class="admin-empty">正在加载…</p>' : adminTab === "walls" ? `<div class="admin-list">${wallCards}</div>` : `<div class="admin-list">${userCards}</div>`}`;
+      })();
   const me =
-    panel === "profile"
+    panel === "admin-management"
+      ? adminManagement
+      : panel === "profile"
       ? `${back}<div class="profile-card"><small>个人资料</small><div class="profile-name-row"><h1>${h(profileName || profileEmail.split("@", 1)[0] || "用户")}</h1><button data-save-profile>修改</button></div><p>${h(profileEmail)}</p></div><button class="profile-logout" data-logout>退出登录</button>`
       : panel === "my-walls"
       ? `${back}<h1>我的墙面</h1>${managementError ? `<p class="editor-toast">${h(managementError)}</p>` : ""}${cards}`
       : panel === "my-problems"
         ? `${back}<h1>我的线路</h1>${managementError ? `<p class="editor-toast">${h(managementError)}</p>` : ""}${groups}`
-        : `<div class="editor-head"><h1>我的</h1><p class="lead">管理你的资料、墙面与线路。</p></div><button class="hub-card profile" data-panel="profile"><i>◎</i><span><b>个人资料</b><em>${h(profileEmail)}</em></span><strong>›</strong></button><button class="hub-card walls" data-panel="my-walls"><i>▧</i><span><b>我的墙面</b><em>已创建 ${mine.length} 面墙</em></span><strong>›</strong></button><button class="hub-card problems" data-panel="my-problems"><i>◇</i><span><b>我的线路</b><em>共 ${myProblems.length} 条线路</em></span><strong>›</strong></button>`;
+        : `<div class="editor-head"><h1>我的</h1><p class="lead">管理你的资料、墙面与线路。</p></div><button class="hub-card profile" data-panel="profile"><i>◎</i><span><b>个人资料</b><em>${h(profileEmail)}</em></span><strong>›</strong></button><button class="hub-card walls" data-panel="my-walls"><i>▧</i><span><b>我的墙面</b><em>已创建 ${mine.length} 面墙</em></span><strong>›</strong></button><button class="hub-card problems" data-panel="my-problems"><i>◇</i><span><b>我的线路</b><em>共 ${myProblems.length} 条线路</em></span><strong>›</strong></button>${isAdmin ? `<button class="hub-card admin-management" data-panel="admin-management"><i>▦</i><span><b>管理中心</b><em>墙面与用户管理</em></span><strong>›</strong></button>` : ""}`;
   const isPrimaryPage = (tab === "browse" && !selected) || (tab === "create" && panel === "home") || (tab === "me" && panel === "home");
   root.innerHTML = `<div class="device ${isPrimaryPage ? "" : "secondary-page"}">${isPrimaryPage ? "<header><small>CRUXSET</small></header>" : ""}<main>${tab === "browse" ? browse : tab === "create" ? create : me}</main><nav>${(["browse", "create", "me"] as const).map((x) => `<button class="${tab === x ? "active" : ""}" data-tab="${x}">${x === "browse" ? "线路" : x === "create" ? "创建" : "我的"}</button>`).join("")}</nav></div>`;
   if (selectedRoute && route.name === "route-browser") {
@@ -703,6 +749,10 @@ const render = async () => {
     (b) =>
       (b.onclick = () => {
         panel = b.dataset.panel as typeof panel;
+        if (panel === "admin-management") {
+          adminTab = "walls";
+          void loadAdminManagement().then(() => void render());
+        }
         syncUiUrl();
         void render();
       }),
@@ -711,11 +761,31 @@ const render = async () => {
     await api.logout();
     authenticated = false;
     profileEmail = "";
+    profileUserId = "";
+    isAdmin = false;
+    adminUsers = [];
+    adminWalls = [];
+    adminLoaded = false;
     panel = "home";
     loginError = "";
     renderLogin();
   });
   root.querySelector<HTMLButtonElement>("[data-save-profile]")?.addEventListener("click", async () => { const dialog = document.createElement("dialog"); dialog.className = "profile-name-dialog"; dialog.innerHTML = `<h2 tabindex="-1">修改用户名称</h2><input value="${h(profileName || profileEmail.split("@", 1)[0] || "")}" maxlength="40" autocomplete="off" autocapitalize="off" spellcheck="false"><div class="profile-name-actions"><button data-profile-confirm>保存</button><button data-profile-cancel>取消</button></div>`; document.body.append(dialog); dialog.showModal(); (dialog.querySelector("h2") as HTMLElement).focus(); dialog.querySelector("[data-profile-cancel]")!.addEventListener("click", () => dialog.close()); dialog.querySelector("[data-profile-confirm]")!.addEventListener("click", async () => { const value = (dialog.querySelector("input") as HTMLInputElement).value.trim(); try { const result = await api.updateProfile(value); profileName = result.user.displayName || ""; dialog.close(); dialog.remove(); await store.useApi(api); await render(); } catch (error) { managementError = `保存用户名称失败：${(error as Error).message}`; dialog.close(); dialog.remove(); await render(); } }); dialog.addEventListener("close", () => dialog.remove(), { once: true }); });
+  root.querySelectorAll<HTMLButtonElement>("[data-admin-tab]").forEach((button) => button.onclick = () => {
+    adminTab = button.dataset.adminTab as typeof adminTab;
+    void render();
+  });
+  root.querySelectorAll<HTMLButtonElement>("[data-admin-delete-wall]").forEach((button) => button.onclick = async () => {
+    const wall = adminWalls.find((item) => item.id === button.dataset.adminDeleteWall);
+    if (!wall) return;
+    managementError = "";
+    const result = await confirmWallDeletion((message) => confirm(message), async () => {
+      await store.session.deleteWall(wall.id);
+      await loadAdminManagement();
+    }, wall.name);
+    if (!result.ok && !("cancelled" in result) && result.message !== "DELETE_CANCELLED") managementError = `删除失败：${result.message}`;
+    void render();
+  });
   root.querySelectorAll<HTMLButtonElement>("[data-back]").forEach(
     (b) =>
       (b.onclick = () => {
@@ -934,7 +1004,7 @@ void api
     .then(async (user) => {
       authenticated = Boolean(user);
       if (user) {
-        profileEmail = user.email; profileName = user.displayName || ""; profileUserId = user.id;
+        profileEmail = user.email; profileName = user.displayName || ""; profileUserId = user.id; isAdmin = user.isAdmin;
         await store.useApi(api);
       }
     await render();

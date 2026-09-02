@@ -18,11 +18,11 @@ export async function confirmAndDelete(confirmDelete: () => boolean, action: () 
   catch (error) { return { ok: false, message: error instanceof Error ? error.message : String(error) } }
 }
 
-export const confirmWallDeletion = (confirmDelete: (message: string) => boolean, action: () => Promise<unknown>) =>
+export const confirmWallDeletion = (confirmDelete: (message: string) => boolean, action: () => Promise<unknown>, wallName = '这面墙') =>
   confirmAndDelete(
-    () => confirmDelete('确定删除这面墙？'),
+    () => confirmDelete(`确定要删除“${wallName}”吗？`),
     async () => {
-      if (!confirmDelete('二次确认：删除后将同时删除该墙面、所有相关线路及原始关联图片文件，且无法恢复。确定继续吗？')) throw new Error('DELETE_CANCELLED')
+      if (!confirmDelete(`二次确认：删除“${wallName}”将同时删除所有相关线路和原始关联图片文件，且无法恢复。确定继续吗？`)) throw new Error('DELETE_CANCELLED')
       await action()
     },
   )
