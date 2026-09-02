@@ -26,7 +26,13 @@ start_one() {
   cleanup_stale_pid "$name"; mkdir -p "$RUNTIME_DIR"
   [[ ! -f "$(pid_file "$name")" ]] || { echo "$name 已在运行。" >&2; return 1; }
   port_busy "$port" && { echo "端口 $port 已被占用，拒绝启动 $name。" >&2; return 1; }
-  (cd "$dir" && setsid nohup "$@" >"$(log_file "$name")" 2>&1 & echo $! >"$(pid_file "$name")")
+  (
+    cd "$dir"
+    setsid bash -c 'echo $$ > "$1"; shift; exec "$@"' _ "$(pid_file "$name")" "$@" >"$(log_file "$name")" 2>&1 &
+  )
+  for _ in {1..20}; do [[ -s "$(pid_file "$name")" ]] && return 0; sleep 0.05; done
+  echo "无法记录 $name 的进程 PID。" >&2
+  return 1
 }
 
 wait_port() { local port="$1" i; for i in {1..15}; do port_busy "$port" && return 0; sleep 1; done; return 1; }
