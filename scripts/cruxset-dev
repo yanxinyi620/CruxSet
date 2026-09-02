@@ -26,7 +26,7 @@ start_one() {
   cleanup_stale_pid "$name"; mkdir -p "$RUNTIME_DIR"
   [[ ! -f "$(pid_file "$name")" ]] || { echo "$name 已在运行。" >&2; return 1; }
   port_busy "$port" && { echo "端口 $port 已被占用，拒绝启动 $name。" >&2; return 1; }
-  (cd "$dir" && nohup "$@" >"$(log_file "$name")" 2>&1 & echo $! >"$(pid_file "$name")")
+  (cd "$dir" && setsid nohup "$@" >"$(log_file "$name")" 2>&1 & echo $! >"$(pid_file "$name")")
 }
 
 wait_port() { local port="$1" i; for i in {1..15}; do port_busy "$port" && return 0; sleep 1; done; return 1; }
@@ -40,7 +40,21 @@ start_services() {
   status_services
 }
 
-stop_one() { local name="$1" f pid; f="$(pid_file "$name")"; [[ -f "$f" ]] || return 0; pid="$(<"$f")"; kill "$pid" 2>/dev/null || true; rm -f "$f"; }
+stop_one() {
+  local name="$1" f pid
+  f="$(pid_file "$name")"
+  [[ -f "$f" ]] || return 0
+  pid="$(<"$f")"
+  if kill -0 "$pid" 2>/dev/null; then
+    kill -TERM -- "-$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null || true
+    for _ in {1..20}; do
+      kill -0 "$pid" 2>/dev/null || break
+      sleep 0.1
+    done
+    kill -KILL -- "-$pid" 2>/dev/null || true
+  fi
+  rm -f "$f"
+}
 stop_services() { stop_one lab; stop_one web; stop_one api; }
 status_services() { local name port pid; for name in api web lab; do case "$name" in api) port=8000;; web) port=5173;; lab) port=8765;; esac; cleanup_stale_pid "$name"; if [[ -f "$(pid_file "$name")" ]]; then pid="$(<"$(pid_file "$name")")"; echo "$name: 运行中 (PID $pid, 端口 $port, 日志 $(log_file "$name"))"; else echo "$name: 未运行"; fi; done; }
 main() { parse_args "$@"; case "$ACTION" in start) start_services;; stop) stop_services;; restart) stop_services; start_services;; status) status_services;; esac; }
