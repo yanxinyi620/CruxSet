@@ -43,7 +43,12 @@ require_command() {
 }
 
 env_has_value() {
-  [[ -f "$ENV_FILE" ]] && grep -qE "^$1=.+" "$ENV_FILE"
+  [[ -f "$ENV_FILE" ]] || return 1
+  if [[ "$ENV_FILE" == /etc/* ]]; then
+    sudo grep -qE "^$1=.+" "$ENV_FILE"
+  else
+    grep -qE "^$1=.+" "$ENV_FILE"
+  fi
 }
 
 append_env() {
@@ -67,7 +72,7 @@ ensure_env_file() {
       append_env "$key" "$value"
     fi
   done < <(required_env_keys)
-  if grep -q '^SESSION_COOKIE_SECURE=' "$ENV_FILE"; then
+  if { [[ "$ENV_FILE" == /etc/* ]] && sudo grep -q '^SESSION_COOKIE_SECURE=' "$ENV_FILE"; } || { [[ "$ENV_FILE" != /etc/* ]] && grep -q '^SESSION_COOKIE_SECURE=' "$ENV_FILE"; }; then
     if [[ "$ENV_FILE" == /etc/* ]]; then sudo sed -i 's/^SESSION_COOKIE_SECURE=.*/SESSION_COOKIE_SECURE=true/' "$ENV_FILE"; else sed -i 's/^SESSION_COOKIE_SECURE=.*/SESSION_COOKIE_SECURE=true/' "$ENV_FILE"; fi
   else
     append_env SESSION_COOKIE_SECURE true
@@ -187,6 +192,10 @@ show_status() {
 }
 
 main() {
+  if (( EUID == 0 )); then
+    printf '请不要使用 sudo 运行整个脚本；请以普通 WSL 用户运行，脚本会在需要时请求 sudo。\n' >&2
+    return 2
+  fi
   parse_args "$@"
   if (( WITH_SETUP )); then setup_workspace; fi
   case "$ACTION" in

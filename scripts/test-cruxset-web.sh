@@ -44,6 +44,12 @@ assert_eq "" "$(printf '%s\n' 'tunnel is connecting' | extract_tunnel_url)" "doe
 assert_eq $'SESSION_SECRET\nCRUXSET_SEGMENTATION_PUBLISH_KEY\nCRUXSET_SEGMENTATION_PUBLISH_OWNER_ID' \
   "$(required_env_keys)" "declares prompted environment keys"
 
+temp_dir="$(mktemp -d)"
+trap 'rm -rf "$temp_dir"' EXIT
+ENV_FILE="$temp_dir/cruxset.env"
+printf 'SESSION_SECRET=present\n' > "$ENV_FILE"
+assert_status 0 "reads non-system environment file" env_has_value SESSION_SECRET
+
 if (( failures )); then
   exit 1
 fi
