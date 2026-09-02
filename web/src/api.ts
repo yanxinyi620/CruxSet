@@ -1,5 +1,6 @@
 import type { Wall } from '../../miniprogram/domain/types.js'
 export type LocalUser = { id: string; email: string; displayName?: string; isAdmin: boolean }
+export type AdminUser = { id: string; email: string; displayName: string; role: 'admin' | 'user'; createdAt: number }
 export type BrowseData = { walls: unknown[]; problems: unknown[] }
 export type NewWallDraft = { name: string; image: File; imageWidth: number; imageHeight: number }
 export type ProblemInput = { wallId: string; angle: number; grade: string; footRule: string; name?: string; description?: string; holds: Record<string, string[]> }
@@ -14,6 +15,7 @@ export class LocalApiClient {
   async register(email: string, password: string, confirmPassword: string): Promise<LocalUser> { const result = await this.request('/api/v1/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password, confirmPassword }) }); return result.user as LocalUser }
   async login(email: string, password: string): Promise<LocalUser> { const fetcher = this.fetcher; const response = await fetcher(`${this.baseUrl}/api/v1/auth/admin/login`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) }); if (!response.ok) throw new Error('登录失败，请检查邮箱和密码'); return (await response.json()).user as LocalUser }
   async currentUser(): Promise<LocalUser | null> { const fetcher = this.fetcher; const response = await fetcher(`${this.baseUrl}/api/v1/auth/me`, { credentials: 'include' }); if (response.status === 401) return null; if (!response.ok) throw new Error('无法检查登录状态'); return (await response.json()).user as LocalUser }
+  async listAdminUsers(): Promise<AdminUser[]> { const result = await this.get('/api/v1/auth/admin/users'); return result.users as AdminUser[] }
   async logout(): Promise<{ ok: true }> { return (await this.request('/api/v1/auth/logout', { method: 'POST' })) as { ok: true } }
   async updateProfile(displayName: string) { return this.request('/api/v1/auth/profile', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ displayName }) }) as unknown as { user: LocalUser } }
   async loadBrowseData(): Promise<BrowseData> {
