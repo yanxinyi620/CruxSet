@@ -19,3 +19,4 @@ tools/segmentation-lab/models/
 server/data/
 .playwright-cli/
 .runtime/**/*.log
+.runtime/**/*.pid
