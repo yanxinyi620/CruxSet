@@ -18,3 +18,4 @@ tools/segmentation-lab/models/
 .worktrees/
 server/data/
 .playwright-cli/
+.runtime/**/*.log
