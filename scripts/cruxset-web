@@ -1,0 +1,202 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ACTION=''
+WITH_SETUP=0
+ENV_FILE="${ENV_FILE:-/etc/cruxset.env}"
+CADDYFILE="${CADDYFILE:-/etc/caddy/Caddyfile}"
+API_UNIT="${API_UNIT:-/etc/systemd/system/cruxset-api.service}"
+TUNNEL_UNIT="${TUNNEL_UNIT:-/etc/systemd/system/cruxset-quick-tunnel.service}"
+
+usage() {
+  printf 'Usage: %s {start|restart|stop|status} [--setup]\n' "${0##*/}" >&2
+}
+
+parse_args() {
+  ACTION="${1:-}"
+  WITH_SETUP=0
+  case "$ACTION" in
+    start|restart|stop|status) ;;
+    *) usage; return 2 ;;
+  esac
+  shift || true
+  if (( $# == 1 )) && [[ "$1" == '--setup' ]]; then
+    WITH_SETUP=1
+    shift
+  fi
+  if (( $# != 0 )) || { (( WITH_SETUP )) && [[ "$ACTION" != start && "$ACTION" != restart ]]; }; then
+    usage
+    return 2
+  fi
+}
+
+required_env_keys() {
+  printf '%s\n' SESSION_SECRET CRUXSET_SEGMENTATION_PUBLISH_KEY CRUXSET_SEGMENTATION_PUBLISH_OWNER_ID
+}
+
+extract_tunnel_url() {
+  grep -Eo 'https://[-a-z0-9]+\.trycloudflare\.com' | tail -n 1 || true
+}
+
+require_command() {
+  command -v "$1" >/dev/null || { printf '缺少命令：%s\n' "$1" >&2; return 1; }
+}
+
+env_has_value() {
+  [[ -f "$ENV_FILE" ]] && grep -qE "^$1=.+" "$ENV_FILE"
+}
+
+append_env() {
+  if [[ "$ENV_FILE" == /etc/* ]]; then
+    printf '%s=%s\n' "$1" "$2" | sudo tee -a "$ENV_FILE" >/dev/null
+  else
+    printf '%s=%s\n' "$1" "$2" >> "$ENV_FILE"
+  fi
+}
+
+ensure_env_file() {
+  if [[ ! -f "$ENV_FILE" ]]; then
+    if [[ "$ENV_FILE" == /etc/* ]]; then sudo install -o root -g root -m 600 /dev/null "$ENV_FILE"; else : > "$ENV_FILE"; fi
+  fi
+  local key value prompt
+  while IFS= read -r key; do
+    if ! env_has_value "$key"; then
+      prompt="输入 $key："
+      if [[ "$key" == SESSION_SECRET ]]; then read -rsp "$prompt" value; printf '\n'; else read -rp "$prompt" value; fi
+      [[ -n "$value" ]] || { printf '%s 不能为空。\n' "$key" >&2; return 1; }
+      append_env "$key" "$value"
+    fi
+  done < <(required_env_keys)
+  if grep -q '^SESSION_COOKIE_SECURE=' "$ENV_FILE"; then
+    if [[ "$ENV_FILE" == /etc/* ]]; then sudo sed -i 's/^SESSION_COOKIE_SECURE=.*/SESSION_COOKIE_SECURE=true/' "$ENV_FILE"; else sed -i 's/^SESSION_COOKIE_SECURE=.*/SESSION_COOKIE_SECURE=true/' "$ENV_FILE"; fi
+  else
+    append_env SESSION_COOKIE_SECURE true
+  fi
+  [[ "$ENV_FILE" != /etc/* ]] || sudo chmod 600 "$ENV_FILE"
+}
+
+setup_workspace() {
+  local tool
+  for tool in systemctl sudo uv cloudflared caddy npm rsync; do require_command "$tool"; done
+  REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  ensure_env_file
+  (cd "$REPO_ROOT" && npm ci && npm run build && npm run web:build)
+  sudo install -d -o caddy -g caddy -m 755 /srv/cruxset/web
+  sudo rsync -a --delete "$REPO_ROOT/web/dist/" /srv/cruxset/web/
+  sudo chown -R caddy:caddy /srv/cruxset/web
+  sudo tee "$CADDYFILE" >/dev/null <<'EOF'
+:8080 {
+    bind 127.0.0.1
+    encode zstd gzip
+    handle /api/* {
+        reverse_proxy 127.0.0.1:8000
+    }
+    handle {
+        root * /srv/cruxset/web
+        try_files {path} /index.html
+        file_server
+    }
+}
+EOF
+  sudo caddy fmt --overwrite "$CADDYFILE"
+  sudo caddy validate --config "$CADDYFILE"
+  local uv_bin cloudflared_bin
+  uv_bin="$(command -v uv)"; cloudflared_bin="$(command -v cloudflared)"
+  sudo tee "$API_UNIT" >/dev/null <<EOF
+[Unit]
+Description=CruxSet FastAPI
+After=network-online.target
+Wants=network-online.target
+[Service]
+Type=simple
+User=$USER
+WorkingDirectory=$REPO_ROOT/server
+EnvironmentFile=/etc/cruxset.env
+ExecStart=$uv_bin run uvicorn app.main:app --host 127.0.0.1 --port 8000
+Restart=always
+RestartSec=3
+[Install]
+WantedBy=multi-user.target
+EOF
+  sudo tee "$TUNNEL_UNIT" >/dev/null <<EOF
+[Unit]
+Description=CruxSet Cloudflare Quick Tunnel
+After=network-online.target caddy.service cruxset-api.service
+Requires=caddy.service cruxset-api.service
+[Service]
+Type=simple
+User=$USER
+WorkingDirectory=$REPO_ROOT
+ExecStart=$cloudflared_bin tunnel --no-autoupdate --url http://127.0.0.1:8080
+Restart=always
+RestartSec=3
+[Install]
+WantedBy=multi-user.target
+EOF
+  sudo systemctl daemon-reload
+  sudo systemctl enable caddy cruxset-api cruxset-quick-tunnel
+}
+
+wait_for_api() {
+  local attempt
+  for attempt in {1..15}; do
+    curl --fail --silent --show-error http://127.0.0.1:8000/healthz >/dev/null && return 0
+    sleep 1
+  done
+  sudo journalctl -u cruxset-api -n 40 --no-pager >&2
+  return 1
+}
+
+wait_for_tunnel_url() {
+  local started_at="$1" attempt url
+  for attempt in {1..30}; do
+    url="$(sudo journalctl -u cruxset-quick-tunnel --since "$started_at" --no-pager | extract_tunnel_url)"
+    [[ -n "$url" ]] && { printf '%s\n' "$url"; return 0; }
+    sleep 1
+  done
+  sudo journalctl -u cruxset-quick-tunnel -n 40 --no-pager >&2
+  return 1
+}
+
+start_services() {
+  sudo systemctl start caddy
+  sudo systemctl start cruxset-api
+  wait_for_api
+  STARTED_AT="$(date --iso-8601=seconds)"
+  sudo systemctl restart cruxset-quick-tunnel
+}
+
+restart_services() {
+  sudo systemctl restart caddy cruxset-api
+  wait_for_api
+  STARTED_AT="$(date --iso-8601=seconds)"
+  sudo systemctl restart cruxset-quick-tunnel
+}
+
+stop_services() {
+  sudo systemctl stop cruxset-quick-tunnel || true
+  sudo systemctl stop cruxset-api || true
+  sudo systemctl stop caddy || true
+}
+
+show_status() {
+  sudo systemctl --no-pager --full status caddy cruxset-api cruxset-quick-tunnel || true
+  local url
+  url="$(sudo journalctl -u cruxset-quick-tunnel -n 200 --no-pager | extract_tunnel_url)"
+  if [[ -n "$url" ]]; then printf '最近 Quick Tunnel 地址：%s\n' "$url"; else printf '当前没有可用的 Quick Tunnel 地址。\n'; fi
+}
+
+main() {
+  parse_args "$@"
+  if (( WITH_SETUP )); then setup_workspace; fi
+  case "$ACTION" in
+    start) start_services; printf '本次 Quick Tunnel 地址：%s\n' "$(wait_for_tunnel_url "$STARTED_AT")" ;;
+    restart) restart_services; printf '本次 Quick Tunnel 地址：%s\n' "$(wait_for_tunnel_url "$STARTED_AT")" ;;
+    stop) stop_services ;;
+    status) show_status ;;
+  esac
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+fi

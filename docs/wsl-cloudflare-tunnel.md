@@ -10,6 +10,29 @@
 
 没有域名时，使用第 4 节的 Quick Tunnel 即可获得临时 HTTPS 地址；不需要 Cloudflare 账户、Tunnel UUID 或域名。需要固定地址和访问控制时，再使用第 5 节的具名 Tunnel。所有 WSL 命令均应从仓库根目录执行，除非另有说明。
 
+## 推荐：一键管理无域名 Quick Tunnel
+
+完成第 0 节的 systemd 检查，并安装好第 1 节所列组件后，首次部署只需执行：
+
+    ./scripts/cruxset-web start --setup
+
+该命令会构建并发布前端、更新 Caddy 和 systemd 配置、检查 /etc/cruxset.env，然后启动 Caddy、FastAPI 与 Quick Tunnel。它不会显示已有环境变量；SESSION_SECRET、CRUXSET_SEGMENTATION_PUBLISH_KEY 和 CRUXSET_SEGMENTATION_PUBLISH_OWNER_ID 只有缺失时才会询问，已有值会保留。环境文件权限保持为 600 root:root。
+
+日常管理命令如下：
+
+    ./scripts/cruxset-web start
+    ./scripts/cruxset-web restart
+    ./scripts/cruxset-web stop
+    ./scripts/cruxset-web status
+
+每次 start 或 restart 都会等待并输出本次新的 trycloudflare.com 地址。服务由 systemd 运行，关闭当前终端不会中断服务；WSL 被关闭、电脑休眠或网络断开时服务会中断。恢复后 Quick Tunnel 会自动重连，临时地址可能改变，可用 status 查询最近地址。修改前端、Caddy、FastAPI 或依赖后，执行：
+
+    ./scripts/cruxset-web restart --setup
+
+运行日志位于 systemd journal：
+
+    sudo journalctl -u cruxset-api -u caddy -u cruxset-quick-tunnel -f
+
 ## 0. 前置检查
 
 本手册使用 systemd 保持服务在后台运行。先确认 WSL 已启用 systemd：
@@ -138,7 +161,7 @@ sudo systemctl status cruxset-api --no-pager
 
 ## 4. 无域名：运行 Quick Tunnel
 
-完成第 1–3 节后，另开一个 WSL 终端运行：
+推荐使用本手册开头的一键管理脚本。仅在排查 cloudflared 本身时，才在完成第 1–3 节后另开一个 WSL 终端运行：
 
 ```bash
 cloudflared tunnel --url http://127.0.0.1:8080
