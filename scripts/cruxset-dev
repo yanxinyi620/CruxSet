@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+RUNTIME_DIR="${RUNTIME_DIR:-$ROOT/.runtime/cruxset-dev}"
+PUBLISH_KEY='local-only-long-random-secret'
+PUBLISH_OWNER_ID='usr_web_lgjUPpx-3eu-s1_r'
+ACTION=''
+
+usage() { echo "Usage: ${0##*/} {start|stop|restart|status}" >&2; }
+parse_args() { ACTION="${1:-}"; [[ $# == 1 && "$ACTION" =~ ^(start|stop|restart|status)$ ]] || { usage; return 2; }; }
+pid_file() { printf '%s/%s.pid\n' "$RUNTIME_DIR" "$1"; }
+log_file() { printf '%s/%s.log\n' "$RUNTIME_DIR" "$1"; }
+cleanup_stale_pid() { local f; f="$(pid_file "$1")"; [[ -f "$f" ]] && ! kill -0 "$(<"$f")" 2>/dev/null && rm -f "$f"; }
+port_busy() { ss -ltn "sport = :$1" | grep -q LISTEN; }
+
+start_one() {
+  local name="$1" port="$2" dir="$3"; shift 3
+  cleanup_stale_pid "$name"; mkdir -p "$RUNTIME_DIR"
+  [[ ! -f "$(pid_file "$name")" ]] || { echo "$name 已在运行。" >&2; return 1; }
+  port_busy "$port" && { echo "端口 $port 已被占用，拒绝启动 $name。" >&2; return 1; }
+  (cd "$dir" && nohup "$@" >"$(log_file "$name")" 2>&1 & echo $! >"$(pid_file "$name")")
+}
+
+wait_port() { local port="$1" i; for i in {1..15}; do port_busy "$port" && return 0; sleep 1; done; return 1; }
+start_services() {
+  start_one api 8000 "$ROOT/server" env SESSION_COOKIE_SECURE=false CRUXSET_SEGMENTATION_PUBLISH_KEY="$PUBLISH_KEY" CRUXSET_SEGMENTATION_PUBLISH_OWNER_ID="$PUBLISH_OWNER_ID" PYTHONPATH=. uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
+  wait_port 8000 || { stop_services; return 1; }
+  start_one web 5173 "$ROOT" npm run web -- --host 0.0.0.0
+  wait_port 5173 || { stop_services; return 1; }
+  start_one lab 8765 "$ROOT/tools/segmentation-lab" env SEG_LAB_DATA_DIR=./data CRUXSET_SEGMENTATION_PUBLISH_KEY="$PUBLISH_KEY" CRUXSET_BASE_URL=http://127.0.0.1:8000 CRUXSET_WEB_URL=http://127.0.0.1:5173 uv run uvicorn segmentation_lab.api:app --host 127.0.0.1 --port 8765
+  wait_port 8765 || { stop_services; return 1; }
+  status_services
+}
+
+stop_one() { local name="$1" f pid; f="$(pid_file "$name")"; [[ -f "$f" ]] || return 0; pid="$(<"$f")"; kill "$pid" 2>/dev/null || true; rm -f "$f"; }
+stop_services() { stop_one lab; stop_one web; stop_one api; }
+status_services() { local name port pid; for name in api web lab; do case "$name" in api) port=8000;; web) port=5173;; lab) port=8765;; esac; cleanup_stale_pid "$name"; if [[ -f "$(pid_file "$name")" ]]; then pid="$(<"$(pid_file "$name")")"; echo "$name: 运行中 (PID $pid, 端口 $port, 日志 $(log_file "$name"))"; else echo "$name: 未运行"; fi; done; }
+main() { parse_args "$@"; case "$ACTION" in start) start_services;; stop) stop_services;; restart) stop_services; start_services;; status) status_services;; esac; }
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+fi

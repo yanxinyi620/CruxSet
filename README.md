@@ -45,6 +45,15 @@ npm run web:build
 
 本地 Web 与实验台发布：
 
+推荐使用后台管理脚本，一次启动 API、Web 和分割实验台：
+
+    ./scripts/cruxset-dev start
+    ./scripts/cruxset-dev status
+    ./scripts/cruxset-dev restart
+    ./scripts/cruxset-dev stop
+
+脚本固定使用本地开发发布密钥和发布者 ID；日志与 PID 文件保存在未提交的 .runtime/cruxset-dev 目录。下面的三终端方式保留用于排查。
+
 ```bash
 # 终端一：启动 CruxSet API
 export CRUXSET_SEGMENTATION_PUBLISH_KEY='local-only-long-random-secret'
