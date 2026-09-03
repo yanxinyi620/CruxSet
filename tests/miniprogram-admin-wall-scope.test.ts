@@ -27,3 +27,14 @@ it('requires administrator identity for every wall-management server action', ()
   expect(cloud).toMatch(/if \(action === 'listAdminWalls'[\s\S]*!actor\.isAdmin\)/)
   expect(cloud).toMatch(/if \(action !== 'deleteWall'[\s\S]*actor\.isAdmin|deleteWall'[\s\S]*actor\.isAdmin/)
 })
+
+it('removes wall mutation actions from the mini-program cloud boundary', () => {
+  const service = read('miniprogram/services/walls.ts')
+  const adminWall = read('cloudfunctions/adminWall/index.js')
+  for (const action of ['createWall', 'updateWall', 'updateWallHolds', 'publishWall']) {
+    expect(service).not.toMatch(new RegExp(`export const ${action}`))
+    expect(adminWall).not.toContain(`'${action}'`)
+  }
+  expect(service).toContain('listAdminWalls')
+  expect(service).toContain('deleteWall')
+})
