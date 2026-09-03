@@ -6,6 +6,7 @@ const require = createRequire(import.meta.url)
 const publishFunction = require(resolve(process.cwd(), 'wechat/cloudfunctions/segmentationPublish/index.js')) as {
   _validatePayload: (payload: Record<string, unknown>) => unknown
   _payloadFromHttpEvent: (event: Record<string, unknown>) => Record<string, unknown>
+  _payloadFileIdFromHttpEvent: (event: Record<string, unknown>) => string | undefined
 }
 
 const payload = (polygon: number[][] = [[.1, .1], [.9, .1], [.1, .9]]) => ({
@@ -25,4 +26,9 @@ it('rejects holds whose derived bbox or radius does not match the polygon', () =
 
 it('parses JSON HTTP trigger bodies before validating the publish payload', () => {
   expect(publishFunction._payloadFromHttpEvent({ body: JSON.stringify(payload()) })).toEqual(payload())
+})
+
+it('accepts a tiny HTTP trigger body that references a signed payload object', () => {
+  expect(publishFunction._payloadFileIdFromHttpEvent({ body: JSON.stringify({ payloadFileId: 'cloud://env.bucket/segmentation-payloads/publish.json' }) }))
+    .toBe('cloud://env.bucket/segmentation-payloads/publish.json')
 })

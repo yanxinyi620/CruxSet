@@ -24,6 +24,7 @@ try {
 }
 
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024
+const MAX_PAYLOAD_BYTES = 5 * 1024 * 1024
 const MAX_MULTIPART_OVERHEAD = 1024 * 1024
 const MAX_REQUEST_BYTES = MAX_UPLOAD_BYTES + MAX_MULTIPART_OVERHEAD
 const SIGNATURE_MAX_AGE_SECONDS = 300
@@ -234,11 +235,14 @@ const main = async event => {
     const metadata = jsonBodyFrom(event)
     const filename = safeFilename(metadata.filename)
     const type = String(metadata.contentType || '').toLowerCase()
-    const extension = CONTENT_TYPES.get(type)
+    const purpose = metadata.purpose === undefined ? '' : String(metadata.purpose)
+    const payloadUpload = purpose === 'segmentation-payload'
+    const extension = payloadUpload && type === 'application/json' ? 'json' : CONTENT_TYPES.get(type)
     if (!secretFromEnvironment()) fail('UNAUTHORIZED')
     const timestamp = String(metadata.timestamp || '')
-    const required = { timestamp, filename, contentType: type, contentSha256: metadata.contentSha256, contentLength: metadata.contentLength }
-    if (!/^\d+$/.test(timestamp) || !/^[a-f0-9]{64}$/i.test(String(required.contentSha256 || '')) || !Number.isSafeInteger(Number(required.contentLength)) || Number(required.contentLength) <= 0 || Number(required.contentLength) > MAX_UPLOAD_BYTES || !extension) fail('INVALID_METADATA')
+    const required = { timestamp, filename, contentType: type, contentSha256: metadata.contentSha256, contentLength: metadata.contentLength, ...(purpose ? { purpose } : {}) }
+    const maxLength = payloadUpload ? MAX_PAYLOAD_BYTES : MAX_UPLOAD_BYTES
+    if (!/^\d+$/.test(timestamp) || !/^[a-f0-9]{64}$/i.test(String(required.contentSha256 || '')) || !Number.isSafeInteger(Number(required.contentLength)) || Number(required.contentLength) <= 0 || Number(required.contentLength) > maxLength || !extension || (purpose && !payloadUpload)) fail('INVALID_METADATA')
     const now = Math.floor(Date.now() / 1000)
     console.log('storageUpload clock diagnostic', {
       receivedTimestamp: Number(timestamp),
@@ -250,7 +254,8 @@ const main = async event => {
     const signature = header(event.headers, 'x-cruxset-signature')
     const expected = crypto.createHmac('sha256', secretFromEnvironment()).update(canonicalize(required)).digest('hex')
     if (typeof signature !== 'string' || signature.replace(/^sha256=/i, '') !== expected) fail('UNAUTHORIZED')
-    const cloudPath = `segmentation/${Date.now().toString(36)}-${crypto.randomBytes(8).toString('hex')}.${extension}`
+    const prefix = payloadUpload ? 'segmentation-payloads' : 'segmentation'
+    const cloudPath = `${prefix}/${Date.now().toString(36)}-${crypto.randomBytes(8).toString('hex')}.${extension}`
     return await uploadMetadata(cloudPath)
   }
   const body = bodyBufferFrom(event)

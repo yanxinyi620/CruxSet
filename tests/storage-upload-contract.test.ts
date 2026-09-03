@@ -92,6 +92,26 @@ it('returns a short-lived direct upload grant for signed JSON metadata', async (
   expect(request).toEqual({ cloudPath: expect.stringMatching(/^segmentation\/[a-z0-9-]+\.png$/) })
 })
 
+it('returns a grant for a signed segmentation payload JSON object', async () => {
+  const storageUpload = require(resolve(process.cwd(), 'wechat/cloudfunctions/storageUpload/index.js')) as {
+    main: (event: Record<string, unknown>) => Promise<unknown>
+    _setStorageForTests: (storage: { getUploadMetadata: (input: unknown) => Promise<unknown> }) => void
+  }
+  let request: unknown
+  storageUpload._setStorageForTests({
+    getUploadMetadata: async input => {
+      request = input
+      return { data: { fileId: 'cloud://cruxset/segmentation-payloads/payload.json', url: 'https://cos.example/upload', authorization: 'auth', token: 'token', cosFileId: 'meta' } }
+    },
+  })
+  const content = Buffer.from('{"signed":"payload"}')
+  const metadata = { ...metadataFor(content, timestamp, 'publish.json', 'application/json'), purpose: 'segmentation-payload' }
+  await expect(storageUpload.main({ body: JSON.stringify(metadata), httpMethod: 'POST', headers: {
+    'content-type': 'application/json', 'x-cruxset-signature': sign(metadata, secret),
+  } })).resolves.toMatchObject({ fileID: 'cloud://cruxset/segmentation-payloads/payload.json', cloudPath: expect.stringMatching(/^segmentation-payloads\/[a-z0-9-]+\.json$/) })
+  expect(request).toEqual({ cloudPath: expect.stringMatching(/^segmentation-payloads\/[a-z0-9-]+\.json$/) })
+})
+
 it('accepts the CloudBase storage metadata response nested under body.data', async () => {
   const storageUpload = require(resolve(process.cwd(), 'wechat/cloudfunctions/storageUpload/index.js')) as {
     main: (event: Record<string, unknown>) => Promise<unknown>

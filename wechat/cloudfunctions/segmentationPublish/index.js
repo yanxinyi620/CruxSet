@@ -14,6 +14,7 @@ if (cloud) cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const HOLD_KINDS = new Set(['hold', 'volume'])
 const ANGLES = new Set([20, 25, 30, 35, 40, 45])
 const SIGNATURE_MAX_AGE_SECONDS = 300
+const MAX_PAYLOAD_FILE_BYTES = 5 * 1024 * 1024
 
 const canonicalize = value => {
   if (Array.isArray(value)) return `[${value.map(canonicalize).join(',')}]`
@@ -138,10 +139,38 @@ const payloadFromHttpEvent = event => {
   }
 }
 
+const payloadFileIdFromHttpEvent = event => {
+  const payload = payloadFromHttpEvent(event)
+  const fileID = payload?.payloadFileId
+  if (fileID === undefined) return undefined
+  if (typeof fileID !== 'string' || !fileID.startsWith('cloud://') || !fileID.includes('/segmentation-payloads/')) fail('INVALID_METADATA_FILE')
+  return fileID
+}
+
+const payloadFromStorage = async fileID => {
+  let downloaded
+  try {
+    downloaded = await cloud.downloadFile({ fileID })
+  } catch (error) {
+    fail('PAYLOAD_DOWNLOAD_FAILED')
+  }
+  const content = downloaded?.fileContent
+  if (!Buffer.isBuffer(content) || !content.length || content.length > MAX_PAYLOAD_FILE_BYTES) fail('INVALID_METADATA_FILE')
+  try {
+    const payload = JSON.parse(content.toString('utf8'))
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) fail('INVALID_METADATA_FILE')
+    return payload
+  } catch (error) {
+    if (error.message === 'INVALID_METADATA_FILE') throw error
+    fail('INVALID_METADATA_FILE')
+  }
+}
+
 exports.main = async event => {
   if (!cloud) fail('CLOUDBASE_RUNTIME_MISSING')
   const secret = process.env.CRUXSET_CLOUDBASE_SIGNING_KEY || process.env.CRUXSET_CLOUDBASE_SEGMENTATION_SIGNING_KEY || process.env.CRUXSET_SEGMENTATION_CLOUDBASE_SIGNING_KEY || ''
-  const parsedEvent = payloadFromHttpEvent(event)
+  const fileID = payloadFileIdFromHttpEvent(event)
+  const parsedEvent = fileID ? await payloadFromStorage(fileID) : payloadFromHttpEvent(event)
   const headerSignature = event?.headers?.['x-cruxset-signature'] || event?.headers?.['X-CruxSet-Signature']
   const payload = { ...parsedEvent, signature: parsedEvent.signature || headerSignature }
   verifySignature(payload, secret)
@@ -195,3 +224,5 @@ exports.main = async event => {
 exports._validatePayload = validatePayload
 exports._canonicalize = canonicalize
 exports._payloadFromHttpEvent = payloadFromHttpEvent
+exports._payloadFileIdFromHttpEvent = payloadFileIdFromHttpEvent
+exports._setCloudForTests = value => { cloud = value }

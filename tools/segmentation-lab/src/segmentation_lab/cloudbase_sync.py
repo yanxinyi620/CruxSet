@@ -28,7 +28,6 @@ SUPPORTED_HOLD_KINDS = {"hold", "volume"}
 SUPPORTED_ANGLES = {20, 25, 30, 35, 40, 45}
 MIN_POLYGON_AREA = 1e-6
 TOP_EDGE_TOLERANCE_PIXELS = 4.0
-MAX_CLOUDBASE_POLYGON_POINTS = 12
 REQUIRED_METADATA = {
     "publishRequestId",
     "sourceExperimentId",
@@ -233,81 +232,6 @@ def build_normalized_holds(raw_holds: Any, width: int, height: int) -> list[dict
     return prepared
 
 
-def _rdp_indices(points: list[list[float]], start: int, end: int, tolerance: float) -> set[int]:
-    """Return significant indexes for an open segment using RDP."""
-    kept = {start, end}
-    stack = [(start, end)]
-    while stack:
-        left, right = stack.pop()
-        a, b = points[left], points[right]
-        dx, dy = b[0] - a[0], b[1] - a[1]
-        length = math.hypot(dx, dy)
-        farthest_index, farthest_distance = None, -1.0
-        for index in range(left + 1, right):
-            point = points[index]
-            distance = math.hypot(point[0] - a[0], point[1] - a[1]) if length == 0 else abs(dy * point[0] - dx * point[1] + b[0] * a[1] - b[1] * a[0]) / length
-            if distance > farthest_distance:
-                farthest_index, farthest_distance = index, distance
-        if farthest_index is not None and farthest_distance > tolerance:
-            kept.add(farthest_index)
-            stack.extend(((left, farthest_index), (farthest_index, right)))
-    return kept
-
-
-def _simplified_polygon(polygon: list[list[float]], max_points: int = MAX_CLOUDBASE_POLYGON_POINTS) -> list[list[float]]:
-    if len(polygon) <= max_points:
-        return [list(point) for point in polygon]
-    opposite = max(range(1, len(polygon)), key=lambda index: (polygon[index][0] - polygon[0][0]) ** 2 + (polygon[index][1] - polygon[0][1]) ** 2)
-    doubled = polygon + polygon[1:opposite + 1]
-    extrema = {
-        min(range(len(polygon)), key=lambda index: polygon[index][0]),
-        max(range(len(polygon)), key=lambda index: polygon[index][0]),
-        min(range(len(polygon)), key=lambda index: polygon[index][1]),
-        max(range(len(polygon)), key=lambda index: polygon[index][1]),
-    }
-    diagonal = math.hypot(max(point[0] for point in polygon) - min(point[0] for point in polygon), max(point[1] for point in polygon) - min(point[1] for point in polygon))
-    low, high, selected = 0.0, diagonal, set(range(len(polygon)))
-    for _ in range(32):
-        tolerance = (low + high) / 2
-        indexes = _rdp_indices(doubled, 0, opposite, tolerance)
-        indexes.update(index % len(polygon) for index in _rdp_indices(doubled, opposite, len(doubled) - 1, tolerance))
-        indexes.update(extrema)
-        if len(indexes) <= max_points:
-            selected, high = indexes, tolerance
-        else:
-            low = tolerance
-    # RDP can jump from many points to only the extrema on smooth shapes.
-    # Fill unused budget with evenly distributed source vertices to preserve
-    # area and curvature while still honoring the hard point cap.
-    for slot in range(max_points):
-        if len(selected) >= max_points:
-            break
-        selected.add((slot * len(polygon)) // max_points)
-    simplified = [list(polygon[index]) for index in sorted(selected)]
-    if len(simplified) < 3 or _has_self_intersection(simplified) or abs(_signed_area(simplified)) < MIN_POLYGON_AREA:
-        return [list(point) for point in polygon]
-    return simplified
-
-
-def build_cloudbase_holds(holds: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Create compact published holds without changing source calibration data."""
-    compact: list[dict[str, Any]] = []
-    for hold in holds:
-        polygon = _simplified_polygon(hold["polygon"])
-        xs, ys = [point[0] for point in polygon], [point[1] for point in polygon]
-        x, y = _polygon_centroid(polygon)
-        area = abs(_signed_area(polygon))
-        compact.append({
-            **hold,
-            "polygon": polygon,
-            "x": x,
-            "y": y,
-            "radius": math.sqrt(area / math.pi),
-            "bbox": [min(xs), min(ys), max(xs), max(ys)],
-        })
-    return compact
-
-
 def _canonical_json(payload: dict[str, Any]) -> str:
     """Serialize like Node's JSON.stringify, including exponent spelling."""
     def number(value: float | int) -> str:
@@ -393,12 +317,9 @@ class CloudBaseSynchronizer:
             "holds": build_normalized_holds(metadata["holds"], width, height),
         }
 
-    async def _upload_image(self, client: httpx.AsyncClient, image: bytes, filename: str) -> str:
+    async def _upload_content(self, client: httpx.AsyncClient, content: bytes, filename: str, content_type: str, purpose: str = "") -> str:
         if not self.storage_url:
             raise _invalid("cloudbase_storage_not_configured", "CloudBase Storage endpoint is not configured")
-        content_type = detect_image_content_type(image)
-        if content_type is None:
-            raise _invalid("cloudbase_invalid_image", "CloudBase upload requires a valid PNG, JPEG, or WebP image")
         original_filename = Path(str(filename).replace("\\", "/")).name or "upload"
         # Multipart Content-Disposition headers are ASCII-oriented in common
         # HTTP clients. Keep the original name in experiment metadata, but use
@@ -407,7 +328,9 @@ class CloudBaseSynchronizer:
         stem = Path(original_filename).stem.encode("ascii", "ignore").decode("ascii")
         stem = re.sub(r"[^A-Za-z0-9._-]+", "-", stem).strip(".-") or "upload"
         extension = Path(original_filename).suffix
-        if not re.fullmatch(r"\.[A-Za-z0-9]{1,10}", extension):
+        if purpose == "segmentation-payload":
+            extension = ".json"
+        elif not re.fullmatch(r"\.[A-Za-z0-9]{1,10}", extension):
             extension = {"image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp"}[content_type]
         safe_filename = f"{stem}{extension}"
         timestamp = str(int(time.time()))
@@ -415,9 +338,11 @@ class CloudBaseSynchronizer:
             "timestamp": timestamp,
             "filename": safe_filename,
             "contentType": content_type,
-            "contentSha256": hashlib.sha256(image).hexdigest(),
-            "contentLength": len(image),
+            "contentSha256": hashlib.sha256(content).hexdigest(),
+            "contentLength": len(content),
         }
+        if purpose:
+            signed_metadata["purpose"] = purpose
         signature = hmac.new(self.signing_key.encode(), _canonical_json(signed_metadata).encode(), hashlib.sha256).hexdigest()
         try:
             # Ask the Cloud Function for a short-lived COS upload grant. The
@@ -431,7 +356,7 @@ class CloudBaseSynchronizer:
                     "x-cruxset-timestamp": timestamp, "x-cruxset-filename": safe_filename,
                     "x-cruxset-content-type": content_type,
                     "x-cruxset-content-sha256": signed_metadata["contentSha256"],
-                    "x-cruxset-content-length": str(len(image)),
+                    "x-cruxset-content-length": str(len(content)),
                 },
             )
         except httpx.HTTPError as error:
@@ -465,7 +390,7 @@ class CloudBaseSynchronizer:
             try:
                 upload_response = await client.put(
                     upload_url,
-                    content=image,
+                    content=content,
                     headers={
                         # CloudBase's generated COS grant requires both the
                         # signature fields and the encoded destination key.
@@ -485,18 +410,28 @@ class CloudBaseSynchronizer:
             raise _invalid("cloudbase_storage_failed", "CloudBase Storage returned incomplete upload metadata", True)
         return file_id
 
+    async def _upload_image(self, client: httpx.AsyncClient, image: bytes, filename: str) -> str:
+        content_type = detect_image_content_type(image)
+        if content_type is None:
+            raise _invalid("cloudbase_invalid_image", "CloudBase upload requires a valid PNG, JPEG, or WebP image")
+        return await self._upload_content(client, image, filename, content_type)
+
+    async def _upload_publish_payload(self, client: httpx.AsyncClient, payload: dict[str, Any]) -> str:
+        content = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        return await self._upload_content(client, content, "segmentation-publish.json", "application/json", "segmentation-payload")
+
     async def publish(self, image: bytes, filename: str, metadata: dict[str, Any]) -> dict[str, Any]:
         if not self.function_url or not self.signing_key or not self.owner_openid:
             raise _invalid("cloudbase_not_configured", "CloudBase synchronizer is not configured")
         payload = self.validate_metadata(metadata)
-        payload["holds"] = build_cloudbase_holds(payload["holds"])
         async with httpx.AsyncClient(transport=self.transport, timeout=self.timeout) as client:
             file_id = await self._upload_image(client, image, filename)
             signed_payload = {**payload, "imageFileId": file_id, "ownerOpenid": self.owner_openid, "timestamp": int(time.time())}
             signature = hmac.new(self.signing_key.encode(), _canonical_json(signed_payload).encode(), hashlib.sha256).hexdigest()
             request_payload = {**signed_payload, "signature": signature}
+            payload_file_id = await self._upload_publish_payload(client, request_payload)
             try:
-                response = await client.post(self.function_url, json=request_payload, headers={"x-cruxset-signature": signature})
+                response = await client.post(self.function_url, json={"payloadFileId": payload_file_id})
             except httpx.HTTPError as error:
                 raise _invalid("cloudbase_unavailable", "CloudBase publish function is unavailable", True) from error
         if not 200 <= response.status_code < 300:

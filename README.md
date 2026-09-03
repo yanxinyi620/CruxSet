@@ -117,7 +117,7 @@ CRUXSET_CLOUDBASE_SIGNING_KEY='与两个云函数相同的随机密钥'
 CRUXSET_CLOUDBASE_OWNER_OPENID='CloudBase 管理员的 OpenID'
 ```
 
-`scripts/cruxset-dev` 会读取该文件，shell 中同名变量优先。实验台先以签名的小 JSON 元数据向 `storageUpload` 申请临时上传凭证，再将原图直传 CloudBase Storage，最后将返回的 `fileID` 提交给 `segmentationPublish`；这避免了 HTTP 网关调用云函数时的 6 MB 请求体限制。仅在 CloudBase 发布边界，岩点轮廓会保形简化到每个最多 12 个顶点，并据此重算中心、边界和半径；本地实验台校准记录与 Web 发布数据保持原样。两个 HTTP 网关路由均使用 `POST`、关闭网关身份认证、保持默认跨域和路径透传设置即可；认证由 HMAC 签名完成。必须在 CloudBase 控制台将 Storage 设为私有；客户端不直接读取对象，`getWallImageUrl` 是墙图唯一访问入口。
+`scripts/cruxset-dev` 会读取该文件，shell 中同名变量优先。实验台先以签名的小 JSON 元数据向 `storageUpload` 申请临时上传凭证，再将原图和完整校准 JSON 直传 CloudBase Storage，最后仅将 JSON 的 `fileID` 提交给 `segmentationPublish`；这避免了 HTTP 网关的请求体限制，且本地与 CloudBase 的岩点几何保持一致。两个 HTTP 网关路由均使用 `POST`、关闭网关身份认证、保持默认跨域和路径透传设置即可；认证由 HMAC 签名完成。必须在 CloudBase 控制台将 Storage 设为私有；客户端不直接读取对象，`getWallImageUrl` 是墙图唯一访问入口。
 
 ## 核心规则
 

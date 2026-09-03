@@ -14,7 +14,7 @@ Web 是管理员本地创作工作台，小程序独立运行。二者共享 Wal
 
 小程序页面和组件通过 `wechat/miniprogram/services/` 访问数据；页面不得直接依赖 CloudBase。框架无关的坐标、命中、手势、线路校验、筛选、随机与编辑状态位于 `wechat/miniprogram/domain/`，可由 Vitest 独立验证；根目录 `src/domain/` 只保留 Web 兼容导出。
 
-分割实验台使用 SAM 模型生成候选 polygon 并支持人工校准。选择 CloudBase 发布时，它先向 `storageUpload` 获取经过 HMAC 验证的短期上传凭证，原图直传私有 Storage，再将 `fileID`、标准化岩点和墙面元数据提交给 `segmentationPublish`。CloudBase 副本会将每个岩点轮廓保形简化到最多 12 个顶点并重算几何派生字段，以控制单墙写入大小；本地校准与 Web 数据不变。该流程为单向创建，不会读取、修改或覆盖已有 CloudBase Wall。
+分割实验台使用 SAM 模型生成候选 polygon 并支持人工校准。选择 CloudBase 发布时，它先向 `storageUpload` 获取经过 HMAC 验证的短期上传凭证，原图和完整签名校准 JSON 均直传私有 Storage；随后仅将 JSON 的 `fileID` 交给 `segmentationPublish` 下载、验签并创建墙面。本地、Web 与 CloudBase 的岩点几何保持一致。该流程为单向创建，不会读取、修改或覆盖已有 CloudBase Wall。
 
 ## 数据模型
 

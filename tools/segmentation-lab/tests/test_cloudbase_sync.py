@@ -1,14 +1,12 @@
 import json
 import hashlib
 import hmac
-import math
 
 import httpx
 import pytest
 
 from segmentation_lab.cloudbase_sync import (
     CloudBaseSynchronizer,
-    build_cloudbase_holds,
     build_normalized_holds,
     normalize_polygon,
     _canonical_json,
@@ -40,24 +38,6 @@ def test_build_normalized_holds_sorts_and_assigns_stable_contiguous_ids():
     assert holds[0]["x"] == pytest.approx(0.2)
     assert holds[0]["y"] == pytest.approx(0.2083333333)
     assert holds[0]["radius"] > 0
-
-
-def test_cloudbase_holds_simplify_only_the_published_polygons():
-    polygon = [[
-        50 + 40 * math.cos(index * 2 * math.pi / 32),
-        50 + 40 * math.sin(index * 2 * math.pi / 32),
-    ] for index in range(32)]
-    original = build_normalized_holds([{"id": "circle", "polygon": polygon}], 100, 100)
-    published = build_cloudbase_holds(original)
-
-    assert len(original[0]["polygon"]) == 32
-    assert len(published[0]["polygon"]) <= 12
-    assert published[0]["id"] == original[0]["id"]
-    assert published[0]["sourceId"] == original[0]["sourceId"]
-    assert published[0]["bbox"] == pytest.approx([0.1, 0.1, 0.9, 0.9])
-    assert published[0]["x"] == pytest.approx(0.5, abs=0.02)
-    assert published[0]["y"] == pytest.approx(0.5, abs=0.02)
-    assert published[0]["radius"] == pytest.approx(0.4, rel=0.08)
 
 
 def test_hold_uses_area_centroid_and_normalized_bbox():
@@ -124,6 +104,10 @@ async def test_sync_uploads_storage_then_calls_signed_publish_function():
     async def handler(request: httpx.Request) -> httpx.Response:
         requests.append(request)
         if request.url.path == "/storage":
+            body = json.loads(await request.aread())
+            if body.get("purpose") == "segmentation-payload":
+                assert body["contentType"] == "application/json"
+                return httpx.Response(201, json={"fileID": "cloud://wall/segmentation-payloads/publish.json"})
             assert request.headers["x-cruxset-filename"] == "wall.png"
             assert request.headers["x-cruxset-content-type"] == "image/png"
             assert request.headers["x-cruxset-content-sha256"] == hashlib.sha256(image).hexdigest()
@@ -139,9 +123,7 @@ async def test_sync_uploads_storage_then_calls_signed_publish_function():
             assert hmac.compare_digest(request.headers["x-cruxset-signature"], expected_signature)
             return httpx.Response(201, json={"fileID": "cloud://wall/image.png"})
         body = json.loads(await request.aread())
-        assert body["imageFileId"] == "cloud://wall/image.png"
-        assert body["ownerOpenid"] == "openid-owner"
-        assert request.headers["x-cruxset-signature"]
+        assert body == {"payloadFileId": "cloud://wall/segmentation-payloads/publish.json"}
         return httpx.Response(201, json={"wallId": "wall-1", "created": True})
 
     synchronizer = CloudBaseSynchronizer(
@@ -165,7 +147,7 @@ async def test_sync_uploads_storage_then_calls_signed_publish_function():
         },
     )
     assert result["wallId"] == "wall-1"
-    assert [request.url.path for request in requests] == ["/storage", "/publish"]
+    assert [request.url.path for request in requests] == ["/storage", "/storage", "/publish"]
 
 
 @pytest.mark.anyio
@@ -177,23 +159,28 @@ async def test_sync_uploads_large_image_to_granted_storage_url():
         requests.append(request)
         if request.url.path == "/storage":
             body = json.loads(await request.aread())
-            assert body["contentLength"] == len(image)
+            is_payload = body.get("purpose") == "segmentation-payload"
+            assert body["contentLength"] == (len(image) if not is_payload else body["contentLength"])
             assert request.headers["x-cruxset-signature"]
             return httpx.Response(201, json={
-                "fileID": "cloud://wall/image.png",
+                "fileID": "cloud://wall/segmentation-payloads/publish.json" if is_payload else "cloud://wall/image.png",
                 "uploadUrl": "https://cos.example/upload",
                 "authorization": "cos-signature",
                 "token": "cos-token",
                 "cloudObjectMeta": "cloud-meta",
-                "cloudPath": "segmentation/image.png",
+                "cloudPath": "segmentation-payloads/publish.json" if is_payload else "segmentation/image.png",
             })
         if request.url.host == "cos.example":
             assert request.headers["authorization"] == "cos-signature"
             assert request.headers["signature"] == "cos-signature"
             assert request.headers["x-cos-security-token"] == "cos-token"
             assert request.headers["x-cos-meta-fileid"] == "cloud-meta"
-            assert request.headers["key"] == "segmentation%2Fimage.png"
-            assert await request.aread() == image
+            uploaded = await request.aread()
+            if request.headers["key"] == "segmentation%2Fimage.png":
+                assert uploaded == image
+            else:
+                assert request.headers["key"] == "segmentation-payloads%2Fpublish.json"
+                assert json.loads(uploaded)["imageFileId"] == "cloud://wall/image.png"
             return httpx.Response(200)
         return httpx.Response(201, json={"wallId": "wall-1"})
 
@@ -207,7 +194,7 @@ async def test_sync_uploads_large_image_to_granted_storage_url():
         "imageHeight": 80, "holds": [{"id": "h", "polygon": [[0, 0], [50, 0], [0, 40]]}],
     })
     assert result["wallId"] == "wall-1"
-    assert [request.method for request in requests] == ["POST", "PUT", "POST"]
+    assert [request.method for request in requests] == ["POST", "PUT", "POST", "PUT", "POST"]
 
 
 @pytest.mark.anyio
