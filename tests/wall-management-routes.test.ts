@@ -78,9 +78,10 @@ describe('wall-only web routes', () => {
     expect(source).toContain('class="route-note"')
   })
 
-  it('offers a fullscreen canvas preview only for a selected route-browser detail', () => {
+  it('opens fullscreen from the route canvas without a visible text prompt', () => {
     const source = readFileSync('web/src/main.ts', 'utf8')
-    expect(source).toContain('data-open-route-fullscreen')
+    expect(source).toContain('onTapCanvas: openRouteFullscreen')
+    expect(source).not.toContain('点击查看全屏')
     expect(source).toContain('id="route-fullscreen-preview"')
     expect(source).toContain('data-close-route-fullscreen')
     expect(source).toContain('viewportHeight: window.innerHeight')
