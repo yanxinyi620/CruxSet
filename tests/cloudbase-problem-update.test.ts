@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest'
 import { validateProblemUpdate } from '../cloudfunctions/updateProblem/validation.js'
+import { MockRepository, mockCurrentUserId } from '../miniprogram/services/mock-repository.js'
 
 const wall = {
   id: 'wall_public', visibility: 'public', angleOptions: [20, 35],
@@ -20,6 +21,22 @@ it('accepts a complete update while preserving stable identifiers', () => {
   const result = validateProblemUpdate(existing, wall, valid, 'owner')
   expect(result).toMatchObject({ ...valid, id: existing.id, number: existing.number, wallId: wall.id, createdBy: existing.createdBy, createdAt: existing.createdAt })
   expect(result.updatedAt).toBeTypeOf('number')
+})
+
+it('accepts an explicitly configured zero-degree angle', () => {
+  expect(validateProblemUpdate(existing, { ...wall, angleOptions: [0, 35] }, { ...valid, angle: 0 }, 'owner').angle).toBe(0)
+})
+
+it('applies the same ownership and metadata checks to mock updates', async () => {
+  const repository = new MockRepository()
+  const wallId = 'wall_demo'
+  const problem = (await repository.createProblem(wallId, { angle: 35, grade: 'V4', holds: { start: ['H001'], foot: [], hand: [], assist: [], finish: ['H024'] } }))
+  const base = { angle: 35, grade: 'V4' as const, holds: { start: ['H001'], foot: [], hand: [], assist: [], finish: ['H024'] } }
+  await expect(repository.updateProblem(problem.id, { ...base, angle: 999 })).rejects.toThrow('INVALID_ROUTE_METADATA')
+  await expect(repository.updateProblem(problem.id, { ...base, description: 'x'.repeat(501) })).rejects.toThrow('INVALID_ROUTE_METADATA')
+  await expect(repository.updateProblem(problem.id, { ...base, holds: { ...base.holds, start: [] } })).rejects.toThrow('INVALID_ROUTE_HOLDS')
+  await expect(repository.updateProblem(problem.id, { ...base, holds: { ...base.holds, start: ['UNKNOWN'] } })).rejects.toThrow('INVALID_HOLD_ID')
+  expect(mockCurrentUserId).toBeTruthy()
 })
 
 it.each([

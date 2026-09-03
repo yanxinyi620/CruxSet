@@ -4,6 +4,17 @@ import type { Problem, ProblemHolds, Wall } from '../domain/types.js'
 export const mockCurrentUserId = 'usr_mock_owner'
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T
 const roles = (holds?: Partial<ProblemHolds>): ProblemHolds => ({ start: holds?.start || [], foot: holds?.foot || [], hand: holds?.hand || [], assist: holds?.assist || [], finish: holds?.finish || [] })
+const validateUpdate = (problem: Problem, wall: Wall, draft: Partial<Problem>) => {
+  if (wall.visibility !== 'public' || wall.holds.length < 2) throw new Error('WALL_NOT_ROUTABLE')
+  if (!wall.angleOptions.includes(draft.angle as number) || !/^V(?:[0-9]|1[0-2])$/.test(draft.grade as string) || (draft.description !== undefined && (typeof draft.description !== 'string' || draft.description.length > 500))) throw new Error('INVALID_ROUTE_METADATA')
+  const footRule = draft.footRule || 'feet_follow'
+  if (!['feet_follow', 'specified', 'all'].includes(footRule)) throw new Error('INVALID_FOOT_RULE')
+  const selected = roles(draft.holds)
+  if (!selected.start.length || !selected.finish.length || (footRule === 'specified' && !selected.foot.length) || Object.values(selected).some(ids => !Array.isArray(ids))) throw new Error('INVALID_ROUTE_HOLDS')
+  const ids = Object.values(selected).flat(), known = new Set(wall.holds.map(hold => hold.id))
+  if (new Set(ids).size !== ids.length || ids.some(id => !known.has(id))) throw new Error('INVALID_HOLD_ID')
+  return { ...problem, name: draft.name, description: draft.description, angle: draft.angle, grade: draft.grade, footRule, holds: selected, updatedAt: Date.now() }
+}
 export class MockRepository {
   private walls = clone([demoWall, demoDraftWall]); private problems = clone(demoProblems)
   private admin = false
@@ -19,7 +30,7 @@ export class MockRepository {
   async listMyProblems(){return clone(this.problems.filter(p=>p.createdBy===mockCurrentUserId).sort((a,b)=>b.createdAt-a.createdAt))}
   async getProblem(id:string){const problem=this.problems.find(p=>p.id===id);if(!problem)throw new Error('PROBLEM_NOT_FOUND');return clone(problem)}
   async createProblem(wallId:string,draft:Partial<Problem>){const wall=await this.getWall(wallId);if(wall.visibility!=='public'||wall.holds.length<2)throw new Error('WALL_NOT_ROUTABLE');const now=Date.now(),problem:Problem={id:`problem_mock_${now}`,number:`CS-${String(this.problems.length+1).padStart(6,'0')}`,wallId,name:draft.name,description:draft.description,angle:draft.angle||wall.angleOptions[0],grade:draft.grade||'V0',footRule:draft.footRule||'feet_follow',holds:roles(draft.holds),createdBy:mockCurrentUserId,createdAt:now,updatedAt:now};this.problems.push(problem);return{id:problem.id,number:problem.number}}
-  async updateProblem(id:string,draft:Partial<Problem>){const problem=this.problems.find(p=>p.id===id);if(!problem)throw new Error('PROBLEM_NOT_FOUND');if(problem.createdBy!==mockCurrentUserId)throw new Error('FORBIDDEN');Object.assign(problem,clone(draft),{id:problem.id,number:problem.number,wallId:problem.wallId,createdBy:problem.createdBy,createdAt:problem.createdAt,updatedAt:Date.now()});return{id:problem.id,number:problem.number}}
+  async updateProblem(id:string,draft:Partial<Problem>){const problem=this.problems.find(p=>p.id===id);if(!problem)throw new Error('PROBLEM_NOT_FOUND');if(problem.createdBy!==mockCurrentUserId)throw new Error('FORBIDDEN');const wall=await this.getWall(problem.wallId);const updated=validateUpdate(problem,wall,draft);Object.assign(problem,clone(updated));return{id:problem.id,number:problem.number}}
   async deleteProblem(id:string){const i=this.problems.findIndex(p=>p.id===id);if(i<0)throw new Error('PROBLEM_NOT_FOUND');if(this.problems[i].createdBy!==mockCurrentUserId)throw new Error('FORBIDDEN');this.problems.splice(i,1);return{ok:true as const}}
   async deleteWall(id:string){if(!this.admin)throw new Error('FORBIDDEN');const wall=await this.getWall(id);if(this.problems.some(p=>p.wallId===id))throw new Error('WALL_IN_USE');this.walls=this.walls.filter(w=>w.id!==id);return{ok:true as const}}
   async uploadWallImage(filePath:string){return{fileID:filePath}} async getWallImageUrl(fileID:string){return fileID}
