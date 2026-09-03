@@ -8,6 +8,7 @@ const holds = [
 
 it('refuses to delete a wall in use and does not cascade', async () => {
   const repo = createMockRepository()
+  repo.setAdmin(true)
   const wall = (await repo.listMyWalls()).find(item => item.visibility === 'private')!
   await repo.updateWall(wall.id, { holds } as any)
   await repo.publishWall(wall.id)
@@ -19,6 +20,7 @@ it('refuses to delete a wall in use and does not cascade', async () => {
 
 it('deletes an unused owned wall and no problems', async () => {
   const repo = createMockRepository()
+  repo.setAdmin(true)
   const wall = await repo.createWall({ name: 'unused' })
   await repo.deleteWall(wall.id)
   await expect(repo.getWall(wall.id)).rejects.toThrow('WALL_NOT_FOUND')

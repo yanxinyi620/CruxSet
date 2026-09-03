@@ -50,8 +50,8 @@ exports.main = async event => {
     return { ok: true }
   }
   if (action !== 'deleteWall') throw new Error('INVALID_ACTION')
+  if (!actor.isAdmin) throw new Error('FORBIDDEN')
   const wall = await wallAccess(db, data.wallId, actor)
-  if (wall.ownerId !== actor.user.id && !actor.isAdmin) throw new Error('FORBIDDEN')
   const problems = await db.collection('problems').where({ wallId: wall.id }).limit(1).get()
   if (problems.data.length) throw new Error('WALL_IN_USE')
   await db.collection('walls').doc(wall.id).remove()

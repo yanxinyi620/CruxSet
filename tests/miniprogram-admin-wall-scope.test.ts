@@ -21,3 +21,9 @@ it('provides an explicit mock administrator switch for testing admin flows', () 
   expect(users).toContain('setMockAdmin')
   expect(users).toContain('currentUserIsAdmin')
 })
+
+it('requires administrator identity for every wall-management server action', () => {
+  const cloud = read('cloudfunctions/wallManager/index.js')
+  expect(cloud).toMatch(/if \(action === 'listAdminWalls'[\s\S]*!actor\.isAdmin\)/)
+  expect(cloud).toMatch(/if \(action !== 'deleteWall'[\s\S]*actor\.isAdmin|deleteWall'[\s\S]*actor\.isAdmin/)
+})
