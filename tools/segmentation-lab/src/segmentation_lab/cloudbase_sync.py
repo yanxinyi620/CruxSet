@@ -322,16 +322,18 @@ class CloudBaseSynchronizer:
         }
         signature = hmac.new(self.signing_key.encode(), _canonical_json(signed_metadata).encode(), hashlib.sha256).hexdigest()
         try:
+            # Ask the Cloud Function for a short-lived COS upload grant. The
+            # image bytes never cross the HTTP gateway (which has a small
+            # request limit); they are uploaded directly to the returned URL.
             response = await client.post(
                 self.storage_url,
-                files={"file": (safe_filename, image, content_type)},
+                json=signed_metadata,
                 headers={
-                    "x-cruxset-timestamp": timestamp,
-                    "x-cruxset-filename": safe_filename,
+                    "content-type": "application/json", "x-cruxset-signature": signature,
+                    "x-cruxset-timestamp": timestamp, "x-cruxset-filename": safe_filename,
                     "x-cruxset-content-type": content_type,
                     "x-cruxset-content-sha256": signed_metadata["contentSha256"],
                     "x-cruxset-content-length": str(len(image)),
-                    "x-cruxset-signature": signature,
                 },
             )
         except httpx.HTTPError as error:
@@ -354,6 +356,26 @@ class CloudBaseSynchronizer:
         file_id = payload.get("fileID", payload.get("fileId", payload.get("file_id")))
         if not isinstance(file_id, str) or not file_id.startswith("cloud://"):
             raise _invalid("cloudbase_storage_failed", "CloudBase Storage did not return a cloud file ID", True)
+        upload_url = payload.get("uploadUrl", payload.get("upload_url"))
+        authorization = payload.get("authorization")
+        token = payload.get("token")
+        cloud_object_meta = payload.get("cloudObjectMeta", payload.get("cosFileID", payload.get("cosFileId")))
+        if upload_url and authorization and token and cloud_object_meta:
+            try:
+                upload_response = await client.put(
+                    upload_url,
+                    content=image,
+                    headers={
+                        "Authorization": authorization,
+                        "X-Cos-Security-Token": token,
+                        "X-Cos-Meta-Fileid": cloud_object_meta,
+                        "Content-Type": content_type,
+                    },
+                )
+            except httpx.HTTPError as error:
+                raise _invalid("cloudbase_unavailable", "CloudBase Storage upload URL is unavailable", True) from error
+            if not 200 <= upload_response.status_code < 300:
+                raise _invalid("cloudbase_storage_failed", f"CloudBase direct image upload failed (HTTP {upload_response.status_code})", upload_response.status_code >= 500)
         return file_id
 
     async def publish(self, image: bytes, filename: str, metadata: dict[str, Any]) -> dict[str, Any]:

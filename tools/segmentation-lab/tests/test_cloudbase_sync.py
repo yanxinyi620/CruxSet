@@ -149,6 +149,45 @@ async def test_sync_uploads_storage_then_calls_signed_publish_function():
 
 
 @pytest.mark.anyio
+async def test_sync_uploads_large_image_to_granted_storage_url():
+    requests = []
+    image = b"\x89PNG\r\n\x1a\nlarge-image"
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.url.path == "/storage":
+            body = json.loads(await request.aread())
+            assert body["contentLength"] == len(image)
+            assert request.headers["x-cruxset-signature"]
+            return httpx.Response(201, json={
+                "fileID": "cloud://wall/image.png",
+                "uploadUrl": "https://cos.example/upload",
+                "authorization": "cos-signature",
+                "token": "cos-token",
+                "cloudObjectMeta": "cloud-meta",
+            })
+        if request.url.host == "cos.example":
+            assert request.headers["authorization"] == "cos-signature"
+            assert request.headers["x-cos-security-token"] == "cos-token"
+            assert request.headers["x-cos-meta-fileid"] == "cloud-meta"
+            assert await request.aread() == image
+            return httpx.Response(200)
+        return httpx.Response(201, json={"wallId": "wall-1"})
+
+    synchronizer = CloudBaseSynchronizer(
+        "https://function.example/publish", "secret", storage_url="https://function.example/storage",
+        owner_openid="owner", transport=httpx.MockTransport(handler),
+    )
+    result = await synchronizer.publish(image, "wall.png", {
+        "publishRequestId": "request-large", "sourceExperimentId": "experiment-1",
+        "sourceCalibrationId": "calibration-1", "wallName": "Wall", "imageWidth": 100,
+        "imageHeight": 80, "holds": [{"id": "h", "polygon": [[0, 0], [50, 0], [0, 40]]}],
+    })
+    assert result["wallId"] == "wall-1"
+    assert [request.method for request in requests] == ["POST", "PUT", "POST"]
+
+
+@pytest.mark.anyio
 async def test_sync_sniffs_image_content_and_handles_windows_filename():
     async def handler(request: httpx.Request) -> httpx.Response:
         assert request.headers["x-cruxset-filename"] == "wall.jpg"

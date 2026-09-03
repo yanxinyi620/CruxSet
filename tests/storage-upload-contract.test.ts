@@ -71,6 +71,27 @@ it('accepts a signed multipart file and returns the CloudBase fileID', async () 
   expect(uploaded.fileContent).toEqual(pngBytes)
 })
 
+it('returns a short-lived direct upload grant for signed JSON metadata', async () => {
+  const storageUpload = require(resolve(process.cwd(), 'cloudfunctions/storageUpload/index.js')) as {
+    main: (event: Record<string, unknown>) => Promise<unknown>
+    _setCloudForTests: (cloud: { callOpenAPI: (input: unknown) => Promise<unknown> }) => void
+  }
+  let request: unknown
+  storageUpload._setCloudForTests({
+    callOpenAPI: async input => {
+      request = input
+      return { result: { data: { fileID: 'cloud://cruxset/segmentation/image.png', uploadUrl: 'https://cos.example/upload', authorization: 'auth', token: 'token', cloudObjectMeta: 'meta' } } }
+    },
+  })
+  const metadata = metadataFor(pngBytes, timestamp)
+  await expect(storageUpload.main({
+    body: JSON.stringify(metadata), httpMethod: 'POST', headers: {
+      'content-type': 'application/json', 'x-cruxset-signature': sign(metadata, secret),
+    },
+  })).resolves.toMatchObject({ fileID: 'cloud://cruxset/segmentation/image.png', uploadUrl: 'https://cos.example/upload' })
+  expect(request).toEqual({ api: 'storage.getUploadMetaData', data: { path: expect.stringMatching(/^segmentation\/[a-z0-9-]+\.png$/) } })
+})
+
 it('rejects an invalid signature before calling CloudBase Storage', async () => {
   const storageUpload = require(resolve(process.cwd(), 'cloudfunctions/storageUpload/index.js')) as {
     main: (event: Record<string, unknown>) => Promise<unknown>

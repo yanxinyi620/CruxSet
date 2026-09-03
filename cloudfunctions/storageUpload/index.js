@@ -51,6 +51,21 @@ const bodyBufferFrom = event => {
   return body
 }
 
+const jsonBodyFrom = event => {
+  if (!event || typeof event !== 'object' || event.body === undefined || !event.headers || typeof event.headers !== 'object' || event.httpMethod === undefined) fail('CLIENT_CALL_FORBIDDEN')
+  if (event.httpMethod !== 'POST') fail('METHOD_NOT_ALLOWED')
+  if (typeof event.body !== 'string') fail('INVALID_METADATA')
+  try {
+    const text = event.isBase64Encoded ? Buffer.from(event.body, 'base64').toString('utf8') : event.body
+    const parsed = JSON.parse(text)
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) fail('INVALID_METADATA')
+    return parsed
+  } catch (error) {
+    if (error.message === 'INVALID_METADATA') throw error
+    fail('INVALID_METADATA')
+  }
+}
+
 const canonicalize = value => {
   if (Array.isArray(value)) return `[${value.map(canonicalize).join(',')}]`
   if (value && typeof value === 'object') return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${canonicalize(value[key])}`).join(',')}}`
@@ -171,7 +186,44 @@ const parseMultipart = (body, contentType) => {
 
 const secretFromEnvironment = () => process.env.CRUXSET_CLOUDBASE_SIGNING_KEY || process.env.CRUXSET_CLOUDBASE_STORAGE_SIGNING_KEY || ''
 
+const uploadMetadata = async (cloudPath) => {
+  if (!cloud || typeof cloud.callOpenAPI !== 'function') fail('CLOUDBASE_RUNTIME_MISSING')
+  let result
+  try {
+    result = await cloud.callOpenAPI({ api: 'storage.getUploadMetaData', data: { path: cloudPath } })
+  } catch (error) {
+    fail('STORAGE_UPLOAD_METADATA_FAILED')
+  }
+  const value = result?.result?.data || result?.result || result?.data || result
+  const uploadUrl = value?.uploadUrl || value?.upload_url || value?.url
+  const authorization = value?.authorization
+  const token = value?.token
+  const cloudObjectMeta = value?.cloudObjectMeta || value?.cosFileID || value?.cosFileId || value?.cos_file_id
+  const fileID = value?.fileID || value?.fileId || value?.file_id
+  if (![uploadUrl, authorization, token, cloudObjectMeta, fileID].every(item => typeof item === 'string' && item)) fail('STORAGE_UPLOAD_METADATA_FAILED')
+  return { fileID, uploadUrl, authorization, token, cloudObjectMeta }
+}
+
 const main = async event => {
+  const contentType = header(event?.headers, 'content-type') || ''
+  if (/^application\/json\s*(;|$)/i.test(contentType)) {
+    const metadata = jsonBodyFrom(event)
+    const filename = safeFilename(metadata.filename)
+    const type = String(metadata.contentType || '').toLowerCase()
+    const extension = CONTENT_TYPES.get(type)
+    if (!secretFromEnvironment()) fail('UNAUTHORIZED')
+    const timestamp = String(metadata.timestamp || '')
+    const required = { timestamp, filename, contentType: type, contentSha256: metadata.contentSha256, contentLength: metadata.contentLength }
+    if (!/^\d+$/.test(timestamp) || !/^[a-f0-9]{64}$/i.test(String(required.contentSha256 || '')) || !Number.isSafeInteger(Number(required.contentLength)) || Number(required.contentLength) <= 0 || Number(required.contentLength) > MAX_UPLOAD_BYTES || !extension) fail('INVALID_METADATA')
+    const now = Math.floor(Date.now() / 1000)
+    if (Number(timestamp) > now) fail('REQUEST_IN_FUTURE')
+    if (now - Number(timestamp) > SIGNATURE_MAX_AGE_SECONDS) fail('REQUEST_EXPIRED')
+    const signature = header(event.headers, 'x-cruxset-signature')
+    const expected = crypto.createHmac('sha256', secretFromEnvironment()).update(canonicalize(required)).digest('hex')
+    if (typeof signature !== 'string' || signature.replace(/^sha256=/i, '') !== expected) fail('UNAUTHORIZED')
+    const cloudPath = `segmentation/${Date.now().toString(36)}-${crypto.randomBytes(8).toString('hex')}.${extension}`
+    return await uploadMetadata(cloudPath)
+  }
   const body = bodyBufferFrom(event)
   const file = parseMultipart(body, header(event.headers, 'content-type'))
   verifySignature(file, event.headers, secretFromEnvironment())

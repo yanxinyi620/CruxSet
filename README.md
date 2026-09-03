@@ -108,7 +108,7 @@ export const runtimeMode: RuntimeMode = 'mock'
 
 数据与业务约束见[设计参考](docs/reference.md)，真机检查见[测试与验收](docs/testing.md)。
 
-分割实验台同步还需要一个可接收 `multipart/form-data`（字段名 `file`）并返回 `{ "fileID": "cloud://..." }` 的 CloudBase Storage 上传 HTTP 端点；将该端点填入 `CRUXSET_CLOUDBASE_STORAGE_URL`，并将 `segmentationPublish` HTTP 触发器 URL 填入 `CRUXSET_CLOUDBASE_FUNCTION_URL`。实验台会用 `CRUXSET_CLOUDBASE_SIGNING_KEY` 对包含时间戳、文件名、MIME、文件 SHA-256 和文件长度的 canonical metadata 计算签名；云函数使用同名环境变量验签，`CRUXSET_CLOUDBASE_OWNER_OPENID` 用于解析 `users.openid`。必须在 CloudBase 控制台将 Storage 设为私有；客户端不直接读取对象，`getWallImageUrl` 是墙图唯一访问入口。
+分割实验台同步还需要 `storageUpload` 的 CloudBase Storage HTTP 端点和 `segmentationPublish` HTTP 触发器 URL，分别填入 `CRUXSET_CLOUDBASE_STORAGE_URL`、`CRUXSET_CLOUDBASE_FUNCTION_URL`。实验台先用 `CRUXSET_CLOUDBASE_SIGNING_KEY` 签名小 JSON 元数据，从 `storageUpload` 获取临时 COS 上传凭证，再将原图直接 PUT 到 CloudBase Storage，避免 HTTP 网关请求体限制；云函数使用同名环境变量验签，`CRUXSET_CLOUDBASE_OWNER_OPENID` 用于解析 `users.openid`。必须在 CloudBase 控制台将 Storage 设为私有；客户端不直接读取对象，`getWallImageUrl` 是墙图唯一访问入口。
 
 ## 核心规则
 
