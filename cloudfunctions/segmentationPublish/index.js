@@ -39,11 +39,6 @@ const verifySignature = (event, secret) => {
   if (supplied.length !== calculated.length || !crypto.timingSafeEqual(supplied, calculated)) fail('UNAUTHORIZED')
 }
 
-const payloadFrom = event => {
-  if (event?.metadata && typeof event.metadata === 'object') return { ...event.metadata, imageFileId: event.imageFileId, ownerOpenid: event.ownerOpenid, timestamp: event.timestamp, signature: event.signature }
-  return event || {}
-}
-
 const polygonArea = polygon => Math.abs(polygon.reduce((sum, point, index) => {
   const next = polygon[(index + 1) % polygon.length]
   return sum + point[0] * next[1] - next[0] * point[1]
@@ -128,16 +123,34 @@ const ownerFor = async (db, ownerOpenid) => {
   return users.data[0]
 }
 
+const payloadFromHttpEvent = event => {
+  if (!event || typeof event !== 'object' || event.body === undefined) return event || {}
+  if (typeof event.body === 'object' && event.body !== null) return event.body
+  if (typeof event.body !== 'string') fail('INVALID_METADATA')
+  try {
+    const body = event.isBase64Encoded ? Buffer.from(event.body, 'base64').toString('utf8') : event.body
+    const parsed = JSON.parse(body)
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) fail('INVALID_METADATA')
+    return parsed
+  } catch (error) {
+    if (error.message === 'INVALID_METADATA') throw error
+    fail('INVALID_METADATA')
+  }
+}
+
 exports.main = async event => {
   if (!cloud) fail('CLOUDBASE_RUNTIME_MISSING')
   const secret = process.env.CRUXSET_CLOUDBASE_SIGNING_KEY || process.env.CRUXSET_CLOUDBASE_SEGMENTATION_SIGNING_KEY || process.env.CRUXSET_SEGMENTATION_CLOUDBASE_SIGNING_KEY || ''
-  verifySignature(event, secret)
-  const payload = validatePayload(payloadFrom(event))
+  const parsedEvent = payloadFromHttpEvent(event)
+  const headerSignature = event?.headers?.['x-cruxset-signature'] || event?.headers?.['X-CruxSet-Signature']
+  const payload = { ...parsedEvent, signature: parsedEvent.signature || headerSignature }
+  verifySignature(payload, secret)
+  const validated = validatePayload(payload)
   const db = cloud.database()
-  const owner = await ownerFor(db, payload.ownerOpenid)
-  const fingerprint = fingerprintFor(payload)
-  const receiptId = receiptIdFor(payload.publishRequestId)
-  const wallId = `wall_seg_${crypto.createHash('sha256').update(payload.publishRequestId).digest('hex').slice(0, 24)}`
+  const owner = await ownerFor(db, validated.ownerOpenid)
+  const fingerprint = fingerprintFor(validated)
+  const receiptId = receiptIdFor(validated.publishRequestId)
+  const wallId = `wall_seg_${crypto.createHash('sha256').update(validated.publishRequestId).digest('hex').slice(0, 24)}`
   let result
   await db.runTransaction(async transaction => {
     const existing = (await transaction.collection('segmentationPublishes').doc(receiptId).get()).data
@@ -149,31 +162,31 @@ exports.main = async event => {
     const now = Date.now()
     await transaction.collection('walls').doc(wallId).set({ data: {
       id: wallId,
-      name: payload.wallName,
-      description: payload.description || '',
-      imageFileId: payload.imageFileId,
-      imageWidth: payload.imageWidth,
-      imageHeight: payload.imageHeight,
+      name: validated.wallName,
+      description: validated.description || '',
+      imageFileId: validated.imageFileId,
+      imageWidth: validated.imageWidth,
+      imageHeight: validated.imageHeight,
       geometryType: 'polygon',
-      holds: payload.holds,
-      angleOptions: payload.angleOptions,
+      holds: validated.holds,
+      angleOptions: validated.angleOptions,
       ownerId: owner.id,
       visibility: 'public',
       published: true,
-      source: { type: 'segmentation_lab', experimentId: payload.sourceExperimentId, calibrationId: payload.sourceCalibrationId, publishRequestId: payload.publishRequestId },
+      source: { type: 'segmentation_lab', experimentId: validated.sourceExperimentId, calibrationId: validated.sourceCalibrationId, publishRequestId: validated.publishRequestId },
       createdAt: now,
       updatedAt: now,
     } })
     await transaction.collection('segmentationPublishes').doc(receiptId).set({ data: {
       id: receiptId,
-      publishRequestId: payload.publishRequestId,
+      publishRequestId: validated.publishRequestId,
       wallId,
-      wallName: payload.wallName,
-      holdCount: payload.holds.length,
+      wallName: validated.wallName,
+      holdCount: validated.holds.length,
       fingerprint,
       createdAt: now,
     } })
-    result = { wallId, wallName: payload.wallName, holdCount: payload.holds.length, browsePath: `/wall/${wallId}`, created: true }
+    result = { wallId, wallName: validated.wallName, holdCount: validated.holds.length, browsePath: `/wall/${wallId}`, created: true }
   })
   return result
 }
@@ -181,3 +194,4 @@ exports.main = async event => {
 // Exported for lightweight unit tests that do not load the CloudBase runtime.
 exports._validatePayload = validatePayload
 exports._canonicalize = canonicalize
+exports._payloadFromHttpEvent = payloadFromHttpEvent

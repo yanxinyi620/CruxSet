@@ -102,11 +102,13 @@ export const runtimeMode: RuntimeMode = 'mock'
 将 `miniprogram/config/runtime.ts` 的 `runtimeMode` 改为 `cloudbase`，并在 `miniprogram/app.ts` 配置实际 CloudBase 环境 ID。随后：
 
 1. 创建 `users`、`walls`、`problems`、`admins`、`counters` 五个集合，导入 [集合声明](config/cloudbase.collections.json)，并应用 [权限规则](config/cloudbase.rules.json)。
-2. 部署 `login`、`adminWall`、`wallManager`、`saveProblem`、`deleteProblem`、`getWallImageUrl` 六个云函数；每个函数均在云端安装 `wx-server-sdk` 依赖。
+2. 部署 `login`、`adminWall`、`wallManager`、`saveProblem`、`updateProblem`、`deleteProblem`、`getWallImageUrl`、`segmentationPublish` 八个云函数；每个函数均在云端安装 `wx-server-sdk` 依赖。
 3. 为已有 Wall 补齐 `ownerId` 与 `visibility`；墙图保持私有存储，经 `getWallImageUrl` 权限校验后提供短期访问地址。
 4. 运行 `npm run verify:phase1`；正式发布前运行 `npm run verify:phase1 -- --release`，再按[测试与验收](docs/testing.md)完成 CloudBase 和 Android/iPhone 真机检查。
 
 数据与业务约束见[设计参考](docs/reference.md)，真机检查见[测试与验收](docs/testing.md)。
+
+分割实验台同步还需要一个可接收 `multipart/form-data`（字段名 `file`）并返回 `{ "fileID": "cloud://..." }` 的 CloudBase Storage 上传 HTTP 端点；将该端点填入 `CRUXSET_CLOUDBASE_STORAGE_URL`，并将 `segmentationPublish` HTTP 触发器 URL 填入 `CRUXSET_CLOUDBASE_FUNCTION_URL`。实验台会把校准元数据作为 JSON body 发送，并用 `CRUXSET_CLOUDBASE_SIGNING_KEY` 计算签名；云函数使用同名环境变量验签，`CRUXSET_CLOUDBASE_OWNER_OPENID` 用于解析 `users.openid`。
 
 ## 核心规则
 

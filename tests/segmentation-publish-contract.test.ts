@@ -5,6 +5,7 @@ import { expect, it } from 'vitest'
 const require = createRequire(import.meta.url)
 const publishFunction = require(resolve(process.cwd(), 'cloudfunctions/segmentationPublish/index.js')) as {
   _validatePayload: (payload: Record<string, unknown>) => unknown
+  _payloadFromHttpEvent: (event: Record<string, unknown>) => Record<string, unknown>
 }
 
 const payload = (polygon: number[][] = [[.1, .1], [.9, .1], [.1, .9]]) => ({
@@ -20,4 +21,8 @@ it('rejects self-intersecting polygons at the Cloud Function boundary', () => {
 it('rejects holds whose derived bbox or radius does not match the polygon', () => {
   expect(() => publishFunction._validatePayload(payload())).not.toThrow()
   expect(() => publishFunction._validatePayload({ ...payload(), holds: [{ ...payload().holds[0], bbox: [.1, .1, .8, .9] }] })).toThrow('INVALID_HOLDS')
+})
+
+it('parses JSON HTTP trigger bodies before validating the publish payload', () => {
+  expect(publishFunction._payloadFromHttpEvent({ body: JSON.stringify(payload()) })).toEqual(payload())
 })
