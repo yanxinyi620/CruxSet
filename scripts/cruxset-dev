@@ -3,11 +3,33 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RUNTIME_DIR="${RUNTIME_DIR:-$ROOT/.runtime/cruxset-dev}"
+ENV_FILE="${ENV_FILE:-/etc/cruxset.env}"
 PUBLISH_KEY='local-only-long-random-secret'
 PUBLISH_OWNER_ID='usr_web_lgjUPpx-3eu-s1_r'
+ACTION=''
+
+read_env_value() {
+  local key="$1"
+  [[ -f "$ENV_FILE" ]] || return 0
+  if [[ "$ENV_FILE" == /etc/* ]]; then
+    { sudo grep -E "^${key}=" "$ENV_FILE" 2>/dev/null || true; } | tail -n 1 | sed "s/^${key}=//"
+  else
+    { grep -E "^${key}=" "$ENV_FILE" 2>/dev/null || true; } | tail -n 1 | sed "s/^${key}=//"
+  fi
+}
+
+load_cloudbase_env() {
+  local key value
+  for key in CRUXSET_CLOUDBASE_STORAGE_URL CRUXSET_CLOUDBASE_FUNCTION_URL CRUXSET_CLOUDBASE_SIGNING_KEY CRUXSET_CLOUDBASE_OWNER_OPENID; do
+    [[ -n "${!key:-}" ]] && continue
+    value="$(read_env_value "$key")"
+    if [[ -n "$value" ]]; then export "$key=$value"; fi
+  done
+}
+
+load_cloudbase_env
 CLOUDBASE_STORAGE_URL="${CRUXSET_CLOUDBASE_STORAGE_URL:-https://cloud1-d0g8toggn7735e61e-1475845516.ap-shanghai.app.tcloudbase.com/api/storage-upload}"
 CLOUDBASE_FUNCTION_URL="${CRUXSET_CLOUDBASE_FUNCTION_URL:-https://cloud1-d0g8toggn7735e61e-1475845516.ap-shanghai.app.tcloudbase.com/api/segmentation-publish}"
-ACTION=''
 
 usage() { echo "Usage: ${0##*/} {start|stop|restart|status}" >&2; }
 parse_args() { ACTION="${1:-}"; [[ $# == 1 && "$ACTION" =~ ^(start|stop|restart|status)$ ]] || { usage; return 2; }; }

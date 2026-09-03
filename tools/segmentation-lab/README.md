@@ -37,7 +37,7 @@ export CRUXSET_WEB_URL='http://127.0.0.1:5173'
 
 CruxSet 和实验台都使用 `CRUXSET_SEGMENTATION_PUBLISH_KEY`。在校准结果列表点击“发布”，选择目标并确认墙面名称。目标默认是 `web`：只创建本机 CruxSet 的公开 Wall；不会因为配置了 CloudBase 就自动同步。选择 `cloudbase` 才只同步到小程序 CloudBase，选择 `both` 才会显式执行两路发布；两路互相独立，任一路失败都会保留另一条结果。`web` 发布结果会保存在校准记录中，并可打开 CruxSet 浏览地址。
 
-如需将同一份校准结果同步到 CloudBase，可在启动实验台前额外配置以下服务端环境变量（四项必须同时提供；不会暴露给浏览器）：
+如需将同一份校准结果同步到 CloudBase，可在 `/etc/cruxset.env` 配置签名密钥和管理员 OpenID，并在启动实验台前配置以下服务端环境变量（四项必须同时提供；不会暴露给浏览器）：
 
 ```bash
 export CRUXSET_CLOUDBASE_FUNCTION_URL='https://<cloud-function-endpoint>'

@@ -52,7 +52,7 @@ npm run web:build
     ./scripts/cruxset-dev restart
     ./scripts/cruxset-dev stop
 
-脚本固定使用本地开发发布密钥和发布者 ID，并将实验台连接到配置的 CloudBase HTTP 路由；日志与 PID 文件保存在未提交的 .runtime/cruxset-dev 目录。CloudBase 签名密钥和管理员 OpenID 仍需在启动脚本前以环境变量提供。下面的三终端方式保留用于排查。
+脚本固定使用本地开发发布密钥和发布者 ID，并将实验台连接到配置的 CloudBase HTTP 路由；日志与 PID 文件保存在未提交的 .runtime/cruxset-dev 目录。脚本启动时会从 `/etc/cruxset.env` 读取 `CRUXSET_CLOUDBASE_SIGNING_KEY` 和 `CRUXSET_CLOUDBASE_OWNER_OPENID`；也可用同名环境变量覆盖。下面的三终端方式保留用于排查。
 
 ```bash
 # 终端一：启动 CruxSet API
