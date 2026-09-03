@@ -218,6 +218,17 @@ export class WallCanvasView {
     return [x + this.offsetX, screenY + this.offsetY]
   }
 
+  private appendHoldPath(hold: Hold) {
+    const ctx = this.ctx
+    if (hold.polygon && hold.polygon.length >= 3) {
+      hold.polygon.forEach((point, index) => { const [x, y] = this.toScreen(point, this.opts.polygonCoordinates === 'pixels'); if (index) ctx.lineTo(x, y); else ctx.moveTo(x, y) })
+      ctx.closePath()
+    } else {
+      const [sx, sy] = this.toScreen([hold.x, hold.y])
+      ctx.arc(sx, sy, hold.radius * this.scale, 0, Math.PI * 2)
+    }
+  }
+
   redraw() {
     const ctx = this.ctx
     const w = this.viewportWidth
@@ -247,20 +258,29 @@ export class WallCanvasView {
     for (const hold of this.opts.holds) {
       const role = this.roleOf(hold.id)
       ctx.beginPath()
-      if (hold.polygon && hold.polygon.length >= 3) {
-        hold.polygon.forEach((point, index) => { const [x, y] = this.toScreen(point, this.opts.polygonCoordinates === 'pixels'); if (index) ctx.lineTo(x, y); else ctx.moveTo(x, y) })
-        ctx.closePath()
-      } else {
-        const [sx, sy] = this.toScreen([hold.x, hold.y])
-        ctx.arc(sx, sy, hold.radius * this.scale, 0, Math.PI * 2)
-      }
+      this.appendHoldPath(hold)
       if (role) {
-        ctx.lineWidth = 6
+        ctx.save()
+        ctx.beginPath()
+        ctx.rect(0, 0, w, h)
+        this.appendHoldPath(hold)
+        ctx.clip("evenodd")
+        ctx.beginPath()
+        this.appendHoldPath(hold)
+        ctx.lineWidth = 8
         ctx.strokeStyle = "#ffffff"
         ctx.stroke()
-        ctx.lineWidth = 2
+        ctx.beginPath()
+        this.appendHoldPath(hold)
+        ctx.lineWidth = 6
         ctx.strokeStyle = ROLE_COLORS[role]
         ctx.stroke()
+        ctx.beginPath()
+        this.appendHoldPath(hold)
+        ctx.lineWidth = 2
+        ctx.strokeStyle = "#ffffff"
+        ctx.stroke()
+        ctx.restore()
       }
     }
   }
