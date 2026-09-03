@@ -118,6 +118,8 @@ const fingerprintFor = payload => crypto.createHash('sha256').update(canonicaliz
 
 const receiptIdFor = requestId => `segmentation_${crypto.createHash('sha256').update(requestId).digest('hex')}`
 
+const existingReceiptFrom = async (transaction, receiptId) => (await transaction.collection('segmentationPublishes').where({ id: receiptId }).limit(1).get()).data[0]
+
 const ownerFor = async (db, ownerOpenid) => {
   const users = await db.collection('users').where({ openid: ownerOpenid }).limit(1).get()
   if (!users.data.length || !users.data[0].id) fail('OWNER_NOT_FOUND')
@@ -182,7 +184,10 @@ exports.main = async event => {
   const wallId = `wall_seg_${crypto.createHash('sha256').update(validated.publishRequestId).digest('hex').slice(0, 24)}`
   let result
   await db.runTransaction(async transaction => {
-    const existing = (await transaction.collection('segmentationPublishes').doc(receiptId).get()).data
+    // `doc(id).get()` throws when the document is absent in CloudBase. A
+    // query returns an empty array instead, which is the normal first-publish
+    // case while preserving the idempotency check for later retries.
+    const existing = await existingReceiptFrom(transaction, receiptId)
     if (existing) {
       if (existing.fingerprint !== fingerprint) fail('PUBLISH_REQUEST_CONFLICT')
       result = { wallId: existing.wallId, wallName: existing.wallName, holdCount: existing.holdCount, browsePath: `/wall/${existing.wallId}`, created: false }
@@ -225,4 +230,5 @@ exports._validatePayload = validatePayload
 exports._canonicalize = canonicalize
 exports._payloadFromHttpEvent = payloadFromHttpEvent
 exports._payloadFileIdFromHttpEvent = payloadFileIdFromHttpEvent
+exports._existingReceiptFrom = existingReceiptFrom
 exports._setCloudForTests = value => { cloud = value }

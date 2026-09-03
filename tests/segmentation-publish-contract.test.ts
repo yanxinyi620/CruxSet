@@ -1,12 +1,13 @@
 import { createRequire } from 'node:module'
 import { resolve } from 'node:path'
-import { expect, it } from 'vitest'
+import { expect, it, vi } from 'vitest'
 
 const require = createRequire(import.meta.url)
 const publishFunction = require(resolve(process.cwd(), 'wechat/cloudfunctions/segmentationPublish/index.js')) as {
   _validatePayload: (payload: Record<string, unknown>) => unknown
   _payloadFromHttpEvent: (event: Record<string, unknown>) => Record<string, unknown>
   _payloadFileIdFromHttpEvent: (event: Record<string, unknown>) => string | undefined
+  _existingReceiptFrom: (transaction: unknown, receiptId: string) => Promise<unknown>
 }
 
 const payload = (polygon: number[][] = [[.1, .1], [.9, .1], [.1, .9]]) => ({
@@ -31,4 +32,10 @@ it('parses JSON HTTP trigger bodies before validating the publish payload', () =
 it('accepts a tiny HTTP trigger body that references a signed payload object', () => {
   expect(publishFunction._payloadFileIdFromHttpEvent({ body: JSON.stringify({ payloadFileId: 'cloud://env.bucket/segmentation-payloads/publish.json' }) }))
     .toBe('cloud://env.bucket/segmentation-payloads/publish.json')
+})
+
+it('treats a missing idempotency receipt as a new publish instead of a document error', async () => {
+  const where = vi.fn(() => ({ limit: () => ({ get: async () => ({ data: [] }) }) }))
+  await expect(publishFunction._existingReceiptFrom({ collection: () => ({ where }) }, 'segmentation-new')).resolves.toBeUndefined()
+  expect(where).toHaveBeenCalledWith({ id: 'segmentation-new' })
 })
