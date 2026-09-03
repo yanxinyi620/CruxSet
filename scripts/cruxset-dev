@@ -5,6 +5,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RUNTIME_DIR="${RUNTIME_DIR:-$ROOT/.runtime/cruxset-dev}"
 PUBLISH_KEY='local-only-long-random-secret'
 PUBLISH_OWNER_ID='usr_web_lgjUPpx-3eu-s1_r'
+CLOUDBASE_STORAGE_URL="${CRUXSET_CLOUDBASE_STORAGE_URL:-https://cloud1-d0g8toggn7735e61e-1475845516.ap-shanghai.app.tcloudbase.com/api/storage-upload}"
+CLOUDBASE_FUNCTION_URL="${CRUXSET_CLOUDBASE_FUNCTION_URL:-https://cloud1-d0g8toggn7735e61e-1475845516.ap-shanghai.app.tcloudbase.com/api/segmentation-publish}"
 ACTION=''
 
 usage() { echo "Usage: ${0##*/} {start|stop|restart|status}" >&2; }
@@ -41,7 +43,7 @@ start_services() {
   wait_port 8000 || { stop_services; return 1; }
   start_one web 5173 "$ROOT" npm run web -- --host 0.0.0.0
   wait_port 5173 || { stop_services; return 1; }
-  start_one lab 8765 "$ROOT/tools/segmentation-lab" env SEG_LAB_DATA_DIR=./data CRUXSET_SEGMENTATION_PUBLISH_KEY="$PUBLISH_KEY" CRUXSET_BASE_URL=http://127.0.0.1:8000 CRUXSET_WEB_URL=http://127.0.0.1:5173 uv run uvicorn segmentation_lab.api:app --host 127.0.0.1 --port 8765
+  start_one lab 8765 "$ROOT/tools/segmentation-lab" env SEG_LAB_DATA_DIR=./data CRUXSET_SEGMENTATION_PUBLISH_KEY="$PUBLISH_KEY" CRUXSET_BASE_URL=http://127.0.0.1:8000 CRUXSET_WEB_URL=http://127.0.0.1:5173 CRUXSET_CLOUDBASE_STORAGE_URL="$CLOUDBASE_STORAGE_URL" CRUXSET_CLOUDBASE_FUNCTION_URL="$CLOUDBASE_FUNCTION_URL" uv run uvicorn segmentation_lab.api:app --host 127.0.0.1 --port 8765
   wait_port 8765 || { stop_services; return 1; }
   status_services
 }
