@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { expect, it } from 'vitest'
+import { setMockAdmin } from '../miniprogram/services/users.js'
+import { listAdminWalls } from '../miniprogram/services/walls.js'
 
 const read = (path: string) => readFileSync(resolve(path), 'utf8')
 
@@ -20,6 +22,16 @@ it('provides an explicit mock administrator switch for testing admin flows', () 
   const users = read('miniprogram/services/users.ts')
   expect(users).toContain('setMockAdmin')
   expect(users).toContain('currentUserIsAdmin')
+})
+
+it('keeps mock administrator identity aligned with administrator wall access', async () => {
+  setMockAdmin(false)
+  await expect(listAdminWalls()).rejects.toThrow('FORBIDDEN')
+
+  setMockAdmin(true)
+  await expect(listAdminWalls()).resolves.toEqual(expect.any(Array))
+
+  setMockAdmin(false)
 })
 
 it('requires administrator identity for every wall-management server action', () => {

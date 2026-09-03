@@ -1,11 +1,11 @@
 // @ts-nocheck
 import { call } from './cloud.js'
 import { isMockMode } from '../config/runtime.js'
-import { mockCurrentUserId } from './mock-repository.js'
+import { mockCurrentUserId, mockRepository } from './mock-repository.js'
 export const login = () => isMockMode()?Promise.resolve({userId:mockCurrentUserId}):call<{ userId: string }>('login')
 export const currentUserId = () => isMockMode() ? mockCurrentUserId : wx.getStorageSync('cruxset:userId') as string | undefined
 let mockAdmin = false
-export const setMockAdmin = (value: boolean) => { mockAdmin = value }
+export const setMockAdmin = (value: boolean) => { mockAdmin = value; mockRepository.setAdmin(value) }
 export const currentUserIsAdmin = async (): Promise<boolean> => {
   if (isMockMode()) return mockAdmin
   const result = await call<{ isAdmin?: boolean }>('wallManager', { action: 'getSession' })
