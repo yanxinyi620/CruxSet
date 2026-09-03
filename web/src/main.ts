@@ -22,6 +22,7 @@ import { DETECT_ROI_FALLBACK_MESSAGE, type Roi } from "./auto-detect.js";
 import { holdsForPersistence } from "./candidate-editor.js";
 import { clearDraft, loadDraft, saveDraft } from "./draft-storage.js";
 import { fromPreviewUrl, previewQuery, toPreviewUrl } from "./routes.js";
+import { toggleGradeFilter } from "./route-grade-filter.js";
 import {
   confirmAndDelete,
   confirmWallDeletion,
@@ -104,7 +105,7 @@ let authenticated = false,
   expandedWall = "",
   managementError = "",
   routeFilterAngle: number | undefined,
-  routeFilterGrade: Grade | undefined,
+  routeFilterGrades: Grade[] = [],
   selectedRouteId = "";
 let isAdmin = false,
   adminTab: "walls" | "users" = "walls",
@@ -115,13 +116,13 @@ let isAdmin = false,
 const initialQuery = typeof window === 'undefined' ? new URLSearchParams() : previewQuery(window.location.search);
 if (initialQuery.has('panel')) panel = initialQuery.get('panel') as typeof panel;
 routeFilterAngle = initialQuery.has('angle') ? Number(initialQuery.get('angle')) : undefined;
-routeFilterGrade = (initialQuery.get('grade') || undefined) as Grade | undefined;
+routeFilterGrades = (initialQuery.get('grade') || '').split(',').filter(Boolean) as Grade[];
 selectedRouteId = initialQuery.get('problem') || '';
 const syncUiUrl = (replace = false) => {
   const route = store.state.route;
   const query: Record<string, string | number | undefined> = {};
   if ((route.name === 'create' || route.name === 'me') && panel !== 'home') query.panel = panel;
-  if (route.name === 'route-browser') { query.angle = routeFilterAngle; query.grade = routeFilterGrade; query.problem = selectedRouteId; }
+  if (route.name === 'route-browser') { query.angle = routeFilterAngle; query.grade = routeFilterGrades.length ? routeFilterGrades.join(',') : undefined; query.problem = selectedRouteId; }
   if (typeof window !== 'undefined') window.history[replace ? 'replaceState' : 'pushState']({}, '', toPreviewUrl(route, query));
 };
 const adminDate = (timestamp: number) => new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(timestamp));
@@ -160,7 +161,7 @@ if (typeof window !== 'undefined') window.addEventListener('popstate', () => {
   }
   panel = (query.get('panel') || 'home') as typeof panel;
   routeFilterAngle = query.has('angle') ? Number(query.get('angle')) : undefined;
-  routeFilterGrade = (query.get('grade') || undefined) as Grade | undefined;
+  routeFilterGrades = (query.get('grade') || '').split(',').filter(Boolean) as Grade[];
   selectedRouteId = query.get('problem') || '';
   if (route.name !== 'wall-editor') wallCtx = null;
   if (route.name !== 'problem-editor') problemCtx = null;
@@ -645,7 +646,7 @@ const render = async () => {
     filteredRouteProblems = wallProblems.filter(
       (p) =>
         (routeFilterAngle === undefined || p.angle === routeFilterAngle) &&
-        (routeFilterGrade === undefined || p.grade === routeFilterGrade),
+        (routeFilterGrades.length === 0 || routeFilterGrades.includes(p.grade)),
     ),
     selectedRoute = filteredRouteProblems.find((p) => p.id === selectedRouteId),
     selectedRouteIndex = selectedRoute
@@ -655,7 +656,7 @@ const render = async () => {
       route.name === "route-browser" && selected
         ? selectedRoute
           ? `${back}<h1 class="route-detail-title">${h(selectedRoute.number)} ${h(selectedRoute.name || "")}</h1><p class="route-detail-meta">${h(selected.name)}<b>·</b>${selectedRoute.angle}°<b>·</b>${selectedRoute.grade}<b>·</b>${footLabels[selectedRoute.footRule]}</p><div id="route-preview"></div><div class="legend">${roles.map((x) => `<span><i style="background:${ROLE_COLORS[x]}"></i>${roleLabels[x]}</span>`).join("")}</div><div class="route-note">${h(selectedRoute.description || "")}</div><div class="route-pager"><button data-route-previous ${selectedRouteIndex === 0 ? "disabled" : ""}>‹ 上一条</button><button data-route-next ${selectedRouteIndex === filteredRouteProblems.length - 1 ? "disabled" : ""}>下一条 ›</button></div><button class="route-list-return" data-route-back-list>返回线路列表</button>${routeFullscreen ? '<div id="route-fullscreen-preview" class="route-fullscreen-preview" role="dialog" aria-modal="true"><button class="route-fullscreen-close" data-close-route-fullscreen aria-label="退出全屏">×</button><div id="route-fullscreen-canvas"></div></div>' : ""}`
-          : `${back}<h1>${h(selected.name)}</h1><div class="route-browser-filters"><button data-route-angle>角度：${routeFilterAngle === undefined ? "全部" : `${routeFilterAngle}°`}</button><button data-route-grade>难度：${routeFilterGrade ?? "全部"}</button></div><dialog class="choice-dialog" data-route-filter-dialog="angle"><h2>筛选角度</h2><button data-route-filter-angle="">全部</button>${routeAngles.map((angle) => `<button data-route-filter-angle="${angle}">${angle}°</button>`).join("")}<button data-route-filter-close>关闭</button></dialog><dialog class="choice-dialog" data-route-filter-dialog="grade"><h2>筛选难度</h2><button data-route-filter-grade="">全部</button>${grades.map((grade) => `<button data-route-filter-grade="${grade}">${grade}</button>`).join("")}<button data-route-filter-close>关闭</button></dialog><div class="route-browser-list">${filteredRouteProblems.map((p) => `<button class="problem-row" data-browse-problem="${h(p.id)}"><b>${h(p.number)}</b><em>${h(p.name || "未命名线路")} · ${p.angle}° · ${p.grade}</em></button>`).join("") || '<p class="lead">没有符合筛选条件的线路</p>'}</div>`
+          : `${back}<h1>${h(selected.name)}</h1><div class="route-browser-filters"><button data-route-angle>角度：${routeFilterAngle === undefined ? "全部" : `${routeFilterAngle}°`}</button><button data-route-grade>难度：${routeFilterGrades.length ? routeFilterGrades.join("、") : "全部"}</button></div><dialog class="choice-dialog" data-route-filter-dialog="angle"><h2>筛选角度</h2><button data-route-filter-angle="">全部</button>${routeAngles.map((angle) => `<button data-route-filter-angle="${angle}">${angle}°</button>`).join("")}<button data-route-filter-close>关闭</button></dialog><dialog class="choice-dialog" data-route-filter-dialog="grade"><h2>筛选难度</h2><button data-route-filter-grade="" aria-pressed="${routeFilterGrades.length === 0}">全部</button>${grades.map((grade) => `<button data-route-filter-grade="${grade}" aria-pressed="${routeFilterGrades.includes(grade)}">${grade}</button>`).join("")}<button data-route-filter-close>关闭</button></dialog><div class="route-browser-list">${filteredRouteProblems.map((p) => `<button class="problem-row" data-browse-problem="${h(p.id)}"><b>${h(p.number)}</b><em>${h(p.name || "未命名线路")} · ${p.angle}° · ${p.grade}</em></button>`).join("") || '<p class="lead">没有符合筛选条件的线路</p>'}</div>`
         : "",
     browse = routeBrowser || (selected
       ? `${back}<h1>${h(selected.name)}</h1><p>${selected.holds.length} 个岩点 · ${wallProblems.length} 条线路</p><div id="wall-preview"></div><button class="hero-card route-browser-entry" data-open-route-browser><b>浏览线路</b><span>按角度、难度查找并查看线路</span></button>`
@@ -847,7 +848,7 @@ const render = async () => {
     );
   root.querySelector<HTMLButtonElement>("[data-open-route-browser]")?.addEventListener("click", () => {
     routeFilterAngle = undefined;
-    routeFilterGrade = undefined;
+    routeFilterGrades = [];
     selectedRouteId = "";
     store.navigate({ name: "route-browser", wallId: selected!.id });
   });
@@ -871,11 +872,11 @@ const render = async () => {
   });
   root.querySelectorAll<HTMLButtonElement>("[data-route-filter-grade]").forEach((button) => {
     button.onclick = () => {
-      routeFilterGrade = (button.dataset.routeFilterGrade || undefined) as Grade | undefined;
+      const grade = button.dataset.routeFilterGrade as Grade | "";
+      routeFilterGrades = grade ? toggleGradeFilter(routeFilterGrades, grade) : [];
       selectedRouteId = "";
       syncUiUrl(true);
-      (button.closest("dialog") as HTMLDialogElement).close();
-      void render();
+      void render().then(() => (root.querySelector('[data-route-filter-dialog="grade"]') as HTMLDialogElement).showModal());
     };
   });
   root.querySelectorAll<HTMLButtonElement>("[data-browse-problem]").forEach((button) => {
