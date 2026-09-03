@@ -1,4 +1,4 @@
-from typing import Mapping
+from typing import Awaitable, Callable, Mapping
 from hashlib import sha256
 from io import BytesIO
 from pathlib import Path
@@ -18,10 +18,33 @@ from .config import Settings
 from .errors import SegmentationLabError
 from .experiments import ExperimentStore
 from .cruxset import CruxSetPublisher
+from .cloudbase_sync import CloudBaseSynchronizer, sync_calibration
 from .service import BenchmarkService
 
 
-def create_app(settings: Settings, adapters: Mapping[str, SegmentationAdapter] | None = None) -> FastAPI:
+PostSuccessHook = Callable[[ExperimentStore, str, str, dict[str, object]], Awaitable[object] | object]
+
+
+async def _run_post_success_hook(hook: PostSuccessHook, store: ExperimentStore, experiment_id: str, calibration_id: str, result: dict[str, object]) -> None:
+    """Run an optional side effect without changing the completed local response."""
+    try:
+        outcome = hook(store, experiment_id, calibration_id, result)
+        if hasattr(outcome, "__await__"):
+            await outcome
+    except Exception as error:
+        # Hooks are explicitly best-effort. Keep their status separate from
+        # the local ``publish`` receipt and never bubble the error to FastAPI.
+        store.record_calibration_sync(experiment_id, calibration_id, {
+            "publishRequestId": f"{experiment_id}:{calibration_id}",
+            "status": "failed",
+            "code": getattr(error, "code", "cloudbase_sync_failed"),
+            "message": str(error),
+            "retryable": bool(getattr(error, "retryable", True)),
+            "updatedAt": time.time(),
+        })
+
+
+def create_app(settings: Settings, adapters: Mapping[str, SegmentationAdapter] | None = None, post_success_hook: PostSuccessHook | None = None) -> FastAPI:
     app = FastAPI(title="Spraywall Segmentation Lab")
     store = ExperimentStore(settings.data_dir)
 
@@ -37,6 +60,19 @@ def create_app(settings: Settings, adapters: Mapping[str, SegmentationAdapter] |
         return {"status": "ok", "device": settings.device, "dataDir": str(settings.data_dir)}
 
     active_adapters = adapters or {"sam2": Sam2Adapter(), "sam2_tiled": Sam2Adapter(tiled=True), "sam3": Sam3Adapter()}
+
+    if post_success_hook is None and all((settings.cloudbase_function_url, settings.cloudbase_storage_url, settings.cloudbase_signing_key, settings.cloudbase_owner_openid)):
+        cloudbase = CloudBaseSynchronizer(
+            settings.cloudbase_function_url,
+            settings.cloudbase_signing_key,
+            storage_url=settings.cloudbase_storage_url,
+            owner_openid=settings.cloudbase_owner_openid,
+        )
+
+        async def configured_cloudbase_hook(store: ExperimentStore, experiment_id: str, calibration_id: str, _result: dict[str, object]) -> object:
+            return await sync_calibration(store, experiment_id, calibration_id, cloudbase)
+
+        post_success_hook = configured_cloudbase_hook
 
     @app.get("/api/models")
     def models() -> dict[str, list[dict[str, object]]]:
@@ -123,7 +159,7 @@ def create_app(settings: Settings, adapters: Mapping[str, SegmentationAdapter] |
         return {"items": store.read_calibration_candidates(experiment_id, calibration_id)}
 
     @app.post("/api/experiments/{experiment_id}/calibrations/{calibration_id}/publish", status_code=201)
-    async def publish_calibration(experiment_id: str, calibration_id: str, payload: dict[str, object] = Body(default={})) -> dict[str, object]:
+    async def publish_calibration(experiment_id: str, calibration_id: str, tasks: BackgroundTasks, payload: dict[str, object] = Body(default={})) -> dict[str, object]:
         experiment = next((item for item in store.list_experiments() if item["id"] == experiment_id), None)
         if experiment is None:
             raise SegmentationLabError("experiment_not_found", "Experiment was not found")
@@ -150,6 +186,8 @@ def create_app(settings: Settings, adapters: Mapping[str, SegmentationAdapter] |
         result = {**result, "browseUrl": f"{settings.cruxset_web_url}{result.get('browsePath', '')}"}
         record = {**result, "publishRequestId": metadata["publishRequestId"], "wallName": wall_name, "publishedAt": time.time(), "status": "succeeded"}
         store.record_calibration_publish(experiment_id, calibration_id, record)
+        if post_success_hook is not None:
+            tasks.add_task(_run_post_success_hook, post_success_hook, store, experiment_id, calibration_id, result)
         return result
 
     @app.get("/api/experiments/{experiment_id}/calibrations/{calibration_id}/export.svg")

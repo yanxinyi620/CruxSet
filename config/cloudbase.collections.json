@@ -4,7 +4,8 @@
     {"name":"walls","indexes":[{"fields":["name"],"order":"asc"}]},
     {"name":"problems","indexes":[{"fields":["wallId","angle","grade"]},{"fields":["number"],"order":"asc"},{"fields":["createdBy"]}]},
     {"name":"admins","indexes":[{"fields":["userId"],"unique":true}]},
-    {"name":"counters","indexes":[]}
+    {"name":"counters","indexes":[]},
+    {"name":"segmentationPublishes","indexes":[{"fields":["publishRequestId"],"unique":true},{"fields":["wallId"],"unique":true}]}
   ],
-  "writePolicy": {"clientWritable":[],"cloudFunctionWritable":["users","walls","problems","admins","counters"]}
+  "writePolicy": {"clientWritable":[],"cloudFunctionWritable":["users","walls","problems","admins","counters","segmentationPublishes"]}
 }

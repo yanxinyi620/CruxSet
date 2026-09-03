@@ -1,5 +1,5 @@
 {
   "client": { "read": [], "write": [], "readDeny": ["users", "admins", "counters", "walls", "problems"] },
-  "cloudFunctions": { "write": ["users", "walls", "problems", "admins", "counters"], "validateActor": true, "businessForeignKeys": "users.id" },
+  "cloudFunctions": { "write": ["users", "walls", "problems", "admins", "counters", "segmentationPublishes"], "validateActor": true, "businessForeignKeys": "users.id" },
   "notes": ["客户端不直接读写任何业务集合。", "OPENID 只允许在登录云函数中用于映射 users.id。", "Wall 与线路读写必须经过对应云函数。"]
 }
