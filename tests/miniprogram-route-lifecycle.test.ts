@@ -51,3 +51,20 @@ it('maps editor save failures instead of showing a fixed generic message', () =>
   expect(editor).toContain('cloudErrorMessage(error)')
   expect(editor).not.toContain("title:'保存失败，草稿已保留'")
 })
+
+it('blocks saving and shows a recovery action when editor loading fails', () => {
+  const editor = read('miniprogram/pages/problem/editor/index.ts')
+  const template = read('miniprogram/pages/problem/editor/index.wxml')
+  expect(editor).toContain('loadError')
+  expect(editor).toContain('navigateBack')
+  expect(editor).toMatch(/save\(\)[\s\S]*loadError/)
+  expect(template).toContain('{{error}}')
+  expect(template).toContain('返回')
+  expect(template).toMatch(/disabled="{{[^}]*loadError/)
+})
+
+it('reuses the loaded problem while entering edit mode', () => {
+  const editor = read('miniprogram/pages/problem/editor/index.ts')
+  expect(editor).toContain('const loadedProblem')
+  expect(editor).not.toMatch(/problemId\)[\s\S]*getProblem\(problemId\)[\s\S]*getProblem\(problemId\)/)
+})
