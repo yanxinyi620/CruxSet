@@ -3,17 +3,20 @@ import { demoProblems } from '../data/demo-problems.js'
 import type { Problem, ProblemHolds, Wall } from '../domain/types.js'
 export const mockCurrentUserId = 'usr_mock_owner'
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T
+const rolesList = ['start', 'foot', 'hand', 'assist', 'finish'] as const
 const roles = (holds?: Partial<ProblemHolds>): ProblemHolds => ({ start: holds?.start || [], foot: holds?.foot || [], hand: holds?.hand || [], assist: holds?.assist || [], finish: holds?.finish || [] })
 const validateUpdate = (problem: Problem, wall: Wall, draft: Partial<Problem>) => {
   if (wall.visibility !== 'public' || wall.holds.length < 2) throw new Error('WALL_NOT_ROUTABLE')
-  if (!wall.angleOptions.includes(draft.angle as number) || !/^V(?:[0-9]|1[0-2])$/.test(draft.grade as string) || (draft.description !== undefined && (typeof draft.description !== 'string' || draft.description.length > 500))) throw new Error('INVALID_ROUTE_METADATA')
+  if (!wall.angleOptions.includes(draft.angle as number) || !/^V(?:[0-9]|1[0-2])$/.test(draft.grade as string) || (draft.name !== undefined && (typeof draft.name !== 'string' || draft.name.length > 80)) || (draft.description !== undefined && (typeof draft.description !== 'string' || draft.description.length > 500))) throw new Error('INVALID_ROUTE_METADATA')
   const footRule = draft.footRule || 'feet_follow'
   if (!['feet_follow', 'specified', 'all'].includes(footRule)) throw new Error('INVALID_FOOT_RULE')
-  const selected = roles(draft.holds)
+  const draftHolds = draft.holds
+  if (!draftHolds || rolesList.some(role => !Array.isArray(draftHolds[role]))) throw new Error('INVALID_ROUTE_HOLDS')
+  const selected = roles(draftHolds)
   if (!selected.start.length || !selected.finish.length || (footRule === 'specified' && !selected.foot.length) || Object.values(selected).some(ids => !Array.isArray(ids))) throw new Error('INVALID_ROUTE_HOLDS')
   const ids = Object.values(selected).flat(), known = new Set(wall.holds.map(hold => hold.id))
-  if (new Set(ids).size !== ids.length || ids.some(id => !known.has(id))) throw new Error('INVALID_HOLD_ID')
-  return { ...problem, name: draft.name, description: draft.description, angle: draft.angle, grade: draft.grade, footRule, holds: selected, updatedAt: Date.now() }
+  if (new Set(ids).size !== ids.length || ids.some(id => typeof id !== 'string' || !known.has(id))) throw new Error('INVALID_HOLD_ID')
+  return { ...problem, name: draft.name ?? '', description: draft.description ?? '', angle: draft.angle, grade: draft.grade, footRule, holds: selected, updatedAt: Date.now() }
 }
 export class MockRepository {
   private walls = clone([demoWall, demoDraftWall]); private problems = clone(demoProblems)

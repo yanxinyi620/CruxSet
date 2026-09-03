@@ -11,9 +11,10 @@ function validateProblemUpdate (existing, wall, draft, actorId) {
   if (draft.name !== undefined && (typeof draft.name !== 'string' || draft.name.length > 80)) fail('INVALID_ROUTE_METADATA')
   const footRule = draft.footRule || 'feet_follow'
   if (!['feet_follow', 'specified', 'all'].includes(footRule)) fail('INVALID_FOOT_RULE')
+  if (!draft.holds || roles.some(role => !Array.isArray(draft.holds[role]))) fail('INVALID_ROUTE_HOLDS')
   const holds = Object.fromEntries(roles.map(role => [role, [...(draft.holds?.[role] || [])]]))
   if (!holds.start.length || !holds.finish.length || (footRule === 'specified' && !holds.foot.length)) fail('INVALID_ROUTE_HOLDS')
-  if (roles.some(role => !Array.isArray(draft.holds?.[role])) || Object.values(holds).some(ids => ids.some(id => typeof id !== 'string'))) fail('INVALID_ROUTE_HOLDS')
+  if (Object.values(holds).some(ids => ids.some(id => typeof id !== 'string'))) fail('INVALID_HOLD_ID')
   const ids = Object.values(holds).flat()
   const known = new Set(wall.holds.map(hold => hold && hold.id).filter(Boolean))
   if (new Set(ids).size !== ids.length || ids.some(id => !known.has(id))) fail('INVALID_HOLD_ID')
