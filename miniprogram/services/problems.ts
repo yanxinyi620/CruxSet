@@ -5,6 +5,7 @@ import { wallManager } from './walls.js'
 import { isMockMode } from '../config/runtime.js'
 import { mockRepository } from './mock-repository.js'
 export const saveProblem = (wallId: string, draft: Partial<Problem>) => isMockMode()?mockRepository.createProblem(wallId,draft):call<{ id: string; number: string }>('saveProblem', { wallId, draft })
+export const updateProblem = (id: string, draft: Partial<Problem>) => isMockMode() ? mockRepository.updateProblem(id, draft) : call<{ id: string; number: string }>('updateProblem', { id, draft })
 export const deleteProblem = (id: string) => isMockMode()?mockRepository.deleteProblem(id):wallManager('deleteProblem', { id }) as Promise<{ ok: boolean }>
 export const listProblems=(filter:Partial<Pick<Problem,'wallId'|'angle'|'grade'>>={})=>isMockMode()?mockRepository.listProblems(filter):wallManager('listProblems',filter as Record<string,unknown>) as Promise<Problem[]>
 export const listMyProblems=()=>isMockMode()?mockRepository.listMyProblems():wallManager('listMyProblems') as Promise<Problem[]>
