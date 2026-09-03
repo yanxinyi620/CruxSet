@@ -68,3 +68,12 @@ it('reuses the loaded problem while entering edit mode', () => {
   expect(editor).toContain('const loadedProblem')
   expect(editor).not.toMatch(/problemId\)[\s\S]*getProblem\(problemId\)[\s\S]*getProblem\(problemId\)/)
 })
+
+it('prevents duplicate route submissions while saving', () => {
+  const editor = read('miniprogram/pages/problem/editor/index.ts')
+  const template = read('miniprogram/pages/problem/editor/index.wxml')
+  expect(editor).toContain('saving')
+  expect(editor).toMatch(/save\(\)[\s\S]*saving[);][\s\S]*finally/)
+  expect(template).toMatch(/disabled="{{[^}]*saving/)
+  expect(template).toContain('loading="{{saving}}"')
+})
