@@ -1,19 +1,7 @@
 <view class="page create-page">
   <view class="preview-top"><view>CRUXSET</view><view class="preview-avatar"></view></view>
   <view class="page-title">创建</view>
-  <view class="page-lead">从这里开始新建内容，或继续完成尚未发布的墙面标注。</view>
-  <view class="create-hero" bindtap="createWall">
-    <view class="create-hero-mark">＋</view>
-    <view class="create-hero-kicker">从真实墙面开始</view>
-    <view class="create-hero-title">新建墙面</view>
-    <view class="create-hero-copy">上传照片、设置可见范围，然后开始首次标注。</view>
-  </view>
-  <view class="section-label">继续创建</view>
-  <view class="action-row" bindtap="openDrafts">
-    <view class="draft-symbol"><view>✦</view></view>
-    <view class="action-body"><view class="action-title">我的草稿</view><view class="action-meta">查看并继续标注未发布 墙面</view></view>
-    <view class="action-arrow">›</view>
-  </view>
+  <view class="page-lead">选择一个公开墙面，开始创建线路。</view>
   <view class="section-label">设置线路</view>
   <view class="wall-row" bindtap="createProblem">
     <view class="route-visual"></view>
