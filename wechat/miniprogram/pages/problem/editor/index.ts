@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { demoWall } from '../../../data/demo.js'
-import { ProblemEditor } from '../../../domain/editor.js'
+import ProblemEditor from '../../../domain/editor.js'
 import { getProblem, saveProblem, updateProblem } from '../../../services/problems.js'
 import { getWall } from '../../../services/walls.js'
 import { currentUserId } from '../../../services/users.js'

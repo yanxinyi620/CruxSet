@@ -22,6 +22,11 @@ it('uses the stable cloud error mapper in route lifecycle pages', () => {
   expect(sources).not.toContain("error.message||'加载失败，请稍后重试'")
 })
 
+it('imports the default ProblemEditor constructor in the route editor page', () => {
+  const editor = read('wechat/miniprogram/pages/problem/editor/index.ts')
+  expect(editor).toContain("import ProblemEditor from '../../../domain/editor.js'")
+})
+
 it('includes a public polygon wall fixture in the browse repository', () => {
   const data = read('wechat/miniprogram/data/demo.ts')
   const repository = read('wechat/miniprogram/services/mock-repository.ts')
