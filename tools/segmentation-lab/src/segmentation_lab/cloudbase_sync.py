@@ -43,6 +43,27 @@ def _invalid(code: str, message: str, retryable: bool = False) -> SegmentationLa
     return SegmentationLabError(code, message, retryable)
 
 
+def _cloudbase_error_detail(response: httpx.Response, fallback: str) -> str:
+    """Read safe, user-actionable error fields from a gateway response."""
+    try:
+        body = response.json()
+    except ValueError:
+        return fallback
+    if not isinstance(body, dict):
+        return fallback
+    error = body.get("error")
+    if isinstance(error, dict):
+        candidates = (error.get("message"), error.get("code"))
+    elif isinstance(error, str):
+        candidates = (error, body.get("message"), body.get("errMsg"), body.get("code"))
+    else:
+        candidates = (body.get("message"), body.get("errMsg"), body.get("code"))
+    for candidate in candidates:
+        if isinstance(candidate, str) and candidate.strip():
+            return candidate.strip()[:300]
+    return fallback
+
+
 def detect_image_content_type(content: bytes) -> str | None:
     """Detect the supported image type from its magic bytes, not its name."""
     if content.startswith(b"\x89PNG\r\n\x1a\n"):
@@ -402,11 +423,11 @@ class CloudBaseSynchronizer:
             except httpx.HTTPError as error:
                 raise _invalid("cloudbase_unavailable", "CloudBase publish function is unavailable", True) from error
         if not 200 <= response.status_code < 300:
-            try:
-                detail = response.json().get("error", {}).get("message", "CloudBase publish failed")
-            except ValueError:
-                detail = "CloudBase publish failed"
-            raise _invalid("cloudbase_publish_failed", str(detail), response.status_code >= 500)
+            raise _invalid(
+                "cloudbase_publish_failed",
+                _cloudbase_error_detail(response, "CloudBase publish failed"),
+                response.status_code >= 500,
+            )
         try:
             return response.json()
         except ValueError as error:

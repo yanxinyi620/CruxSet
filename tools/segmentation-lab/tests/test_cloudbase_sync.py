@@ -269,6 +269,38 @@ async def test_sync_reports_storage_http_statuses(status_code, retryable):
 
 
 @pytest.mark.anyio
+async def test_sync_surfaces_cloudbase_publish_gateway_errors():
+    async def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/storage":
+            return httpx.Response(201, json={"fileID": "cloud://wall/image.png"})
+        return httpx.Response(400, json={"code": "OWNER_NOT_FOUND", "message": "OWNER_NOT_FOUND"})
+
+    synchronizer = CloudBaseSynchronizer(
+        "https://function.example/publish",
+        "secret",
+        storage_url="https://function.example/storage",
+        owner_openid="missing-owner",
+        transport=httpx.MockTransport(handler),
+    )
+    with pytest.raises(SegmentationLabError) as error:
+        await synchronizer.publish(
+            b"\x89PNG\r\n\x1a\nimage",
+            "wall.png",
+            {
+                "publishRequestId": "request-1",
+                "sourceExperimentId": "experiment-1",
+                "sourceCalibrationId": "calibration-1",
+                "wallName": "Wall",
+                "imageWidth": 100,
+                "imageHeight": 80,
+                "holds": [{"id": "h", "polygon": [[0, 0], [50, 0], [0, 40]]}],
+            },
+        )
+    assert error.value.code == "cloudbase_publish_failed"
+    assert error.value.message == "OWNER_NOT_FOUND"
+
+
+@pytest.mark.anyio
 async def test_sync_failure_does_not_replace_local_publish_record(tmp_path):
     store = ExperimentStore(tmp_path)
     experiment = store.create("wall.png", "sha", 100, 80)
