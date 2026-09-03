@@ -37,6 +37,17 @@ export CRUXSET_WEB_URL='http://127.0.0.1:5173'
 
 CruxSet 和实验台都使用 `CRUXSET_SEGMENTATION_PUBLISH_KEY`。在校准结果列表点击“发布”，确认墙面名称后会创建一面新的公开 Wall；重复发布会创建新的 Wall。发布结果会保存在校准记录中，并可打开 CruxSet 浏览地址。
 
+如需将同一份校准结果同步到 CloudBase，可在启动实验台前额外配置以下服务端环境变量（四项必须同时提供；不会暴露给浏览器）：
+
+```bash
+export CRUXSET_CLOUDBASE_FUNCTION_URL='https://<cloud-function-endpoint>'
+export CRUXSET_CLOUDBASE_STORAGE_URL='https://<storage-upload-endpoint>'
+export CRUXSET_CLOUDBASE_SIGNING_KEY='与 segmentationPublish 云函数相同的密钥'
+export CRUXSET_CLOUDBASE_OWNER_OPENID='用于解析 CruxSet 用户的 OpenID'
+```
+
+点击“发布”后，实验台会先上传墙图，再调用 `segmentationPublish`；本地 FastAPI 发布与 CloudBase 同步互相独立，CloudBase 失败不会撤销本地发布，校准记录会保留同步状态。密钥只能放在本机服务端环境变量中，切勿提交到版本库。
+
 首次运行 `sam2` / `sam2_tiled` 时，Transformers 会下载 `facebook/sam2.1-hiera-large` 权重；需要联网并预留足够的磁盘空间。模型状态会在页面的“02 选择模型”中显示。`sam3` 需要另行安装其依赖并提供本地 checkpoint；未满足条件时会保持不可用。
 
 ## 推荐工作流
