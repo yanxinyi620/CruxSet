@@ -10,8 +10,6 @@ export const ROLE_COLORS: Record<HoldRole, string> = {
   assist: "#f08e63",
   finish: "#8f5fd9",
 }
-const NEUTRAL = "#c6c8e0"
-const NEUTRAL_EDGE = "#a9accc"
 const SNAP_PX = 20
 
 export interface WallCanvasOptions {
@@ -256,10 +254,8 @@ export class WallCanvasView {
         const [sx, sy] = this.toScreen([hold.x, hold.y])
         ctx.arc(sx, sy, hold.radius * this.scale, 0, Math.PI * 2)
       }
-      if (hold.polygon?.length) {
-        // Polygon interiors remain transparent so the original wall texture stays visible.
-      } else {
-        ctx.fillStyle = role ? ROLE_COLORS[role] : NEUTRAL
+      if (role && !hold.polygon?.length) {
+        ctx.fillStyle = ROLE_COLORS[role]
         ctx.fill()
       }
       if (role) {
@@ -268,10 +264,6 @@ export class WallCanvasView {
         ctx.stroke()
         ctx.lineWidth = 2
         ctx.strokeStyle = ROLE_COLORS[role]
-        ctx.stroke()
-      } else {
-        ctx.lineWidth = 1
-        ctx.strokeStyle = hold.polygon?.length ? "rgba(255,255,255,0)" : NEUTRAL_EDGE
         ctx.stroke()
       }
     }
