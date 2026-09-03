@@ -7,6 +7,7 @@ export const wallManager=(action:string,data:Record<string,unknown>={})=>call<an
 export const adminWall=(action:string,data:Record<string,unknown>={})=>call<any>('adminWall',{action,data})
 export const listWalls=()=>isMockMode()?mockRepository.listWalls():wallManager('listBrowseWalls') as Promise<Wall[]>
 export const listMyWalls=()=>isMockMode()?mockRepository.listMyWalls():wallManager('listMyWalls') as Promise<Wall[]>
+export const listAdminWalls=()=>isMockMode()?mockRepository.listAdminWalls():wallManager('listAdminWalls') as Promise<Wall[]>
 export const getWall=(id:string)=>isMockMode()?mockRepository.getWall(id):wallManager('getWall',{id}) as Promise<Wall>
 export const createWall=(data:Partial<Wall>)=>isMockMode()?mockRepository.createWall(data):adminWall('createWall',data as Record<string,unknown>) as Promise<Wall>
 export const updateWall=(id:string,patch:Partial<Wall>)=>isMockMode()?mockRepository.updateWall(id,patch):adminWall('updateWall',{id,...patch}) as Promise<Wall>

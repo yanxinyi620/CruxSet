@@ -8,6 +8,7 @@ export class MockRepository {
   private walls = clone([demoWall, demoDraftWall]); private problems = clone(demoProblems)
   async listWalls(){return clone(this.walls.filter(w=>w.visibility==='public'&&w.holds.length>=2))}
   async listMyWalls(){return clone(this.walls.filter(w=>w.ownerId===mockCurrentUserId))}
+  async listAdminWalls(){return clone(this.walls)}
   async getWall(id:string){const wall=this.walls.find(w=>w.id===id);if(!wall)throw new Error('WALL_NOT_FOUND');return clone(wall)}
   async createWall(data:Partial<Wall>){const now=Date.now(),wall:Wall={id:`wall_mock_${now}_${this.walls.length}`,name:data.name||'未命名墙面',description:data.description||'',imageFileId:data.imageFileId||'',imageWidth:data.imageWidth||0,imageHeight:data.imageHeight||0,geometryType:data.geometryType||'circle',holds:clone(data.holds||[]),angleOptions:data.angleOptions||[20,25,30,35,40,45],ownerId:mockCurrentUserId,visibility:'private',createdAt:now,updatedAt:now};this.walls.push(wall);return clone(wall)}
   async updateWall(id:string,patch:Partial<Wall>){const wall=this.walls.find(w=>w.id===id);if(!wall||wall.ownerId!==mockCurrentUserId)throw new Error('FORBIDDEN');if(wall.visibility==='public')throw new Error('WALL_LOCKED');Object.assign(wall,clone(patch),{id:wall.id,ownerId:wall.ownerId,visibility:'private',updatedAt:Date.now()});return clone(wall)}

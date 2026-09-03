@@ -24,6 +24,10 @@ exports.main = async event => {
   if (action === 'getSession') return { userId: actor.user.id, isAdmin: actor.isAdmin }
   if (action === 'listBrowseWalls') return (await db.collection('walls').where({ visibility: 'public' }).orderBy('name', 'asc').get()).data.filter(wall => Array.isArray(wall.holds) && wall.holds.length >= 2)
   if (action === 'listMyWalls') return (await db.collection('walls').where({ ownerId: actor.user.id }).orderBy('updatedAt', 'desc').get()).data
+  if (action === 'listAdminWalls') {
+    if (!actor.isAdmin) throw new Error('FORBIDDEN')
+    return (await db.collection('walls').orderBy('updatedAt', 'desc').get()).data
+  }
   if (action === 'getWall') return wallAccess(db, data.id, actor)
   if (action === 'listProblems') {
     const wall = await wallAccess(db, data.wallId, actor)
