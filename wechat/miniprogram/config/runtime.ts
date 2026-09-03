@@ -1,5 +1,7 @@
 export type RuntimeMode = 'mock' | 'cloudbase'
 
-export const runtimeMode: RuntimeMode = 'mock'
+export const runtimeMode: RuntimeMode = 'cloudbase'
 
-export const isMockMode = () => runtimeMode === 'mock'
+const mockModes: RuntimeMode[] = ['mock']
+
+export const isMockMode = () => mockModes.includes(runtimeMode)
