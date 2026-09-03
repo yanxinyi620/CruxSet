@@ -28,6 +28,7 @@ SUPPORTED_HOLD_KINDS = {"hold", "volume"}
 SUPPORTED_ANGLES = {20, 25, 30, 35, 40, 45}
 MIN_POLYGON_AREA = 1e-6
 TOP_EDGE_TOLERANCE_PIXELS = 4.0
+MAX_CLOUDBASE_POLYGON_POINTS = 12
 REQUIRED_METADATA = {
     "publishRequestId",
     "sourceExperimentId",
@@ -232,6 +233,81 @@ def build_normalized_holds(raw_holds: Any, width: int, height: int) -> list[dict
     return prepared
 
 
+def _rdp_indices(points: list[list[float]], start: int, end: int, tolerance: float) -> set[int]:
+    """Return significant indexes for an open segment using RDP."""
+    kept = {start, end}
+    stack = [(start, end)]
+    while stack:
+        left, right = stack.pop()
+        a, b = points[left], points[right]
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        length = math.hypot(dx, dy)
+        farthest_index, farthest_distance = None, -1.0
+        for index in range(left + 1, right):
+            point = points[index]
+            distance = math.hypot(point[0] - a[0], point[1] - a[1]) if length == 0 else abs(dy * point[0] - dx * point[1] + b[0] * a[1] - b[1] * a[0]) / length
+            if distance > farthest_distance:
+                farthest_index, farthest_distance = index, distance
+        if farthest_index is not None and farthest_distance > tolerance:
+            kept.add(farthest_index)
+            stack.extend(((left, farthest_index), (farthest_index, right)))
+    return kept
+
+
+def _simplified_polygon(polygon: list[list[float]], max_points: int = MAX_CLOUDBASE_POLYGON_POINTS) -> list[list[float]]:
+    if len(polygon) <= max_points:
+        return [list(point) for point in polygon]
+    opposite = max(range(1, len(polygon)), key=lambda index: (polygon[index][0] - polygon[0][0]) ** 2 + (polygon[index][1] - polygon[0][1]) ** 2)
+    doubled = polygon + polygon[1:opposite + 1]
+    extrema = {
+        min(range(len(polygon)), key=lambda index: polygon[index][0]),
+        max(range(len(polygon)), key=lambda index: polygon[index][0]),
+        min(range(len(polygon)), key=lambda index: polygon[index][1]),
+        max(range(len(polygon)), key=lambda index: polygon[index][1]),
+    }
+    diagonal = math.hypot(max(point[0] for point in polygon) - min(point[0] for point in polygon), max(point[1] for point in polygon) - min(point[1] for point in polygon))
+    low, high, selected = 0.0, diagonal, set(range(len(polygon)))
+    for _ in range(32):
+        tolerance = (low + high) / 2
+        indexes = _rdp_indices(doubled, 0, opposite, tolerance)
+        indexes.update(index % len(polygon) for index in _rdp_indices(doubled, opposite, len(doubled) - 1, tolerance))
+        indexes.update(extrema)
+        if len(indexes) <= max_points:
+            selected, high = indexes, tolerance
+        else:
+            low = tolerance
+    # RDP can jump from many points to only the extrema on smooth shapes.
+    # Fill unused budget with evenly distributed source vertices to preserve
+    # area and curvature while still honoring the hard point cap.
+    for slot in range(max_points):
+        if len(selected) >= max_points:
+            break
+        selected.add((slot * len(polygon)) // max_points)
+    simplified = [list(polygon[index]) for index in sorted(selected)]
+    if len(simplified) < 3 or _has_self_intersection(simplified) or abs(_signed_area(simplified)) < MIN_POLYGON_AREA:
+        return [list(point) for point in polygon]
+    return simplified
+
+
+def build_cloudbase_holds(holds: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Create compact published holds without changing source calibration data."""
+    compact: list[dict[str, Any]] = []
+    for hold in holds:
+        polygon = _simplified_polygon(hold["polygon"])
+        xs, ys = [point[0] for point in polygon], [point[1] for point in polygon]
+        x, y = _polygon_centroid(polygon)
+        area = abs(_signed_area(polygon))
+        compact.append({
+            **hold,
+            "polygon": polygon,
+            "x": x,
+            "y": y,
+            "radius": math.sqrt(area / math.pi),
+            "bbox": [min(xs), min(ys), max(xs), max(ys)],
+        })
+    return compact
+
+
 def _canonical_json(payload: dict[str, Any]) -> str:
     """Serialize like Node's JSON.stringify, including exponent spelling."""
     def number(value: float | int) -> str:
@@ -413,6 +489,7 @@ class CloudBaseSynchronizer:
         if not self.function_url or not self.signing_key or not self.owner_openid:
             raise _invalid("cloudbase_not_configured", "CloudBase synchronizer is not configured")
         payload = self.validate_metadata(metadata)
+        payload["holds"] = build_cloudbase_holds(payload["holds"])
         async with httpx.AsyncClient(transport=self.transport, timeout=self.timeout) as client:
             file_id = await self._upload_image(client, image, filename)
             signed_payload = {**payload, "imageFileId": file_id, "ownerOpenid": self.owner_openid, "timestamp": int(time.time())}

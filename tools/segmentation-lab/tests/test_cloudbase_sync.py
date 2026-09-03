@@ -1,12 +1,14 @@
 import json
 import hashlib
 import hmac
+import math
 
 import httpx
 import pytest
 
 from segmentation_lab.cloudbase_sync import (
     CloudBaseSynchronizer,
+    build_cloudbase_holds,
     build_normalized_holds,
     normalize_polygon,
     _canonical_json,
@@ -38,6 +40,24 @@ def test_build_normalized_holds_sorts_and_assigns_stable_contiguous_ids():
     assert holds[0]["x"] == pytest.approx(0.2)
     assert holds[0]["y"] == pytest.approx(0.2083333333)
     assert holds[0]["radius"] > 0
+
+
+def test_cloudbase_holds_simplify_only_the_published_polygons():
+    polygon = [[
+        50 + 40 * math.cos(index * 2 * math.pi / 32),
+        50 + 40 * math.sin(index * 2 * math.pi / 32),
+    ] for index in range(32)]
+    original = build_normalized_holds([{"id": "circle", "polygon": polygon}], 100, 100)
+    published = build_cloudbase_holds(original)
+
+    assert len(original[0]["polygon"]) == 32
+    assert len(published[0]["polygon"]) <= 12
+    assert published[0]["id"] == original[0]["id"]
+    assert published[0]["sourceId"] == original[0]["sourceId"]
+    assert published[0]["bbox"] == pytest.approx([0.1, 0.1, 0.9, 0.9])
+    assert published[0]["x"] == pytest.approx(0.5, abs=0.02)
+    assert published[0]["y"] == pytest.approx(0.5, abs=0.02)
+    assert published[0]["radius"] == pytest.approx(0.4, rel=0.08)
 
 
 def test_hold_uses_area_centroid_and_normalized_bbox():
