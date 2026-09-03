@@ -92,6 +92,23 @@ it('returns a short-lived direct upload grant for signed JSON metadata', async (
   expect(request).toEqual({ api: 'storage.getUploadMetaData', data: { path: expect.stringMatching(/^segmentation\/[a-z0-9-]+\.png$/) } })
 })
 
+it('accepts signed JSON metadata up to 30 seconds ahead of the CloudBase clock', async () => {
+  const storageUpload = require(resolve(process.cwd(), 'wechat/cloudfunctions/storageUpload/index.js')) as {
+    main: (event: Record<string, unknown>) => Promise<unknown>
+    _setCloudForTests: (cloud: { callOpenAPI: () => Promise<unknown> }) => void
+  }
+  storageUpload._setCloudForTests({
+    callOpenAPI: async () => ({ result: { data: { fileID: 'cloud://cruxset/segmentation/image.png', uploadUrl: 'https://cos.example/upload', authorization: 'auth', token: 'token', cloudObjectMeta: 'meta' } } }),
+  })
+  const futureTimestamp = String(Math.floor(Date.now() / 1000) + 30)
+  const metadata = metadataFor(pngBytes, futureTimestamp)
+  await expect(storageUpload.main({
+    body: JSON.stringify(metadata), httpMethod: 'POST', headers: {
+      'content-type': 'application/json', 'x-cruxset-signature': sign(metadata, secret),
+    },
+  })).resolves.toMatchObject({ fileID: 'cloud://cruxset/segmentation/image.png' })
+})
+
 it('logs non-sensitive clock diagnostics before rejecting a future signed timestamp', async () => {
   const storageUpload = require(resolve(process.cwd(), 'wechat/cloudfunctions/storageUpload/index.js')) as {
     main: (event: Record<string, unknown>) => Promise<unknown>

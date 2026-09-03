@@ -16,6 +16,7 @@ const MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 const MAX_MULTIPART_OVERHEAD = 1024 * 1024
 const MAX_REQUEST_BYTES = MAX_UPLOAD_BYTES + MAX_MULTIPART_OVERHEAD
 const SIGNATURE_MAX_AGE_SECONDS = 300
+const SIGNATURE_FUTURE_SKEW_SECONDS = 30
 const CONTENT_TYPES = new Map([
   ['image/png', 'png'],
   ['image/jpeg', 'jpg'],
@@ -221,7 +222,7 @@ const main = async event => {
       serverTimestamp: now,
       differenceSeconds: Number(timestamp) - now,
     })
-    if (Number(timestamp) > now) fail('REQUEST_IN_FUTURE')
+    if (Number(timestamp) - now > SIGNATURE_FUTURE_SKEW_SECONDS) fail('REQUEST_IN_FUTURE')
     if (now - Number(timestamp) > SIGNATURE_MAX_AGE_SECONDS) fail('REQUEST_EXPIRED')
     const signature = header(event.headers, 'x-cruxset-signature')
     const expected = crypto.createHmac('sha256', secretFromEnvironment()).update(canonicalize(required)).digest('hex')
