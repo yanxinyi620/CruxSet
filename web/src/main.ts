@@ -418,14 +418,13 @@ const renderProblemEditor = () => {
 
 const openWallEditor = async (wallId: string) => {
   const wall = await store.session.getWall(wallId);
-  const saved = loadDraft<{ holds: Hold[]; mode: DraftMode; selected: string | null; kind: 'hold' | 'volume'; dirty: boolean }>(`wall:${wallId}`);
   wallCtx = {
     wall,
-    editor: new WallHoldEditor(saved?.holds ?? wall.holds),
-    mode: saved?.mode ?? "view",
-    selected: saved?.selected ?? null,
-    kind: saved?.kind ?? "hold",
-    dirty: saved?.dirty ?? false,
+    editor: new WallHoldEditor(wall.holds),
+    mode: "view",
+    selected: null,
+    kind: "hold",
+    dirty: false,
     published: wall.visibility === "public",
     detecting: false,
     manualCalibration: false,
@@ -448,14 +447,12 @@ const renderWallEditor = () => {
       dirty: c.dirty,
       holdCount: holds.length,
     });
-  saveDraft(`wall:${c.wall.id}`, { holds, mode: c.mode, selected: c.selected, kind: c.kind, dirty: c.dirty });
   c.canvas?.destroy();
   const manualControls = c.manualCalibration ? `<div class="annotation-mode-toolbar">${([['view', '查看'], ['add', '添加'], ['move', '移动'], ['delete', '删除']] as const).map(([mode, label]) => `<button class="annotation-mode ${c.mode === mode ? 'active' : ''}" data-mode="${mode}" ${state.canEdit ? '' : 'disabled'}>${label}</button>`).join('')}</div><div class="annotation-history-toolbar"><button data-undo ${state.canEdit && c.editor.canUndo() ? '' : 'disabled'}>撤销</button><button data-redo ${state.canEdit && c.editor.canRedo() ? '' : 'disabled'}>恢复</button><button data-clear ${state.canEdit ? '' : 'disabled'}>清空</button></div>` : '';
   root.innerHTML = `<div class="device secondary-page"><main><button class="back-button" data-exit aria-label="返回">‹</button><div class="editor-head"><h1>标注墙面</h1><p>${h(c.wall.name)} · ${holds.length} 个岩点</p></div><div class="annotation-primary-toolbar"><button class="${c.manualCalibration ? '' : 'annotation-primary-active'}" data-detect ${state.canEdit && !c.detecting ? '' : 'disabled'}>${c.detecting ? '识别中…' : '自动识别'}</button><button class="${c.manualCalibration ? 'annotation-primary-active' : ''}" data-manual-calibration ${state.canEdit ? '' : 'disabled'}>手动校准</button></div>${manualControls}<div id="draft-canvas"></div><div class="editor-actions"><button data-save-wall ${state.canSave ? "" : "disabled"}>保存草稿</button><button data-publish-wall ${state.canPublish ? "" : "disabled"}>发布墙面</button></div><p class="editor-toast">${h(c.toast)}</p></main></div>`;
   root.querySelector("[data-exit]")!.addEventListener("click", () => {
     c.canvas?.destroy();
     wallCtx = null;
-    clearDraft(`wall:${c.wall.id}`);
     panel = "drafts";
     store.navigate({ name: "create" });
   });
@@ -495,6 +492,7 @@ const renderWallEditor = () => {
   });
   root.querySelector("[data-clear]")?.addEventListener("click", () => {
     if (!state.canEdit) return;
+    if (!confirm("确认一键清空所有岩点？")) return;
     c.editor.replace([]);
     c.dirty = true;
     renderWallEditor();
@@ -509,7 +507,6 @@ const renderWallEditor = () => {
           holdsForPersistence(c.editor.value()),
         );
         c.dirty = false;
-        clearDraft(`wall:${c.wall.id}`);
         c.toast = "草稿已保存";
       } catch (e) {
         wallActionFailure(c, e, "保存失败");
@@ -527,7 +524,6 @@ const renderWallEditor = () => {
         );
         c.published = true;
         c.dirty = false;
-        clearDraft(`wall:${c.wall.id}`);
         c.toast = "墙面已公开并锁定";
       } catch (e) {
         wallActionFailure(c, e, "发布失败");
