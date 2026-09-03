@@ -3,6 +3,11 @@ import { clampTransform, screenToImage, zoomAroundAnchor } from "../../miniprogr
 
 export type DraftMode = 'add' | 'move' | 'delete'
 
+export const canvasBitmapSize = (width: number, height: number, devicePixelRatio: number) => ({
+  width: Math.round(width * devicePixelRatio),
+  height: Math.round(height * devicePixelRatio),
+})
+
 export interface DraftCanvasOptions {
   imageUrl: string
   imageWidth: number
@@ -93,6 +98,8 @@ export class DraftCanvasView {
   private offsetX = 0
   private offsetY = 0
   private readonly aspect: number
+  private readonly viewportWidth: number
+  private readonly viewportHeight: number
   private readonly minScale: number
   private readonly maxScale: number
   private down = false
@@ -115,13 +122,19 @@ export class DraftCanvasView {
 
     this.aspect = opts.imageHeight / opts.imageWidth
     const width = Math.max(container.clientWidth || 360, 200)
+    const height = width * this.aspect
+    const dpr = Math.max(window.devicePixelRatio || 1, 1)
+    const bitmap = canvasBitmapSize(width, height, dpr)
+    this.viewportWidth = width
+    this.viewportHeight = height
     this.scale = this.minScale = width
     this.maxScale = width * 5
-    this.canvas.width = Math.round(width)
-    this.canvas.height = Math.round(width * this.aspect)
+    this.canvas.width = bitmap.width
+    this.canvas.height = bitmap.height
     this.canvas.style.width = width + "px"
-    this.canvas.style.height = width * this.aspect + "px"
+    this.canvas.style.height = height + "px"
     this.canvas.style.touchAction = "none"
+    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     this.offsetY = 0
 
     this.bindEvents()
@@ -196,7 +209,7 @@ export class DraftCanvasView {
       }
       this.offsetX += dx
       this.offsetY += dy
-      this.applyTransform(clampTransform({ scale: this.scale, offsetX: this.offsetX, offsetY: this.offsetY }, this.canvas.width, this.canvas.height, 1, this.aspect))
+      this.applyTransform(clampTransform({ scale: this.scale, offsetX: this.offsetX, offsetY: this.offsetY }, this.viewportWidth, this.viewportHeight, 1, this.aspect))
       this.redraw()
     })
     const up = (e: PointerEvent) => {
@@ -275,8 +288,8 @@ export class DraftCanvasView {
 
   redraw() {
     const ctx = this.ctx
-    const w = this.canvas.width
-    const h = this.canvas.height
+    const w = this.viewportWidth
+    const h = this.viewportHeight
     ctx.clearRect(0, 0, w, h)
     ctx.fillStyle = "#f2f2fa"
     ctx.fillRect(0, 0, w, h)
