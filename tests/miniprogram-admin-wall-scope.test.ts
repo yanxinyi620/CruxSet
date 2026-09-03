@@ -38,3 +38,15 @@ it('removes wall mutation actions from the mini-program cloud boundary', () => {
   expect(service).toContain('listAdminWalls')
   expect(service).toContain('deleteWall')
 })
+
+it('keeps phase-one verification and docs aligned with the admin-only contract', () => {
+  const verifier = read('scripts/verify-phase1.mjs')
+  const cloudDocs = read('cloudfunctions/README.md')
+  const testDocs = read('docs/testing.md')
+  expect(verifier).toContain('INVALID_ACTION')
+  expect(verifier).not.toContain('wall client action contract is incomplete')
+  expect(cloudDocs).toContain('listAdminWalls')
+  expect(cloudDocs).toContain('deleteWall')
+  expect(cloudDocs).not.toContain('拥有者或管理员创建')
+  expect(testDocs).not.toContain('adminWall 的 create、update、publish')
+})

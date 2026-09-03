@@ -5,7 +5,8 @@
 - `login`：OPENID → `users.id`
 - `saveProblem`：服务端校验并生成线路编号
 - `deleteProblem`：创建者或管理员删除线路
-- `adminWall`：拥有者或管理员创建、标注和发布 Wall
+- `adminWall`：已停用的小程序墙面变更入口；墙面创建、标注和发布不通过小程序执行。
+- `wallManager`：公开墙面浏览；`listAdminWalls` 与 `deleteWall` 仅允许管理员调用。
 - `getWallImageUrl`：按 Wall 的公开状态和拥有权换取墙图临时地址
 
 云函数必须从数据库重新读取 Wall、User 和 Admin，不能信任客户端传入的权限或 Hold 数据。

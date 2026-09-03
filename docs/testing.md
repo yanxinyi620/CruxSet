@@ -35,7 +35,7 @@ uv run --extra test pytest -s -q
 
 ## CloudBase 与真机
 
-- [ ] `adminWall` 的 create、update、publish 使用 `{ action, data }` 信封，更新接受 `{ id, ...patch }`。
+- [ ] 小程序不暴露墙面 create、update、hold annotation、publish 动作；`wallManager` 的 `listAdminWalls` 与 `deleteWall` 仅管理员可用。
 - [ ] 私有 Wall 图仅所有者或管理员能通过 `getWallImageUrl` 预览；公开墙图正常显示。
 - [ ] 普通用户不能修改他人私有 Wall，不能取得无关联私有文件的访问地址。
 - [ ] 发布前不足两个 Hold 返回 `WALL_NOT_ROUTABLE`；发布后更新返回 `WALL_LOCKED`。
