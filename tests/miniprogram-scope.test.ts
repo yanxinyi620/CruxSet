@@ -44,3 +44,23 @@ it('keeps administrator wall management reachable from My for later admin gating
   expect(source).toContain('openProblems')
   expect(source).toContain('/pages/me/problems/index')
 })
+
+it('gates the My wall-management entry on the cloud administrator status', () => {
+  const source = read('miniprogram/pages/me/index.ts') + read('miniprogram/pages/me/index.wxml')
+
+  expect(source).toContain('isAdmin')
+  expect(source).toMatch(/isAdmin[\s\S]*openWalls|openWalls[\s\S]*isAdmin/)
+  expect(source).toContain('wx:if="{{isAdmin}}"')
+})
+
+it('leaves removed wall creation and draft pages without executable handlers', () => {
+  const sources = [
+    read('miniprogram/pages/admin/index.ts'),
+    read('miniprogram/pages/admin/index.wxml'),
+    read('miniprogram/pages/create/drafts/index.ts'),
+    read('miniprogram/pages/create/drafts/index.wxml'),
+  ].join('\n')
+
+  expect(sources).not.toMatch(/createWall|resumeDraft|pages\/admin\/wall-editor/)
+  expect(sources).not.toMatch(/bindtap="(?:create|resumeDraft|chooseImage)"/)
+})

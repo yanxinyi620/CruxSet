@@ -1,1 +1,1 @@
-<view class="page"><view class="page-title">我的草稿</view><view class="page-lead">仅在这里继续墙面标注。</view><view wx:for="{{drafts}}" wx:key="id" class="action-row" data-wall-id="{{item.id}}" bindtap="resumeDraft"><view>{{item.name}}</view><view class="muted">墙面标注草稿</view></view><view wx:if="{{!drafts.length}}" class="empty">暂无草稿墙面</view></view>
+<view class="page"><view class="title">墙面草稿不可用</view></view>

@@ -1,1 +1,1 @@
-<view class="page"><view class="eyebrow">My Wall</view><view class="title">新建墙面</view><input class="field" placeholder="墙面名称" bindinput="setWallName"/><button class="button upload" bindtap="chooseImage">{{imageFileId?'重新上传墙图':'选择墙图'}}</button><image wx:if="{{imagePath}}" class="preview" src="{{imagePath}}" mode="aspectFill"/><view class="muted">创建后将进入墙面标注页面</view><button class="button" loading="{{saving}}" bindtap="create">创建并开始标注</button></view>
+<view class="page"><view class="title">墙面创建不可用</view></view>
