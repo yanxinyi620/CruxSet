@@ -11,7 +11,6 @@ import hashlib
 import hmac
 import json
 import math
-import mimetypes
 import time
 from decimal import Decimal
 from pathlib import Path
@@ -40,6 +39,17 @@ REQUIRED_METADATA = {
 
 def _invalid(code: str, message: str, retryable: bool = False) -> SegmentationLabError:
     return SegmentationLabError(code, message, retryable)
+
+
+def detect_image_content_type(content: bytes) -> str | None:
+    """Detect the supported image type from its magic bytes, not its name."""
+    if content.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if content.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if len(content) >= 12 and content[:4] == b"RIFF" and content[8:12] == b"WEBP":
+        return "image/webp"
+    return None
 
 
 def normalize_polygon(polygon: Any, width: int, height: int) -> list[list[float]]:
@@ -287,14 +297,35 @@ class CloudBaseSynchronizer:
     async def _upload_image(self, client: httpx.AsyncClient, image: bytes, filename: str) -> str:
         if not self.storage_url:
             raise _invalid("cloudbase_storage_not_configured", "CloudBase Storage endpoint is not configured")
+        safe_filename = Path(str(filename).replace("\\", "/")).name or "upload"
+        content_type = detect_image_content_type(image)
+        if content_type is None:
+            raise _invalid("cloudbase_invalid_image", "CloudBase upload requires a valid PNG, JPEG, or WebP image")
+        timestamp = str(int(time.time()))
+        signed_metadata = {
+            "timestamp": timestamp,
+            "filename": safe_filename,
+            "contentType": content_type,
+            "contentSha256": hashlib.sha256(image).hexdigest(),
+            "contentLength": len(image),
+        }
+        signature = hmac.new(self.signing_key.encode(), _canonical_json(signed_metadata).encode(), hashlib.sha256).hexdigest()
         try:
             response = await client.post(
                 self.storage_url,
-                files={"file": (Path(filename).name, image, mimetypes.guess_type(filename)[0] or "application/octet-stream")},
+                files={"file": (safe_filename, image, content_type)},
+                headers={
+                    "x-cruxset-timestamp": timestamp,
+                    "x-cruxset-filename": safe_filename,
+                    "x-cruxset-content-type": content_type,
+                    "x-cruxset-content-sha256": signed_metadata["contentSha256"],
+                    "x-cruxset-content-length": str(len(image)),
+                    "x-cruxset-signature": signature,
+                },
             )
         except httpx.HTTPError as error:
             raise _invalid("cloudbase_unavailable", "CloudBase Storage is unavailable", True) from error
-        if response.status_code >= 400:
+        if not 200 <= response.status_code < 300:
             raise _invalid("cloudbase_storage_failed", "CloudBase image upload failed", response.status_code >= 500)
         try:
             payload = response.json()
@@ -318,7 +349,7 @@ class CloudBaseSynchronizer:
                 response = await client.post(self.function_url, json=request_payload, headers={"x-cruxset-signature": signature})
             except httpx.HTTPError as error:
                 raise _invalid("cloudbase_unavailable", "CloudBase publish function is unavailable", True) from error
-        if response.status_code >= 400:
+        if not 200 <= response.status_code < 300:
             try:
                 detail = response.json().get("error", {}).get("message", "CloudBase publish failed")
             except ValueError:
@@ -349,7 +380,7 @@ async def sync_calibration(store: ExperimentStore, experiment_id: str, calibrati
             "holds": store.read_calibration_candidates(experiment_id, calibration_id),
         }
         result = await synchronizer.publish(image_path.read_bytes(), str(experiment["imageName"]), metadata)
-        receipt = {**result, "publishRequestId": request_id, "status": "succeeded", "updatedAt": time.time()}
+        receipt = {**result, "target": "cloudbase", "publishRequestId": request_id, "status": "succeeded", "updatedAt": time.time()}
         store.record_calibration_sync(experiment_id, calibration_id, receipt)
         return result
     except Exception as error:
@@ -357,7 +388,7 @@ async def sync_calibration(store: ExperimentStore, experiment_id: str, calibrati
             sync_error = error
         else:
             sync_error = _invalid("cloudbase_sync_failed", str(error), True)
-        store.record_calibration_sync(experiment_id, calibration_id, {"publishRequestId": request_id, "status": "failed", "code": sync_error.code, "message": sync_error.message, "retryable": sync_error.retryable, "updatedAt": time.time()})
+        store.record_calibration_sync(experiment_id, calibration_id, {"target": "cloudbase", "publishRequestId": request_id, "status": "failed", "code": sync_error.code, "message": sync_error.message, "retryable": sync_error.retryable, "updatedAt": time.time()})
         raise sync_error
 
 

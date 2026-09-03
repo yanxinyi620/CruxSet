@@ -178,7 +178,7 @@
     .confirm-actions .confirm-delete { background: #b84a43; border-color: #b84a43; color: #fff; }
     .confirm-actions .confirm-publish { background: #23877f; border-color: #23877f; color: #fff; }
     .publish-form label { display: block; margin: 14px 0; color: #536158; font: 13px system-ui; }
-    .publish-form input { width: 100%; margin-top: 6px; box-sizing: border-box; }
+    .publish-form input, .publish-form select { width: 100%; margin-top: 6px; box-sizing: border-box; }
     .publish-message { min-height: 21px; margin: 12px 0; }
     .publish-message.error { color: #8e302b; }
     .run-modal { display:none; position:fixed; inset:0; z-index:9; align-items:center; justify-content:center; background:#17211d55; }
@@ -301,6 +301,7 @@
       <div class="confirm-card publish-form">
         <h2>发布到 CruxSet</h2>
         <p>将当前校准结果发布为一面新的公开墙面，原图和岩点会一并保存。</p>
+        <label>发布目标<select id="publishTarget"><option value="web" selected>本地 Web</option><option value="cloudbase">小程序 CloudBase</option><option value="both">本地 Web + CloudBase</option></select></label>
         <label>墙面名称<input id="publishName" type="text" maxlength="100" placeholder="例如：日坛 Spraywall · 2026-08-31" /></label>
         <p id="publishMessage" class="publish-message"></p>
         <div class="confirm-actions"><button id="publishCancel">取消</button><button id="publishSubmit" class="confirm-publish">确认发布</button></div>
@@ -336,10 +337,11 @@
       function del(url) { pendingDelete = url; $("#confirm").classList.add("open"); }
       function closeConfirm() { pendingDelete = undefined; $("#confirm").classList.remove("open"); }
       let pendingPublish;
-      function closePublish() { pendingPublish = undefined; $("#publishConfirm").classList.remove("open"); $("#publishMessage").className = "publish-message"; $("#publishMessage").textContent = ""; $("#publishSubmit").disabled = false; $("#publishSubmit").textContent = "确认发布"; }
+      function closePublish() { pendingPublish = undefined; $("#publishConfirm").classList.remove("open"); $("#publishMessage").className = "publish-message"; $("#publishMessage").textContent = ""; $("#publishTarget").value = "web"; $("#publishSubmit").disabled = false; $("#publishSubmit").textContent = "确认发布"; }
       function publishCalibration(experimentId, calibrationId, button) {
         pendingPublish = { experimentId, calibrationId, button }
         $("#publishName").value = ""
+        $("#publishTarget").value = "web"
         $("#publishConfirm").classList.add("open")
         $("#publishName").focus()
         $("#publishSubmit").onclick = submitPublish
@@ -354,11 +356,15 @@
         $("#publishSubmit").textContent = "发布中…"
         button.disabled = true
         try {
-          const response = await fetch(`/api/experiments/${experimentId}/calibrations/${calibrationId}/publish`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ wallName }) })
+          const response = await fetch(`/api/experiments/${experimentId}/calibrations/${calibrationId}/publish`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ wallName, "target": $("#publishTarget").value }) })
           const result = await response.json()
           if (!response.ok) throw new Error(result.message || result.detail || "发布失败")
           $("#publishMessage").className = "publish-message"
-          $("#publishMessage").innerHTML = `已发布 ${result.holdCount} 个岩点。${result.browseUrl ? `<a href="${result.browseUrl}" target="_blank">打开 CruxSet</a>` : ""}`
+          if (result.targets) {
+            const labels = { web: "本地 Web", cloudbase: "小程序 CloudBase" }
+            const statuses = Object.entries(result.targets).map(([name, targetResult]) => `${labels[name] || name}：${targetResult.status === "succeeded" ? "成功" : "失败"}`).join("；")
+            $("#publishMessage").textContent = `${statuses}。`
+          } else $("#publishMessage").innerHTML = `已发布 ${result.holdCount || 0} 个岩点。${result.browseUrl ? `<a href="${result.browseUrl}" target="_blank">打开 CruxSet</a>` : ""}`
           $("#publishSubmit").disabled = false
           $("#publishSubmit").textContent = "完成"
           $("#publishSubmit").onclick = closePublish

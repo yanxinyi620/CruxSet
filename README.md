@@ -102,13 +102,13 @@ export const runtimeMode: RuntimeMode = 'mock'
 将 `miniprogram/config/runtime.ts` 的 `runtimeMode` 改为 `cloudbase`，并在 `miniprogram/app.ts` 配置实际 CloudBase 环境 ID。随后：
 
 1. 创建 `users`、`walls`、`problems`、`admins`、`counters` 五个集合，导入 [集合声明](config/cloudbase.collections.json)，并应用 [权限规则](config/cloudbase.rules.json)。
-2. 部署 `login`、`adminWall`、`wallManager`、`saveProblem`、`updateProblem`、`deleteProblem`、`getWallImageUrl`、`segmentationPublish` 八个云函数；每个函数均在云端安装 `wx-server-sdk` 依赖。
+2. 部署 `login`、`adminWall`、`wallManager`、`saveProblem`、`updateProblem`、`deleteProblem`、`getWallImageUrl`、`storageUpload`、`segmentationPublish` 九个云函数；每个函数均在云端安装 `wx-server-sdk` 依赖。
 3. 为已有 Wall 补齐 `ownerId` 与 `visibility`；墙图保持私有存储，经 `getWallImageUrl` 权限校验后提供短期访问地址。
 4. 运行 `npm run verify:phase1`；正式发布前运行 `npm run verify:phase1 -- --release`，再按[测试与验收](docs/testing.md)完成 CloudBase 和 Android/iPhone 真机检查。
 
 数据与业务约束见[设计参考](docs/reference.md)，真机检查见[测试与验收](docs/testing.md)。
 
-分割实验台同步还需要一个可接收 `multipart/form-data`（字段名 `file`）并返回 `{ "fileID": "cloud://..." }` 的 CloudBase Storage 上传 HTTP 端点；将该端点填入 `CRUXSET_CLOUDBASE_STORAGE_URL`，并将 `segmentationPublish` HTTP 触发器 URL 填入 `CRUXSET_CLOUDBASE_FUNCTION_URL`。实验台会把校准元数据作为 JSON body 发送，并用 `CRUXSET_CLOUDBASE_SIGNING_KEY` 计算签名；云函数使用同名环境变量验签，`CRUXSET_CLOUDBASE_OWNER_OPENID` 用于解析 `users.openid`。
+分割实验台同步还需要一个可接收 `multipart/form-data`（字段名 `file`）并返回 `{ "fileID": "cloud://..." }` 的 CloudBase Storage 上传 HTTP 端点；将该端点填入 `CRUXSET_CLOUDBASE_STORAGE_URL`，并将 `segmentationPublish` HTTP 触发器 URL 填入 `CRUXSET_CLOUDBASE_FUNCTION_URL`。实验台会用 `CRUXSET_CLOUDBASE_SIGNING_KEY` 对包含时间戳、文件名、MIME、文件 SHA-256 和文件长度的 canonical metadata 计算签名；云函数使用同名环境变量验签，`CRUXSET_CLOUDBASE_OWNER_OPENID` 用于解析 `users.openid`。必须在 CloudBase 控制台将 Storage 设为私有；客户端不直接读取对象，`getWallImageUrl` 是墙图唯一访问入口。
 
 ## 核心规则
 
@@ -182,4 +182,4 @@ CRUXSET_WEB_URL='http://127.0.0.1:5173' \
 uv run uvicorn segmentation_lab.api:app --host 127.0.0.1 --port 8765
 ```
 
-打开 `http://127.0.0.1:8765/`，在 **04 人工校准** 的已保存校准结果中点击“发布”。发布成功后会打开 CruxSet Web；每次发布都创建一面新的公开 Wall，不覆盖旧 Wall。
+打开 `http://127.0.0.1:8765/`，在 **04 人工校准** 的已保存校准结果中点击“发布”。发布目标默认是 `web`，只创建本机 CruxSet 的公开 Wall；只有显式选择 `cloudbase` 或 `both` 才会同步到小程序 CloudBase。`both` 两路独立执行并分别显示状态；每次发布都创建一面新的公开 Wall，不覆盖旧 Wall。

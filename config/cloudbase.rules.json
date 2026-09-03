@@ -1,5 +1,5 @@
 {
-  "client": { "read": [], "write": [], "readDeny": ["users", "admins", "counters", "walls", "problems", "segmentationPublishes"] },
-  "cloudFunctions": { "write": ["users", "walls", "problems", "admins", "counters", "segmentationPublishes"], "validateActor": true, "businessForeignKeys": "users.id" },
-  "notes": ["客户端不直接读写任何业务集合。", "OPENID 只允许在登录云函数中用于映射 users.id。", "Wall 与线路读写必须经过对应云函数。"]
+  "client": { "read": [], "write": [], "readDeny": ["users", "admins", "counters", "walls", "problems", "segmentationPublishes", "storageUploads"] },
+  "cloudFunctions": { "write": ["users", "walls", "problems", "admins", "counters", "segmentationPublishes", "storageUploads"], "validateActor": true, "businessForeignKeys": "users.id" },
+  "notes": ["客户端不直接读写任何业务集合或 Storage 文件。", "OPENID 只允许在登录云函数中用于映射 users.id。", "Wall 与线路读写必须经过对应云函数。", "storageUpload 仅接受带签名的 HTTP multipart 请求；storageUploads（如启用上传回执）禁止客户端读取。", "CloudBase Storage 必须在控制台设为私有，墙图唯一访问入口为 getWallImageUrl。"]
 }

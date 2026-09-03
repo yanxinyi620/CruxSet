@@ -15,6 +15,14 @@ class Settings:
     cloudbase_signing_key: str = ""
     cloudbase_owner_openid: str = ""
 
+    @property
+    def web_publish_configured(self) -> bool:
+        return bool(self.cruxset_base_url and self.cruxset_publish_key)
+
+    @property
+    def cloudbase_publish_configured(self) -> bool:
+        return all((self.cloudbase_function_url, self.cloudbase_storage_url, self.cloudbase_signing_key, self.cloudbase_owner_openid))
+
     @classmethod
     def from_env(cls) -> "Settings":
         return cls(

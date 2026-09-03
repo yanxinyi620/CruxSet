@@ -1,4 +1,6 @@
 import json
+import hashlib
+import hmac
 
 import httpx
 import pytest
@@ -97,10 +99,24 @@ def test_sync_rejects_unsupported_hold_kind():
 @pytest.mark.anyio
 async def test_sync_uploads_storage_then_calls_signed_publish_function():
     requests = []
+    image = b"\x89PNG\r\n\x1a\nimage"
 
     async def handler(request: httpx.Request) -> httpx.Response:
         requests.append(request)
         if request.url.path == "/storage":
+            assert request.headers["x-cruxset-filename"] == "wall.png"
+            assert request.headers["x-cruxset-content-type"] == "image/png"
+            assert request.headers["x-cruxset-content-sha256"] == hashlib.sha256(image).hexdigest()
+            assert request.headers["x-cruxset-content-length"] == str(len(image))
+            signed_metadata = {
+                "timestamp": request.headers["x-cruxset-timestamp"],
+                "filename": "wall.png",
+                "contentType": "image/png",
+                "contentSha256": hashlib.sha256(image).hexdigest(),
+                "contentLength": len(image),
+            }
+            expected_signature = hmac.new(b"secret", _canonical_json(signed_metadata).encode(), hashlib.sha256).hexdigest()
+            assert hmac.compare_digest(request.headers["x-cruxset-signature"], expected_signature)
             return httpx.Response(201, json={"fileID": "cloud://wall/image.png"})
         body = json.loads(await request.aread())
         assert body["imageFileId"] == "cloud://wall/image.png"
@@ -116,7 +132,7 @@ async def test_sync_uploads_storage_then_calls_signed_publish_function():
         transport=httpx.MockTransport(handler),
     )
     result = await synchronizer.publish(
-        b"image",
+        image,
         "wall.png",
         {
             "publishRequestId": "request-1",
@@ -130,6 +146,73 @@ async def test_sync_uploads_storage_then_calls_signed_publish_function():
     )
     assert result["wallId"] == "wall-1"
     assert [request.url.path for request in requests] == ["/storage", "/publish"]
+
+
+@pytest.mark.anyio
+async def test_sync_sniffs_image_content_and_handles_windows_filename():
+    async def handler(request: httpx.Request) -> httpx.Response:
+        assert request.headers["x-cruxset-filename"] == "wall.jpg"
+        assert request.headers["x-cruxset-content-type"] == "image/png"
+        return httpx.Response(201, json={"fileID": "cloud://wall/image.png"})
+
+    synchronizer = CloudBaseSynchronizer(
+        "https://function.example/publish",
+        "secret",
+        storage_url="https://function.example/storage",
+        owner_openid="openid-owner",
+        transport=httpx.MockTransport(handler),
+    )
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        assert await synchronizer._upload_image(client, b"\x89PNG\r\n\x1a\nimage", r"C:\\walls\\wall.jpg") == "cloud://wall/image.png"
+
+
+@pytest.mark.anyio
+async def test_sync_rejects_unknown_image_content_before_network_calls():
+    called = False
+
+    async def handler(_: httpx.Request) -> httpx.Response:
+        nonlocal called
+        called = True
+        return httpx.Response(500)
+
+    transport = httpx.MockTransport(handler)
+    synchronizer = CloudBaseSynchronizer("https://function.example/publish", "secret", storage_url="https://function.example/storage", owner_openid="owner", transport=transport)
+    async with httpx.AsyncClient(transport=transport) as client:
+        with pytest.raises(SegmentationLabError) as error:
+            await synchronizer._upload_image(client, b"not an image", "wall.png")
+    assert error.value.code == "cloudbase_invalid_image"
+    assert called is False
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(("status_code", "retryable"), [(400, False), (503, True)])
+async def test_sync_reports_storage_http_statuses(status_code, retryable):
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(status_code, json={"error": "storage failure"})
+
+    synchronizer = CloudBaseSynchronizer(
+        "https://function.example/publish",
+        "secret",
+        storage_url="https://function.example/storage",
+        owner_openid="openid-owner",
+        transport=httpx.MockTransport(handler),
+    )
+    with pytest.raises(SegmentationLabError) as error:
+        await synchronizer.publish(
+            b"\x89PNG\r\n\x1a\nimage",
+            "wall.png",
+            {
+                "publishRequestId": "request-1",
+                "sourceExperimentId": "experiment-1",
+                "sourceCalibrationId": "calibration-1",
+                "wallName": "Wall",
+                "imageWidth": 100,
+                "imageHeight": 80,
+                "holds": [{"id": "h", "polygon": [[0, 0], [50, 0], [0, 40]]}],
+            },
+        )
+    assert error.value.code == "cloudbase_storage_failed"
+    assert error.value.retryable is retryable
 
 
 @pytest.mark.anyio

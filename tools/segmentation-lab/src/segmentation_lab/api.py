@@ -23,6 +23,7 @@ from .service import BenchmarkService
 
 
 PostSuccessHook = Callable[[ExperimentStore, str, str, dict[str, object], str], Awaitable[object] | object]
+PUBLISH_TARGETS = {"web", "cloudbase", "both"}
 
 
 async def _run_post_success_hook(hook: PostSuccessHook, store: ExperimentStore, experiment_id: str, calibration_id: str, result: dict[str, object], wall_name: str) -> None:
@@ -36,6 +37,7 @@ async def _run_post_success_hook(hook: PostSuccessHook, store: ExperimentStore, 
         # the local ``publish`` receipt and never bubble the error to FastAPI.
         store.record_calibration_sync(experiment_id, calibration_id, {
             "publishRequestId": f"{experiment_id}:{calibration_id}",
+            "target": "cloudbase",
             "status": "failed",
             "code": getattr(error, "code", "cloudbase_sync_failed"),
             "message": str(error),
@@ -60,19 +62,6 @@ def create_app(settings: Settings, adapters: Mapping[str, SegmentationAdapter] |
         return {"status": "ok", "device": settings.device, "dataDir": str(settings.data_dir)}
 
     active_adapters = adapters or {"sam2": Sam2Adapter(), "sam2_tiled": Sam2Adapter(tiled=True), "sam3": Sam3Adapter()}
-
-    if post_success_hook is None and all((settings.cloudbase_function_url, settings.cloudbase_storage_url, settings.cloudbase_signing_key, settings.cloudbase_owner_openid)):
-        cloudbase = CloudBaseSynchronizer(
-            settings.cloudbase_function_url,
-            settings.cloudbase_signing_key,
-            storage_url=settings.cloudbase_storage_url,
-            owner_openid=settings.cloudbase_owner_openid,
-        )
-
-        async def configured_cloudbase_hook(store: ExperimentStore, experiment_id: str, calibration_id: str, _result: dict[str, object], local_wall_name: str) -> object:
-            return await sync_calibration(store, experiment_id, calibration_id, cloudbase, wall_name=local_wall_name)
-
-        post_success_hook = configured_cloudbase_hook
 
     @app.get("/api/models")
     def models() -> dict[str, list[dict[str, object]]]:
@@ -166,8 +155,13 @@ def create_app(settings: Settings, adapters: Mapping[str, SegmentationAdapter] |
         calibration = next((item for item in store.list_calibrations(experiment_id) if item["id"] == calibration_id), None)
         if calibration is None:
             raise SegmentationLabError("calibration_not_found", "Calibration was not found")
-        if not settings.cruxset_publish_key:
+        target = payload.get("target", "web")
+        if not isinstance(target, str) or target not in PUBLISH_TARGETS:
+            raise SegmentationLabError("invalid_publish_target", "发布目标必须是 web、cloudbase 或 both。")
+        if target == "web" and not settings.web_publish_configured:
             raise SegmentationLabError("publish_not_configured", "CruxSet 发布密钥未配置。")
+        if target == "cloudbase" and not settings.cloudbase_publish_configured:
+            raise SegmentationLabError("cloudbase_not_configured", "CloudBase 发布配置未完整设置。")
         image_path = next((store.root / experiment_id / "input").glob("original.*"), None)
         if image_path is None:
             raise SegmentationLabError("experiment_not_found", "Experiment image was not found")
@@ -182,13 +176,72 @@ def create_app(settings: Settings, adapters: Mapping[str, SegmentationAdapter] |
             "imageHeight": experiment["height"],
             "holds": [{"sourceId": str(item["id"]), "kind": item.get("kind", "hold"), "polygon": item["polygon"]} for item in candidates],
         }
-        result = await CruxSetPublisher(settings.cruxset_base_url, settings.cruxset_publish_key).publish(image_path.read_bytes(), str(experiment["imageName"]), metadata)
-        result = {**result, "browseUrl": f"{settings.cruxset_web_url}{result.get('browsePath', '')}"}
-        record = {**result, "publishRequestId": metadata["publishRequestId"], "wallName": wall_name, "publishedAt": time.time(), "status": "succeeded"}
-        store.record_calibration_publish(experiment_id, calibration_id, record)
-        if post_success_hook is not None:
-            tasks.add_task(_run_post_success_hook, post_success_hook, store, experiment_id, calibration_id, result, wall_name)
-        return result
+        image = image_path.read_bytes()
+
+        def error_result(error: Exception, default_code: str) -> dict[str, object]:
+            return {
+                "status": "failed",
+                "code": getattr(error, "code", default_code),
+                "message": str(error),
+                "retryable": bool(getattr(error, "retryable", True)),
+            }
+
+        web_result: dict[str, object] | None = None
+        web_error: dict[str, object] | None = None
+        if target in {"web", "both"}:
+            if not settings.web_publish_configured:
+                web_error = {"status": "failed", "code": "publish_not_configured", "message": "CruxSet 发布密钥未配置。", "retryable": False}
+                store.record_calibration_publish(experiment_id, calibration_id, {**web_error, "target": "web", "publishRequestId": metadata["publishRequestId"], "wallName": wall_name, "publishedAt": time.time()})
+            else:
+                try:
+                    web_result = await CruxSetPublisher(settings.cruxset_base_url, settings.cruxset_publish_key).publish(image, str(experiment["imageName"]), metadata)
+                    web_result = {**web_result, "browseUrl": f"{settings.cruxset_web_url}{web_result.get('browsePath', '')}"}
+                    store.record_calibration_publish(experiment_id, calibration_id, {**web_result, "target": "web", "publishRequestId": metadata["publishRequestId"], "wallName": wall_name, "publishedAt": time.time(), "status": "succeeded"})
+                except Exception as error:
+                    web_error = error_result(error, "cruxset_publish_failed")
+                    store.record_calibration_publish(experiment_id, calibration_id, {**web_error, "target": "web", "publishRequestId": metadata["publishRequestId"], "wallName": wall_name, "publishedAt": time.time()})
+                    if target == "web":
+                        if isinstance(error, SegmentationLabError):
+                            raise
+                        raise SegmentationLabError(str(web_error["code"]), str(web_error["message"]), bool(web_error["retryable"])) from error
+
+        cloud_result: dict[str, object] | None = None
+        cloud_error: dict[str, object] | None = None
+        if target in {"cloudbase", "both"}:
+            if not settings.cloudbase_publish_configured:
+                cloud_error = {"status": "failed", "code": "cloudbase_not_configured", "message": "CloudBase 发布配置未完整设置。", "retryable": False}
+                store.record_calibration_sync(experiment_id, calibration_id, {**cloud_error, "target": "cloudbase", "publishRequestId": metadata["publishRequestId"], "updatedAt": time.time()})
+            else:
+                try:
+                    cloudbase = CloudBaseSynchronizer(
+                        settings.cloudbase_function_url,
+                        settings.cloudbase_signing_key,
+                        storage_url=settings.cloudbase_storage_url,
+                        owner_openid=settings.cloudbase_owner_openid,
+                    )
+                    cloud_result = await sync_calibration(store, experiment_id, calibration_id, cloudbase, wall_name=wall_name, publish_request_id=metadata["publishRequestId"])
+                except Exception as error:
+                    cloud_error = error_result(error, "cloudbase_sync_failed")
+                    stored_sync = {**cloud_error, "target": "cloudbase", "publishRequestId": metadata["publishRequestId"], "updatedAt": time.time()}
+                    store.record_calibration_sync(experiment_id, calibration_id, stored_sync)
+                    if target == "cloudbase":
+                        if isinstance(error, SegmentationLabError):
+                            raise
+                        raise SegmentationLabError(str(cloud_error["code"]), str(cloud_error["message"]), bool(cloud_error["retryable"])) from error
+
+        if target == "web":
+            if post_success_hook is not None and web_result is not None:
+                tasks.add_task(_run_post_success_hook, post_success_hook, store, experiment_id, calibration_id, web_result, wall_name)
+            return {**(web_result or {}), "target": "web"}
+        if target == "cloudbase":
+            return {"target": "cloudbase", "targets": {"cloudbase": {"status": "succeeded", **(cloud_result or {})} if cloud_result is not None else cloud_error}}
+        return {
+            "target": "both",
+            "targets": {
+                "web": {"status": "succeeded", **web_result} if web_result is not None else web_error,
+                "cloudbase": {"status": "succeeded", **cloud_result} if cloud_result is not None else cloud_error,
+            },
+        }
 
     @app.get("/api/experiments/{experiment_id}/calibrations/{calibration_id}/export.svg")
     def export_calibration_svg(experiment_id: str, calibration_id: str) -> Response:

@@ -202,6 +202,15 @@ def test_workbench_uses_modern_display_title_and_sans_interface_type(tmp_path):
     assert "确认发布" in response.text
 
 
+def test_publish_dialog_exposes_explicit_targets_with_web_default(tmp_path):
+    response = TestClient(create_app(Settings(data_dir=tmp_path))).get("/")
+    assert 'id="publishTarget"' in response.text
+    assert '<option value="web" selected>本地 Web</option>' in response.text
+    assert '<option value="cloudbase">小程序 CloudBase</option>' in response.text
+    assert '<option value="both">本地 Web + CloudBase</option>' in response.text
+    assert '"target": $("#publishTarget").value' in response.text
+
+
 def test_continue_calibration_link_includes_the_saved_result_identity(tmp_path):
     response = TestClient(create_app(Settings(data_dir=tmp_path))).get("/")
 
