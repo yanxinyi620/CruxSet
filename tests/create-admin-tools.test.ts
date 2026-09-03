@@ -8,4 +8,6 @@ it('shows wall management creation tools only to administrators', () => {
   expect(source).toContain('wallPublicationNote = isAdmin')
   expect(source).toContain('panel === "new-wall" && isAdmin')
   expect(source).toContain('panel === "drafts" && isAdmin')
+  expect(source).toContain('panel === "my-walls" && isAdmin')
+  expect(source).toContain('const myWallManagementEntry = isAdmin ?')
 })
