@@ -195,7 +195,7 @@ const uploadMetadata = async (cloudPath) => {
   } catch (error) {
     fail('STORAGE_UPLOAD_METADATA_FAILED')
   }
-  const value = result?.result?.data || result?.result || result?.data || result
+  const value = result?.body?.data || result?.result?.data || result?.result || result?.data || result
   const uploadUrl = value?.uploadUrl || value?.upload_url || value?.url
   const authorization = value?.authorization
   const token = value?.token
