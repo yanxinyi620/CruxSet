@@ -254,10 +254,6 @@ export class WallCanvasView {
         const [sx, sy] = this.toScreen([hold.x, hold.y])
         ctx.arc(sx, sy, hold.radius * this.scale, 0, Math.PI * 2)
       }
-      if (role && !hold.polygon?.length) {
-        ctx.fillStyle = ROLE_COLORS[role]
-        ctx.fill()
-      }
       if (role) {
         ctx.lineWidth = 5
         ctx.strokeStyle = "#ffffff"
