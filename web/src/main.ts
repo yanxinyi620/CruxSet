@@ -18,8 +18,8 @@ import { LocalApiClient, type AdminUser } from "./api.js";
 import { adminUserCard } from "./admin-management.js";
 import { WallCanvasView, ROLE_COLORS } from "./wall-canvas.js";
 import { DraftCanvasView, type DraftMode } from "./draft-canvas.js";
-import { DETECT_ROI_FALLBACK_MESSAGE, type Roi } from "./auto-detect.js";
-import { holdsForPersistence } from "./candidate-editor.js";
+import { autoDetectHolds, DETECT_ROI_FALLBACK_MESSAGE, type Roi } from "./auto-detect.js";
+import { confirmCandidate, confirmCandidates, holdsForPersistence, removeCandidate, replaceCandidates } from "./candidate-editor.js";
 import { clearDraft, loadDraft, saveDraft } from "./draft-storage.js";
 import { fromPreviewUrl, previewQuery, toPreviewUrl } from "./routes.js";
 import {
@@ -214,6 +214,10 @@ type WallCtx = {
   canvas?: DraftCanvasView;
   toast?: string;
   published: boolean;
+  candidates: Hold[];
+  selectedCandidate: string | null;
+  roi: Roi;
+  detecting: boolean;
 };
 type DetailCtx = { problem: Problem; wall: Wall; canvas?: WallCanvasView };
 let problemCtx: ProblemCtx | null = null,
@@ -425,6 +429,10 @@ const openWallEditor = async (wallId: string) => {
     kind: saved?.kind ?? "hold",
     dirty: saved?.dirty ?? false,
     published: wall.visibility === "public",
+    candidates: [],
+    selectedCandidate: null,
+    roi: { x: 0, y: 0, width: 1, height: 1 },
+    detecting: false,
   };
   store.navigate({ name: "wall-editor", wallId });
 };
@@ -447,7 +455,7 @@ const renderWallEditor = () => {
   saveDraft(`wall:${c.wall.id}`, { holds, mode: c.mode, selected: c.selected, kind: c.kind, dirty: c.dirty });
   c.canvas?.destroy();
   root.innerHTML = `<div class="device secondary-page"><main><button class="back-button" data-exit aria-label="返回">‹</button><div class="editor-head"><h1>标注墙面</h1><p>${h(c.wall.name)} · ${holds.length} 个岩点</p></div><div class="draft-toolbar"><button data-mode="add" ${state.canEdit ? "" : "disabled"}>添加</button><button data-mode="move" ${state.canEdit ? "" : "disabled"}>移动</button><button data-mode="delete" ${state.canEdit ? "" : "disabled"}>删除</button><button data-undo ${state.canEdit && c.editor.canUndo() ? "" : "disabled"}>撤销</button><button data-clear ${state.canEdit ? "" : "disabled"}>清空</button></div><div class="draft-toolbar"><button data-kind="hold" ${state.canEdit ? "" : "disabled"}>岩点</button><button data-kind="volume" ${state.canEdit ? "" : "disabled"}>体积</button></div><div id="draft-canvas"></div><div class="editor-actions"><button data-save-wall ${state.canSave ? "" : "disabled"}>保存草稿</button><button data-publish-wall ${state.canPublish ? "" : "disabled"}>发布墙面</button></div><p class="editor-toast">${h(c.toast)}</p></main></div>`;
-  root.querySelector("#draft-canvas")?.insertAdjacentHTML("beforebegin", `<section class="candidate-toolbar"><b>候选岩点</b><button data-detect>自动识别</button><button data-confirm-all>确认全部</button></section><section class="candidate-list" aria-label="候选岩点"></section><section class="field"><label>识别区域</label><div class="roi-grid"><label>X<input data-roi="x" value="0"></label><label>Y<input data-roi="y" value="0"></label><label>宽<input data-roi="width" value="1"></label><label>高<input data-roi="height" value="1"></label></div></section>`);
+  root.querySelector("#draft-canvas")?.insertAdjacentHTML("beforebegin", `<section class="candidate-toolbar"><b>候选岩点 ${c.candidates.length ? `(${c.candidates.length})` : ""}</b><button data-detect ${state.canEdit && !c.detecting ? "" : "disabled"}>${c.detecting ? "识别中…" : "自动识别"}</button><button data-confirm-all ${state.canEdit && c.candidates.length ? "" : "disabled"}>确认全部</button></section><section class="candidate-list" aria-label="候选岩点">${c.candidates.map((candidate) => `<article class="candidate-row ${candidate.id === c.selectedCandidate ? "active" : ""}"><button data-select-candidate="${h(candidate.id)}">${h(candidate.kind === "volume" ? "体积" : "岩点")} · ${h(candidate.id)}</button><button data-confirm-candidate="${h(candidate.id)}">确认</button><button data-delete-candidate="${h(candidate.id)}">删除</button></article>`).join("")}</section><section class="field"><label>识别区域</label><div class="roi-grid"><label>X<input data-roi="x" value="${c.roi.x}"></label><label>Y<input data-roi="y" value="${c.roi.y}"></label><label>宽<input data-roi="width" value="${c.roi.width}"></label><label>高<input data-roi="height" value="${c.roi.height}"></label></div></section>`);
   root.querySelector("[data-exit]")!.addEventListener("click", () => {
     c.canvas?.destroy();
     wallCtx = null;
@@ -517,6 +525,58 @@ const renderWallEditor = () => {
       }
       renderWallEditor();
     });
+  root.querySelectorAll<HTMLInputElement>("[data-roi]").forEach((input) => {
+    input.oninput = () => {
+      c.roi = { ...c.roi, [input.dataset.roi!]: Number(input.value) };
+    };
+  });
+  root.querySelector<HTMLButtonElement>("[data-detect]")?.addEventListener("click", async () => {
+    if (!state.canEdit || c.detecting) return;
+    const roi = normalizeDetectRoi(c.roi);
+    if (detectRoiValidationMessage(c.roi)) c.toast = DETECT_ROI_FALLBACK_MESSAGE;
+    c.roi = roi;
+    c.detecting = true;
+    renderWallEditor();
+    try {
+      const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const next = new Image();
+        next.onload = () => resolve(next);
+        next.onerror = () => reject(new Error("墙图加载失败"));
+        next.src = c.wall.imageFileId;
+      });
+      const detected = autoDetectHolds(image, { roi });
+      c.candidates = replaceCandidates({ confirmed: c.editor.value(), candidates: c.candidates }, detected).candidates;
+      c.selectedCandidate = null;
+      c.toast = detected.length ? `识别到 ${detected.length} 个候选岩点，请确认后保存` : "未识别到候选岩点";
+    } catch (error) {
+      c.toast = `自动识别失败：${error instanceof Error ? error.message : String(error)}`;
+    } finally {
+      c.detecting = false;
+      renderWallEditor();
+    }
+  });
+  const confirmDetected = (candidateId?: string) => {
+    if (!state.canEdit) return;
+    const next = candidateId
+      ? confirmCandidate({ confirmed: c.editor.value(), candidates: c.candidates }, candidateId)
+      : confirmCandidates({ confirmed: c.editor.value(), candidates: c.candidates });
+    c.editor = new WallHoldEditor(next.confirmed);
+    c.candidates = next.candidates;
+    c.selectedCandidate = null;
+    c.dirty = true;
+    renderWallEditor();
+  };
+  root.querySelector<HTMLButtonElement>("[data-confirm-all]")?.addEventListener("click", () => confirmDetected());
+  root.querySelectorAll<HTMLButtonElement>("[data-confirm-candidate]").forEach((button) => {
+    button.onclick = () => confirmDetected(button.dataset.confirmCandidate);
+  });
+  root.querySelectorAll<HTMLButtonElement>("[data-delete-candidate]").forEach((button) => {
+    button.onclick = () => {
+      c.candidates = removeCandidate({ confirmed: c.editor.value(), candidates: c.candidates }, button.dataset.deleteCandidate!).candidates;
+      if (c.selectedCandidate === button.dataset.deleteCandidate) c.selectedCandidate = null;
+      renderWallEditor();
+    };
+  });
   c.canvas = new DraftCanvasView(
     root.querySelector("#draft-canvas") as HTMLElement,
     {
@@ -526,6 +586,8 @@ const renderWallEditor = () => {
       holds,
       mode: c.mode,
       selectedId: c.selected,
+      candidates: c.candidates,
+      selectedCandidateId: c.selectedCandidate,
       onAddHold: (p) => {
         if (!state.canEdit) return;
         c.editor.add({
@@ -555,6 +617,20 @@ const renderWallEditor = () => {
       onSelectHold: (id) => {
         c.selected = id;
         c.canvas?.setState(c.editor.value(), c.mode, c.selected);
+      },
+      onMoveCandidate: (id, point) => {
+        c.candidates = c.candidates.map((candidate) => candidate.id === id ? { ...candidate, x: point[0], y: point[1], polygon: undefined } : candidate);
+        c.canvas?.setState(c.editor.value(), c.mode, c.selected, c.candidates, c.selectedCandidate);
+      },
+      onSelectCandidate: (id) => {
+        c.selectedCandidate = id;
+        c.canvas?.setState(c.editor.value(), c.mode, c.selected, c.candidates, c.selectedCandidate);
+      },
+      onConfirmCandidate: (id) => confirmDetected(id),
+      onDeleteCandidate: (id) => {
+        c.candidates = removeCandidate({ confirmed: c.editor.value(), candidates: c.candidates }, id).candidates;
+        if (c.selectedCandidate === id) c.selectedCandidate = null;
+        renderWallEditor();
       },
     },
   );
