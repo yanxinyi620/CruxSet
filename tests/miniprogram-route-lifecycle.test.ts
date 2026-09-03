@@ -28,6 +28,11 @@ it('includes a public polygon wall fixture in the browse repository', () => {
   expect(data).toContain('demoPolygonWall')
   expect(data).toContain("geometryType: 'polygon'")
   expect(data).toContain('polygon:')
+  expect(data).toContain("imageFileId: 'cloud://")
+  expect(data).toContain('source:')
+  expect(data).toContain('experimentId:')
+  expect(data).toContain('calibrationId:')
+  expect(data).toContain('publishRequestId:')
   expect(repository).toContain('demoPolygonWall')
 })
 
@@ -35,6 +40,14 @@ it('renders owner actions in the detail template and keeps my routes navigable',
   const list = read('miniprogram/pages/me/problems/index.ts') + read('miniprogram/pages/me/problems/index.wxml')
   const detail = read('miniprogram/pages/problem/detail/index.wxml')
   expect(list).toContain('open')
+  expect(list).toContain('edit')
+  expect(list).toContain('/pages/problem/editor/index?problemId=')
   expect(detail).toContain('编辑线路')
   expect(detail).toContain('删除线路')
+})
+
+it('maps editor save failures instead of showing a fixed generic message', () => {
+  const editor = read('miniprogram/pages/problem/editor/index.ts')
+  expect(editor).toContain('cloudErrorMessage(error)')
+  expect(editor).not.toContain("title:'保存失败，草稿已保留'")
 })

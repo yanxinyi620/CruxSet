@@ -5,5 +5,5 @@ const polygonHolds: Hold[] = holds.slice(0, 12).map((hold, index) => {
   const size = 0.025
   return { ...hold, id: `P${String(index + 1).padStart(3, '0')}`, polygon: [[hold.x - size, hold.y], [hold.x, hold.y - size], [hold.x + size, hold.y], [hold.x, hold.y + size]], bbox: [hold.x - size, hold.y - size, hold.x + size, hold.y + size] }
 })
-export const demoPolygonWall: Wall = { ...demoWall, id: 'wall_demo_polygon', name: 'Polygon 训练墙（示例）', description: '用于浏览 Polygon 岩点的本地示例墙面', geometryType: 'polygon', holds: polygonHolds }
+export const demoPolygonWall: Wall = { ...demoWall, id: 'wall_demo_polygon', name: 'Polygon 训练墙（示例）', description: '用于浏览 Polygon 岩点的本地示例墙面', imageFileId: 'cloud://cruxset-fixture/polygon-training-wall.jpg', geometryType: 'polygon', holds: polygonHolds, source: { type: 'segmentation', experimentId: 'exp_polygon_fixture', calibrationId: 'cal_polygon_fixture', publishRequestId: 'pub_polygon_fixture' } } as Wall
 export const demoDraftWall: Wall = { ...demoWall, id: 'wall_demo_draft', name: '日坛 Spraywall 标注草稿', holds: [], visibility: 'private', createdAt: 1, updatedAt: 1 }
