@@ -86,3 +86,7 @@ button.problem-row strong { color: #9a9cb2; font-size: 15px; margin-left: auto; 
 .roi-grid label { color: #6f7187; font-size: 11px; font-weight: 800; }
 .roi-grid input { margin-top: 4px; padding: 7px 6px; font-size: 12px; }
 #draft-canvas { border-radius: 16px; overflow: hidden; box-shadow: 0 8px 24px #3e39721a; background: #f2f2fa; }
+.route-fullscreen-entry { display:block; width:100%; margin:10px 0 2px; padding:8px; border:0; background:transparent; color:#5f50de; font-size:12px; font-weight:800; }
+.route-fullscreen-preview { position:fixed; z-index:30; inset:0; display:grid; place-items:center; background:#121126; }
+.route-fullscreen-preview #route-fullscreen-canvas { width:100%; max-height:100dvh; }
+.route-fullscreen-close { position:absolute; z-index:1; top:calc(12px + env(safe-area-inset-top)); right:14px; width:36px; height:36px; border:0; border-radius:50%; background:#ffffffdd; color:#262143; font-size:26px; line-height:1; }

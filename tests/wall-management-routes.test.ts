@@ -78,6 +78,14 @@ describe('wall-only web routes', () => {
     expect(source).toContain('class="route-note"')
   })
 
+  it('offers a fullscreen canvas preview only for a selected route-browser detail', () => {
+    const source = readFileSync('web/src/main.ts', 'utf8')
+    expect(source).toContain('data-open-route-fullscreen')
+    expect(source).toContain('id="route-fullscreen-preview"')
+    expect(source).toContain('data-close-route-fullscreen')
+    expect(source).toContain('viewportHeight: window.innerHeight')
+  })
+
   it('closes open dialogs when the backdrop is clicked', () => {
     const source = readFileSync('web/src/main.ts', 'utf8')
     expect(source).toContain('event.target === dialog')

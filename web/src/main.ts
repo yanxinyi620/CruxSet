@@ -219,7 +219,9 @@ type DetailCtx = { problem: Problem; wall: Wall; canvas?: WallCanvasView };
 let problemCtx: ProblemCtx | null = null,
   wallCtx: WallCtx | null = null,
   detailCtx: DetailCtx | null = null,
-  wallPreview: WallCanvasView | null = null;
+  wallPreview: WallCanvasView | null = null,
+  fullscreenRoutePreview: WallCanvasView | null = null;
+let routeFullscreen = false;
 
  if (typeof root.addEventListener === "function") root.addEventListener("click", (event) => {
   root.querySelectorAll<HTMLDialogElement>("dialog[open]").forEach((dialog) => {
@@ -619,6 +621,9 @@ const render = async () => {
   }
   wallPreview?.destroy();
   wallPreview = null;
+  fullscreenRoutePreview?.destroy();
+  fullscreenRoutePreview = null;
+  if (route.name !== "route-browser") routeFullscreen = false;
   const tab =
       route.name === "create"
         ? "create"
@@ -649,7 +654,7 @@ const render = async () => {
     routeBrowser =
       route.name === "route-browser" && selected
         ? selectedRoute
-          ? `${back}<h1 class="route-detail-title">${h(selectedRoute.number)} ${h(selectedRoute.name || "")}</h1><p class="route-detail-meta">${h(selected.name)}<b>·</b>${selectedRoute.angle}°<b>·</b>${selectedRoute.grade}<b>·</b>${footLabels[selectedRoute.footRule]}</p><div id="route-preview"></div><div class="legend">${roles.map((x) => `<span><i style="background:${ROLE_COLORS[x]}"></i>${roleLabels[x]}</span>`).join("")}</div><div class="route-note">${h(selectedRoute.description || "")}</div><div class="route-pager"><button data-route-previous ${selectedRouteIndex === 0 ? "disabled" : ""}>‹ 上一条</button><button data-route-next ${selectedRouteIndex === filteredRouteProblems.length - 1 ? "disabled" : ""}>下一条 ›</button></div><button class="route-list-return" data-route-back-list>返回线路列表</button>`
+          ? `${back}<h1 class="route-detail-title">${h(selectedRoute.number)} ${h(selectedRoute.name || "")}</h1><p class="route-detail-meta">${h(selected.name)}<b>·</b>${selectedRoute.angle}°<b>·</b>${selectedRoute.grade}<b>·</b>${footLabels[selectedRoute.footRule]}</p><div id="route-preview"></div><button class="route-fullscreen-entry" data-open-route-fullscreen>点击查看全屏</button><div class="legend">${roles.map((x) => `<span><i style="background:${ROLE_COLORS[x]}"></i>${roleLabels[x]}</span>`).join("")}</div><div class="route-note">${h(selectedRoute.description || "")}</div><div class="route-pager"><button data-route-previous ${selectedRouteIndex === 0 ? "disabled" : ""}>‹ 上一条</button><button data-route-next ${selectedRouteIndex === filteredRouteProblems.length - 1 ? "disabled" : ""}>下一条 ›</button></div><button class="route-list-return" data-route-back-list>返回线路列表</button>${routeFullscreen ? '<div id="route-fullscreen-preview" class="route-fullscreen-preview" role="dialog" aria-modal="true"><button class="route-fullscreen-close" data-close-route-fullscreen aria-label="退出全屏">×</button><div id="route-fullscreen-canvas"></div></div>' : ""}`
           : `${back}<h1>${h(selected.name)}</h1><div class="route-browser-filters"><button data-route-angle>角度：${routeFilterAngle === undefined ? "全部" : `${routeFilterAngle}°`}</button><button data-route-grade>难度：${routeFilterGrade ?? "全部"}</button></div><dialog class="choice-dialog" data-route-filter-dialog="angle"><h2>筛选角度</h2><button data-route-filter-angle="">全部</button>${routeAngles.map((angle) => `<button data-route-filter-angle="${angle}">${angle}°</button>`).join("")}<button data-route-filter-close>关闭</button></dialog><dialog class="choice-dialog" data-route-filter-dialog="grade"><h2>筛选难度</h2><button data-route-filter-grade="">全部</button>${grades.map((grade) => `<button data-route-filter-grade="${grade}">${grade}</button>`).join("")}<button data-route-filter-close>关闭</button></dialog><div class="route-browser-list">${filteredRouteProblems.map((p) => `<button class="problem-row" data-browse-problem="${h(p.id)}"><b>${h(p.number)}</b><em>${h(p.name || "未命名线路")} · ${p.angle}° · ${p.grade}</em></button>`).join("") || '<p class="lead">没有符合筛选条件的线路</p>'}</div>`
         : "",
     browse = routeBrowser || (selected
@@ -726,6 +731,10 @@ const render = async () => {
     });
   }
   if (selected && selectedRoute && route.name === "route-browser") {
+    const openRouteFullscreen = () => {
+      routeFullscreen = true;
+      void render();
+    };
     wallPreview = new WallCanvasView(root.querySelector("#route-preview") as HTMLElement, {
       imageUrl: selected.imageFileId,
       imageWidth: selected.imageWidth,
@@ -735,9 +744,32 @@ const render = async () => {
       holds: selected.holds,
       getAssignments: () => selectedRoute.holds,
       getSelectedRole: () => null,
-      onTapHold: () => {},
+      onTapHold: openRouteFullscreen,
+      onTapCanvas: openRouteFullscreen,
     });
+    if (routeFullscreen) {
+      fullscreenRoutePreview = new WallCanvasView(root.querySelector("#route-fullscreen-canvas") as HTMLElement, {
+        imageUrl: selected.imageFileId,
+        imageWidth: selected.imageWidth,
+        imageHeight: selected.imageHeight,
+        polygonCoordinates: "normalized",
+        viewportHeight: window.innerHeight,
+        holds: selected.holds,
+        getAssignments: () => selectedRoute.holds,
+        getSelectedRole: () => null,
+        onTapHold: () => { routeFullscreen = false; void render(); },
+        onTapCanvas: () => { routeFullscreen = false; void render(); },
+      });
+    }
   }
+  root.querySelector<HTMLButtonElement>("[data-open-route-fullscreen]")?.addEventListener("click", () => {
+    routeFullscreen = true;
+    void render();
+  });
+  root.querySelector<HTMLButtonElement>("[data-close-route-fullscreen]")?.addEventListener("click", () => {
+    routeFullscreen = false;
+    void render();
+  });
   root.querySelectorAll<HTMLButtonElement>("[data-tab]").forEach(
       (b) =>
       (b.onclick = () => {
