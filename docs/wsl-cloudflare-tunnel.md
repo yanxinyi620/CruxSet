@@ -133,7 +133,7 @@ CRUXSET_CLOUDBASE_SIGNING_KEY=<与两个云函数相同的随机密钥>
 CRUXSET_CLOUDBASE_OWNER_OPENID=<CloudBase 管理员 OpenID>
 ```
 
-部署最新 `storageUpload` 云函数后，实验台会先申请上传凭证并将原图直传私有 CloudBase Storage，因此不受云函数 HTTP 请求体 6 MB 限制；随后再由 `segmentationPublish` 创建公开墙面。Web 的 systemd 服务本身不调用这两个 URL。
+部署最新 `storageUpload` 和 `segmentationPublish` 云函数后，实验台会先申请上传凭证并将原图和完整签名校准 JSON 直传私有 CloudBase Storage；随后仅以小型 `payloadFileId` 请求调用 `segmentationPublish`。这同时避开了云函数二进制请求体 6 MB 与文本请求体 100 KB 的限制。Web 的 systemd 服务本身不调用这两个 URL。
 
 从仓库根目录执行以下命令，生成服务文件。这里会自动记录当前 WSL 用户、仓库绝对路径和 `uv` 的绝对路径：
 

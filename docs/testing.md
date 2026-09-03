@@ -28,7 +28,7 @@ uv run --extra test pytest -s -q
 
 ## 小程序 Mock 模式
 
-- [ ] 保持 `runtimeMode = 'mock'`，未部署云函数也可编译并打开小程序。
+- [ ] 默认 `runtimeMode = 'cloudbase'` 时，小程序可编译并连接配置的 CloudBase 环境；临时改为 `mock` 时，未部署云函数也可编译并打开示例数据。
 - [ ] 小程序只显示公开墙面浏览、线路查看/创建、我的线路和管理员墙面管理入口；不显示创建墙面、上传、岩点标注或发布入口。
 - [ ] 公开且至少两个岩点的 Wall 可用于新建线路。
 - [ ] 新建线路只提交 `wallId`，所选 Hold 必须属于该 Wall。
@@ -47,7 +47,7 @@ uv run --extra test pytest -s -q
 
 - [ ] 在实验台选择已保存校准结果并点击“发布到 CruxSet”。
 - [ ] `web` 目标只在本机 Web 创建新的公开 Wall；`cloudbase` 目标只在 CloudBase 创建；`both` 显示两路独立结果。
-- [ ] 选择 `cloudbase` 后，原图大于 6 MB 时仍能完成直传 Storage，随后出现新的公开 Wall；岩点数量与校准结果一致。
+- [ ] 选择 `cloudbase` 后，原图大于 6 MB 时仍能完成直传 Storage；完整签名校准 JSON 也会直传 Storage，`segmentationPublish` 仅接收小于 100 KB 的 `payloadFileId` 请求，随后出现新的公开 Wall，岩点数量与校准结果一致。
 - [ ] 在小程序 CloudBase 模式刷新公开墙面列表，能看到新 Wall、墙图和岩点，并可正常创建线路。
 - [ ] 管理员可在小程序查看并删除无关联线路的已发布墙面；有线路时删除被 `WALL_IN_USE` 阻止。
 - [ ] 再次发布同一校准结果生成新的 Wall ID，不修改旧 Wall。

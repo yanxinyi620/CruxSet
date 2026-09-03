@@ -88,10 +88,10 @@ PYTHONPATH=. uv run python scripts/create_local_admin.py admin@example.com
 运行模式配置位于 [runtime.ts](wechat/miniprogram/config/runtime.ts)：
 
 ```ts
-export const runtimeMode: RuntimeMode = 'mock'
+export const runtimeMode: RuntimeMode = 'cloudbase'
 ```
 
-默认 `mock` 模式使用固定的日坛 Spraywall 和四条示例线路，不需要部署 CloudBase；创建、标注、发布等数据只在本次运行期间保留。准备 CloudBase 验收时改为 `'cloudbase'` 并重新编译；体验版或正式发布前必须使用该模式。
+当前默认 `cloudbase` 模式使用已配置的 CloudBase 环境；重新编译后可直接验证公开墙面和线路。需要离线演示时，可临时改为 `'mock'`，它使用固定的日坛 Spraywall 和四条示例线路，数据只在本次运行期间保留。
 
 小程序通过 CloudBase 云函数访问线上数据，不依赖 FastAPI 在线运行；Web 草稿也不会自动同步到 CloudBase。部署步骤见下一节。
 
@@ -99,7 +99,7 @@ export const runtimeMode: RuntimeMode = 'mock'
 
 ## CloudBase 部署与验收
 
-将 `wechat/miniprogram/config/runtime.ts` 的 `runtimeMode` 改为 `cloudbase`，并在 `wechat/miniprogram/app.ts` 配置实际 CloudBase 环境 ID。随后：
+确认 `wechat/miniprogram/config/runtime.ts` 的 `runtimeMode` 为 `cloudbase`，并在 `wechat/miniprogram/app.ts` 配置实际 CloudBase 环境 ID。随后：
 
 1. 创建 `users`、`walls`、`problems`、`admins`、`counters`、`segmentationPublishes` 六个集合，导入 [集合声明](config/cloudbase.collections.json)，并应用 [权限规则](config/cloudbase.rules.json)。
 2. 部署 `login`、`adminWall`、`wallManager`、`saveProblem`、`updateProblem`、`deleteProblem`、`getWallImageUrl`、`storageUpload`、`segmentationPublish` 九个云函数；`storageUpload` 还会安装 `@cloudbase/node-sdk`，用于以云函数自身的 CloudBase 权限申请 Storage 直传凭证。
@@ -191,4 +191,4 @@ CRUXSET_WEB_URL='http://127.0.0.1:5173' \
 uv run uvicorn segmentation_lab.api:app --host 127.0.0.1 --port 8765
 ```
 
-打开 `http://127.0.0.1:8765/`，在 **04 人工校准** 的已保存校准结果中点击“发布”。发布目标默认是 `web`，只创建本机 CruxSet 的公开 Wall；选择 `cloudbase` 时，原图经临时凭证直传私有 CloudBase Storage，校准岩点与墙面元数据再由 `segmentationPublish` 写入 CloudBase；选择 `both` 则两路独立执行并分别显示状态。每次发布都创建一面新的公开 Wall，不覆盖旧 Wall。
+打开 `http://127.0.0.1:8765/`，在 **04 人工校准** 的已保存校准结果中点击“发布”。发布目标默认是 `web`，只创建本机 CruxSet 的公开 Wall；选择 `cloudbase` 时，原图与完整、已签名的校准 JSON 分别经临时凭证直传私有 CloudBase Storage，`segmentationPublish` 再通过 JSON 的 `payloadFileId` 下载、验签并写入墙面；选择 `both` 则两路独立执行并分别显示状态。每次发布都创建一面新的公开 Wall，不覆盖旧 Wall。
