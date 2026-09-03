@@ -187,21 +187,38 @@ const parseMultipart = (body, contentType) => {
 
 const secretFromEnvironment = () => process.env.CRUXSET_CLOUDBASE_SIGNING_KEY || process.env.CRUXSET_CLOUDBASE_STORAGE_SIGNING_KEY || ''
 
+const objectKeys = value => value && typeof value === 'object' && !Array.isArray(value) ? Object.keys(value).sort() : []
+
 const uploadMetadata = async (cloudPath) => {
   if (!cloud || typeof cloud.callOpenAPI !== 'function') fail('CLOUDBASE_RUNTIME_MISSING')
   let result
   try {
     result = await cloud.callOpenAPI({ api: 'storage.getUploadMetaData', data: { path: cloudPath } })
   } catch (error) {
+    console.log('storageUpload metadata diagnostic', {
+      callErrorCode: typeof error?.code === 'string' ? error.code : undefined,
+      callErrorMessage: typeof error?.message === 'string' ? error.message.slice(0, 200) : undefined,
+    })
     fail('STORAGE_UPLOAD_METADATA_FAILED')
   }
+  const body = result?.body
   const value = result?.body?.data || result?.result?.data || result?.result || result?.data || result
   const uploadUrl = value?.uploadUrl || value?.upload_url || value?.url
   const authorization = value?.authorization
   const token = value?.token
   const cloudObjectMeta = value?.cloudObjectMeta || value?.cosFileID || value?.cosFileId || value?.cos_file_id
   const fileID = value?.fileID || value?.fileId || value?.file_id
-  if (![uploadUrl, authorization, token, cloudObjectMeta, fileID].every(item => typeof item === 'string' && item)) fail('STORAGE_UPLOAD_METADATA_FAILED')
+  if (![uploadUrl, authorization, token, cloudObjectMeta, fileID].every(item => typeof item === 'string' && item)) {
+    console.log('storageUpload metadata diagnostic', {
+      statusCode: Number.isInteger(result?.statusCode) ? result.statusCode : undefined,
+      bodyCode: typeof body?.code === 'string' ? body.code : undefined,
+      bodyMessage: typeof body?.message === 'string' ? body.message.slice(0, 200) : undefined,
+      resultKeys: objectKeys(result),
+      bodyKeys: objectKeys(body),
+      dataKeys: objectKeys(value),
+    })
+    fail('STORAGE_UPLOAD_METADATA_FAILED')
+  }
   return { fileID, uploadUrl, authorization, token, cloudObjectMeta }
 }
 

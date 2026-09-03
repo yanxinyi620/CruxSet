@@ -108,6 +108,34 @@ it('accepts the CloudBase storage metadata response nested under body.data', asy
   })).resolves.toMatchObject({ fileID: 'cloud://cruxset/segmentation/image.png', uploadUrl: 'https://cos.example/upload' })
 })
 
+it('logs only metadata response shape and error details when an upload grant is unavailable', async () => {
+  const storageUpload = require(resolve(process.cwd(), 'wechat/cloudfunctions/storageUpload/index.js')) as {
+    main: (event: Record<string, unknown>) => Promise<unknown>
+    _setCloudForTests: (cloud: { callOpenAPI: () => Promise<unknown> }) => void
+  }
+  storageUpload._setCloudForTests({
+    callOpenAPI: async () => ({ statusCode: 403, body: { code: 'PERMISSION_DENIED', message: 'storage API permission missing', data: { token: 'secret-token', authorization: 'secret-authorization' } } }),
+  })
+  const log = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+  const metadata = metadataFor(pngBytes, timestamp)
+  await expect(storageUpload.main({
+    body: JSON.stringify(metadata), httpMethod: 'POST', headers: {
+      'content-type': 'application/json', 'x-cruxset-signature': sign(metadata, secret),
+    },
+  })).rejects.toThrow('STORAGE_UPLOAD_METADATA_FAILED')
+  expect(log).toHaveBeenCalledWith('storageUpload metadata diagnostic', {
+    statusCode: 403,
+    bodyCode: 'PERMISSION_DENIED',
+    bodyMessage: 'storage API permission missing',
+    resultKeys: ['body', 'statusCode'],
+    bodyKeys: ['code', 'data', 'message'],
+    dataKeys: ['authorization', 'token'],
+  })
+  expect(log.mock.calls.flat().join(' ')).not.toContain('secret-token')
+  expect(log.mock.calls.flat().join(' ')).not.toContain('secret-authorization')
+  log.mockRestore()
+})
+
 it('accepts signed JSON metadata up to 30 seconds ahead of the CloudBase clock', async () => {
   const storageUpload = require(resolve(process.cwd(), 'wechat/cloudfunctions/storageUpload/index.js')) as {
     main: (event: Record<string, unknown>) => Promise<unknown>
