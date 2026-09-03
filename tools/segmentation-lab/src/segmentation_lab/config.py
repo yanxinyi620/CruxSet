@@ -24,6 +24,6 @@ class Settings:
             cruxset_publish_key=os.environ.get("CRUXSET_SEGMENTATION_PUBLISH_KEY", ""),
             cloudbase_function_url=os.environ.get("CRUXSET_CLOUDBASE_FUNCTION_URL", os.environ.get("CRUXSET_CLOUDBASE_PUBLISH_URL", "")).rstrip("/"),
             cloudbase_storage_url=os.environ.get("CRUXSET_CLOUDBASE_STORAGE_URL", "").rstrip("/"),
-            cloudbase_signing_key=os.environ.get("CRUXSET_CLOUDBASE_SEGMENTATION_SIGNING_KEY", os.environ.get("CRUXSET_CLOUDBASE_SIGNING_KEY", "")),
+            cloudbase_signing_key=os.environ.get("CRUXSET_CLOUDBASE_SIGNING_KEY", os.environ.get("CRUXSET_CLOUDBASE_SEGMENTATION_SIGNING_KEY", "")),
             cloudbase_owner_openid=os.environ.get("CRUXSET_CLOUDBASE_OWNER_OPENID", os.environ.get("CRUXSET_SEGMENTATION_PUBLISH_OWNER_OPENID", "")),
         )

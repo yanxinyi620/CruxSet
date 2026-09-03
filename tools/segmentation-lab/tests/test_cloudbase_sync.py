@@ -7,6 +7,7 @@ from segmentation_lab.cloudbase_sync import (
     CloudBaseSynchronizer,
     build_normalized_holds,
     normalize_polygon,
+    _canonical_json,
     sync_calibration,
 )
 from segmentation_lab.errors import SegmentationLabError
@@ -35,6 +36,45 @@ def test_build_normalized_holds_sorts_and_assigns_stable_contiguous_ids():
     assert holds[0]["x"] == pytest.approx(0.2)
     assert holds[0]["y"] == pytest.approx(0.2083333333)
     assert holds[0]["radius"] > 0
+
+
+def test_hold_uses_area_centroid_and_normalized_bbox():
+    holds = build_normalized_holds(
+        [{"id": "concave", "polygon": [[0, 0], [4, 0], [4, 1], [1, 1], [1, 4], [0, 4]]}],
+        4,
+        4,
+    )
+    # The shoelace centroid of this L-shaped polygon is outside its area;
+    # synchronization must use an interior representative point instead.
+    assert (holds[0]["x"], holds[0]["y"]) != pytest.approx((1.357142857, 1.357142857))
+    assert holds[0]["bbox"] == [0.0, 0.0, 1.0, 1.0]
+    assert 0 <= holds[0]["x"] <= 1 and 0 <= holds[0]["y"] <= 1
+
+
+def test_holds_with_nearby_top_edges_share_a_sorting_band():
+    holds = build_normalized_holds(
+        [
+            {"id": "second", "polygon": [[30, 13], [40, 13], [35, 23]]},
+            {"id": "first", "polygon": [[10, 10], [20, 10], [15, 20]]},
+        ],
+        100,
+        100,
+    )
+    assert [hold["sourceId"] for hold in holds] == ["first", "second"]
+
+
+def test_self_intersecting_and_tiny_polygons_are_rejected():
+    with pytest.raises(SegmentationLabError) as crossing:
+        build_normalized_holds([{"id": "x", "polygon": [[0, 0], [10, 10], [0, 10], [10, 0]]}], 100, 100)
+    assert crossing.value.code == "cloudbase_invalid_polygon"
+    with pytest.raises(SegmentationLabError) as tiny:
+        build_normalized_holds([{"id": "x", "polygon": [[0, 0], [0.001, 0], [0, 0.001]]}], 100, 100)
+    assert tiny.value.code == "cloudbase_invalid_polygon"
+
+
+def test_signature_canonical_json_does_not_use_python_exponent_format():
+    assert _canonical_json({"value": 0.0000001}) == '{"value":1e-7}'
+    assert _canonical_json({"value": 1e20}) == '{"value":100000000000000000000}'
 
 
 def test_sync_rejects_missing_required_metadata_before_network_calls():

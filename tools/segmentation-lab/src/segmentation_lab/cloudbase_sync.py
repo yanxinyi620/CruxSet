@@ -13,6 +13,7 @@ import json
 import math
 import mimetypes
 import time
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +25,8 @@ from .experiments import ExperimentStore
 
 SUPPORTED_HOLD_KINDS = {"hold", "volume"}
 SUPPORTED_ANGLES = {20, 25, 30, 35, 40, 45}
+MIN_POLYGON_AREA = 1e-6
+TOP_EDGE_TOLERANCE_PIXELS = 4.0
 REQUIRED_METADATA = {
     "publishRequestId",
     "sourceExperimentId",
@@ -57,10 +60,96 @@ def normalize_polygon(polygon: Any, width: int, height: int) -> list[list[float]
         result.append([float(x) / width, float(y) / height])
     if len({tuple(point) for point in result}) < 3:
         raise _invalid("cloudbase_invalid_polygon", "Polygon must contain three distinct points")
-    area = abs(sum(result[i][0] * result[(i + 1) % len(result)][1] - result[(i + 1) % len(result)][0] * result[i][1] for i in range(len(result))) / 2)
-    if not math.isfinite(area) or area <= 0:
+    if _has_self_intersection(result):
+        raise _invalid("cloudbase_invalid_polygon", "Polygon edges must not self-intersect")
+    area = abs(_signed_area(result))
+    if not math.isfinite(area) or area < MIN_POLYGON_AREA:
         raise _invalid("cloudbase_invalid_polygon", "Polygon area must be positive")
     return result
+
+
+def _signed_area(polygon: list[list[float]]) -> float:
+    return sum(polygon[i][0] * polygon[(i + 1) % len(polygon)][1] - polygon[(i + 1) % len(polygon)][0] * polygon[i][1] for i in range(len(polygon))) / 2
+
+
+def _orientation(a: list[float], b: list[float], c: list[float]) -> float:
+    return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
+
+
+def _on_segment(a: list[float], b: list[float], point: list[float]) -> bool:
+    return min(a[0], b[0]) <= point[0] <= max(a[0], b[0]) and min(a[1], b[1]) <= point[1] <= max(a[1], b[1])
+
+
+def _segments_intersect(a: list[float], b: list[float], c: list[float], d: list[float]) -> bool:
+    ab_c, ab_d = _orientation(a, b, c), _orientation(a, b, d)
+    cd_a, cd_b = _orientation(c, d, a), _orientation(c, d, b)
+    epsilon = 1e-12
+    if ((ab_c > epsilon and ab_d < -epsilon) or (ab_c < -epsilon and ab_d > epsilon)) and ((cd_a > epsilon and cd_b < -epsilon) or (cd_a < -epsilon and cd_b > epsilon)):
+        return True
+    return (abs(ab_c) <= epsilon and _on_segment(a, b, c)) or (abs(ab_d) <= epsilon and _on_segment(a, b, d)) or (abs(cd_a) <= epsilon and _on_segment(c, d, a)) or (abs(cd_b) <= epsilon and _on_segment(c, d, b))
+
+
+def _has_self_intersection(polygon: list[list[float]]) -> bool:
+    length = len(polygon)
+    for i in range(length):
+        a, b = polygon[i], polygon[(i + 1) % length]
+        for j in range(i + 1, length):
+            # Adjacent edges share an endpoint by definition and are valid.
+            if j in {i, (i + 1) % length} or (i == 0 and j == length - 1):
+                continue
+            if _segments_intersect(a, b, polygon[j], polygon[(j + 1) % length]):
+                return True
+    return False
+
+
+def _point_in_polygon(point: tuple[float, float], polygon: list[list[float]]) -> bool:
+    x, y = point
+    inside = False
+    for index, current in enumerate(polygon):
+        previous = polygon[index - 1]
+        if ((current[1] > y) != (previous[1] > y)) and x < (previous[0] - current[0]) * (y - current[1]) / (previous[1] - current[1]) + current[0]:
+            inside = not inside
+    return inside
+
+
+def _triangle_contains(point: list[float], triangle: list[list[float]]) -> bool:
+    signs = [_orientation(triangle[i], triangle[(i + 1) % 3], point) for i in range(3)]
+    return all(sign >= -1e-12 for sign in signs) or all(sign <= 1e-12 for sign in signs)
+
+
+def _interior_representative(polygon: list[list[float]]) -> tuple[float, float]:
+    """Return a point from an ear triangle when the area centroid is outside."""
+    winding = 1 if _signed_area(polygon) > 0 else -1
+    remaining = list(polygon)
+    while len(remaining) > 3:
+        for index, current in enumerate(remaining):
+            previous, following = remaining[index - 1], remaining[(index + 1) % len(remaining)]
+            if _orientation(previous, current, following) * winding <= 1e-12:
+                continue
+            triangle = [previous, current, following]
+            if any(_triangle_contains(vertex, triangle) for offset, vertex in enumerate(remaining) if offset not in {(index - 1) % len(remaining), index, (index + 1) % len(remaining)}):
+                continue
+            return (sum(vertex[0] for vertex in triangle) / 3, sum(vertex[1] for vertex in triangle) / 3)
+        break
+    if len(remaining) == 3:
+        return (sum(vertex[0] for vertex in remaining) / 3, sum(vertex[1] for vertex in remaining) / 3)
+    # A valid simple polygon should have an ear. This deterministic fallback
+    # handles numerical edge cases without emitting a point outside the wall.
+    xs, ys = zip(*polygon)
+    for row in range(1, 101):
+        for column in range(1, 101):
+            candidate = (min(xs) + (max(xs) - min(xs)) * row / 101, min(ys) + (max(ys) - min(ys)) * column / 101)
+            if _point_in_polygon(candidate, polygon):
+                return candidate
+    return tuple(polygon[0])
+
+
+def _polygon_centroid(polygon: list[list[float]]) -> tuple[float, float]:
+    signed_area = _signed_area(polygon)
+    factor = 1 / (6 * signed_area)
+    x = sum((polygon[i][0] + polygon[(i + 1) % len(polygon)][0]) * (polygon[i][0] * polygon[(i + 1) % len(polygon)][1] - polygon[(i + 1) % len(polygon)][0] * polygon[i][1]) for i in range(len(polygon))) * factor
+    y = sum((polygon[i][1] + polygon[(i + 1) % len(polygon)][1]) * (polygon[i][0] * polygon[(i + 1) % len(polygon)][1] - polygon[(i + 1) % len(polygon)][0] * polygon[i][1]) for i in range(len(polygon))) * factor
+    return (x, y) if _point_in_polygon((x, y), polygon) else _interior_representative(polygon)
 
 
 def build_normalized_holds(raw_holds: Any, width: int, height: int) -> list[dict[str, Any]]:
@@ -82,35 +171,70 @@ def build_normalized_holds(raw_holds: Any, width: int, height: int) -> list[dict
         polygon = normalize_polygon(item.get("polygon"), width, height)
         xs = [point[0] for point in polygon]
         ys = [point[1] for point in polygon]
-        area = abs(sum(polygon[i][0] * polygon[(i + 1) % len(polygon)][1] - polygon[(i + 1) % len(polygon)][0] * polygon[i][1] for i in range(len(polygon))) / 2)
+        area = abs(_signed_area(polygon))
+        centroid_x, centroid_y = _polygon_centroid(polygon)
         prepared.append({
             "sourceId": source_id,
             "kind": kind,
             "polygon": polygon,
-            "_sort": (min(ys), min(xs), source_id),
-            "x": sum(xs) / len(xs),
-            "y": sum(ys) / len(ys),
+            "_top": min(ys) * height,
+            "_left": min(xs),
+            "x": centroid_x,
+            "y": centroid_y,
             "radius": math.sqrt(area / math.pi),
+            "bbox": [min(xs), min(ys), max(xs), max(ys)],
         })
-    prepared.sort(key=lambda item: item.pop("_sort"))
+    prepared.sort(key=lambda item: (item["_top"], item["_left"], item["sourceId"]))
+    bands: list[tuple[float, list[dict[str, Any]]]] = []
+    for item in prepared:
+        if not bands or item["_top"] - bands[-1][0] > TOP_EDGE_TOLERANCE_PIXELS:
+            bands.append((item["_top"], [item]))
+        else:
+            bands[-1][1].append(item)
+    prepared = [item for _, band in bands for item in sorted(band, key=lambda item: (item["_left"], item["sourceId"]))]
     for index, item in enumerate(prepared, 1):
         item["id"] = f"H{index:03d}"
+        item.pop("_top")
+        item.pop("_left")
     return prepared
 
 
 def _canonical_json(payload: dict[str, Any]) -> str:
-    # Match JSON.stringify's representation for integral floats (for example
-    # 0 rather than Python's 0.0), so signatures verify in Node as well.
-    def compatible(value: Any) -> Any:
-        if isinstance(value, float) and value.is_integer():
-            return int(value)
-        if isinstance(value, list):
-            return [compatible(item) for item in value]
-        if isinstance(value, dict):
-            return {key: compatible(item) for key, item in value.items()}
-        return value
+    """Serialize like Node's JSON.stringify, including exponent spelling."""
+    def number(value: float | int) -> str:
+        if isinstance(value, int):
+            return str(value)
+        if value == 0:
+            return "0"
+        text = repr(value)
+        absolute = abs(value)
+        if "e" not in text and "E" not in text:
+            return text[:-2] if text.endswith(".0") else text
+        mantissa, exponent = text.lower().split("e")
+        exponent_value = int(exponent)
+        # ECMAScript uses fixed notation for [1e-6, 1e21).
+        if 1e-6 <= absolute < 1e21:
+            fixed = format(Decimal(text), "f")
+            if "." in fixed:
+                fixed = fixed.rstrip("0").rstrip(".")
+            return fixed if fixed not in {"-0", ""} else "0"
+        sign = "+" if exponent_value >= 0 else "-"
+        return f"{mantissa}e{sign}{abs(exponent_value)}"
 
-    return json.dumps(compatible(payload), ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    def serialize(value: Any) -> str:
+        if isinstance(value, bool) or value is None:
+            return json.dumps(value)
+        if isinstance(value, (int, float)):
+            return number(value)
+        if isinstance(value, str):
+            return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+        if isinstance(value, list):
+            return "[" + ",".join(serialize(item) for item in value) + "]"
+        if isinstance(value, dict):
+            return "{" + ",".join(serialize(str(key)) + ":" + serialize(value[key]) for key in sorted(value)) + "}"
+        raise TypeError(f"Unsupported canonical JSON value: {type(value).__name__}")
+
+    return serialize(payload)
 
 
 class CloudBaseSynchronizer:

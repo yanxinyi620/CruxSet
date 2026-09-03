@@ -56,7 +56,8 @@ const validatePayload = payload => {
     if (hold.id !== `H${String(index + 1).padStart(3, '0')}` || typeof hold.sourceId !== 'string' || !hold.sourceId || sourceIds.has(hold.sourceId)) fail('INVALID_HOLDS')
     ids.add(hold.id)
     sourceIds.add(hold.sourceId)
-    if (!Array.isArray(hold.polygon) || hold.polygon.length < 3 || hold.polygon.some(point => !Array.isArray(point) || point.length !== 2 || point.some(value => !Number.isFinite(value) || value < 0 || value > 1)) || polygonArea(hold.polygon) <= 0) fail('INVALID_HOLDS')
+    if (!Array.isArray(hold.polygon) || hold.polygon.length < 3 || hold.polygon.some(point => !Array.isArray(point) || point.length !== 2 || point.some(value => !Number.isFinite(value) || value < 0 || value > 1)) || polygonArea(hold.polygon) < 1e-6) fail('INVALID_HOLDS')
+    if (!Array.isArray(hold.bbox) || hold.bbox.length !== 4 || hold.bbox.some(value => !Number.isFinite(value) || value < 0 || value > 1) || hold.bbox[0] > hold.bbox[2] || hold.bbox[1] > hold.bbox[3]) fail('INVALID_HOLDS')
     if (![hold.x, hold.y, hold.radius].every(Number.isFinite) || hold.x < 0 || hold.x > 1 || hold.y < 0 || hold.y > 1 || hold.radius <= 0 || hold.radius > 1) fail('INVALID_HOLDS')
   })
   return { ...payload, angleOptions: angles }
@@ -83,7 +84,7 @@ const ownerFor = async (db, ownerOpenid) => {
 }
 
 exports.main = async event => {
-  const secret = process.env.CRUXSET_CLOUDBASE_SEGMENTATION_SIGNING_KEY || process.env.CRUXSET_SEGMENTATION_CLOUDBASE_SIGNING_KEY || ''
+  const secret = process.env.CRUXSET_CLOUDBASE_SIGNING_KEY || process.env.CRUXSET_CLOUDBASE_SEGMENTATION_SIGNING_KEY || process.env.CRUXSET_SEGMENTATION_CLOUDBASE_SIGNING_KEY || ''
   verifySignature(event, secret)
   const payload = validatePayload(payloadFrom(event))
   const db = cloud.database()

@@ -22,13 +22,13 @@ from .cloudbase_sync import CloudBaseSynchronizer, sync_calibration
 from .service import BenchmarkService
 
 
-PostSuccessHook = Callable[[ExperimentStore, str, str, dict[str, object]], Awaitable[object] | object]
+PostSuccessHook = Callable[[ExperimentStore, str, str, dict[str, object], str], Awaitable[object] | object]
 
 
-async def _run_post_success_hook(hook: PostSuccessHook, store: ExperimentStore, experiment_id: str, calibration_id: str, result: dict[str, object]) -> None:
+async def _run_post_success_hook(hook: PostSuccessHook, store: ExperimentStore, experiment_id: str, calibration_id: str, result: dict[str, object], wall_name: str) -> None:
     """Run an optional side effect without changing the completed local response."""
     try:
-        outcome = hook(store, experiment_id, calibration_id, result)
+        outcome = hook(store, experiment_id, calibration_id, result, wall_name)
         if hasattr(outcome, "__await__"):
             await outcome
     except Exception as error:
@@ -69,8 +69,8 @@ def create_app(settings: Settings, adapters: Mapping[str, SegmentationAdapter] |
             owner_openid=settings.cloudbase_owner_openid,
         )
 
-        async def configured_cloudbase_hook(store: ExperimentStore, experiment_id: str, calibration_id: str, _result: dict[str, object]) -> object:
-            return await sync_calibration(store, experiment_id, calibration_id, cloudbase)
+        async def configured_cloudbase_hook(store: ExperimentStore, experiment_id: str, calibration_id: str, _result: dict[str, object], local_wall_name: str) -> object:
+            return await sync_calibration(store, experiment_id, calibration_id, cloudbase, wall_name=local_wall_name)
 
         post_success_hook = configured_cloudbase_hook
 
@@ -187,7 +187,7 @@ def create_app(settings: Settings, adapters: Mapping[str, SegmentationAdapter] |
         record = {**result, "publishRequestId": metadata["publishRequestId"], "wallName": wall_name, "publishedAt": time.time(), "status": "succeeded"}
         store.record_calibration_publish(experiment_id, calibration_id, record)
         if post_success_hook is not None:
-            tasks.add_task(_run_post_success_hook, post_success_hook, store, experiment_id, calibration_id, result)
+            tasks.add_task(_run_post_success_hook, post_success_hook, store, experiment_id, calibration_id, result, wall_name)
         return result
 
     @app.get("/api/experiments/{experiment_id}/calibrations/{calibration_id}/export.svg")

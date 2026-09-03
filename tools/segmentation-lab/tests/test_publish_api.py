@@ -58,3 +58,30 @@ def test_optional_post_success_hook_failure_does_not_change_local_publish(tmp_pa
     stored = client.get(f"/api/experiments/{experiment_id}/calibrations").json()["items"][0]
     assert stored["publish"]["wallId"] == "wall-local"
     assert stored["sync"]["status"] == "failed"
+
+
+def test_optional_post_success_hook_receives_local_wall_name(tmp_path, monkeypatch):
+    class FakePublisher:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        async def publish(self, _image, _filename, _metadata):
+            return {"wallId": "wall-local", "holdCount": 1, "browsePath": "/wall/wall-local", "created": True}
+
+    monkeypatch.setattr("segmentation_lab.api.CruxSetPublisher", FakePublisher)
+    seen = {}
+
+    async def hook(_store, _experiment_id, _calibration_id, _result, wall_name):
+        seen["wall_name"] = wall_name
+
+    app = create_app(Settings(data_dir=tmp_path, cruxset_publish_key="key"), post_success_hook=hook)
+    client = TestClient(app)
+    image = BytesIO()
+    Image.new("RGB", (100, 80), "white").save(image, format="PNG")
+    experiment_id = client.post("/api/experiments", files={"image": ("wall.png", image.getvalue(), "image/png")}).json()["id"]
+    calibration = client.post(f"/api/experiments/{experiment_id}/calibrations", json={"sourceTaskId": "task-1", "candidates": [{"id": "hold-1", "polygon": [[10, 10], [30, 10], [20, 30]]}], "changes": {}}).json()
+
+    response = client.post(f"/api/experiments/{experiment_id}/calibrations/{calibration['id']}/publish", json={"wallName": "Local name"})
+
+    assert response.status_code == 201
+    assert seen["wall_name"] == "Local name"
