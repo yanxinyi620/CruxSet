@@ -12,6 +12,17 @@ try {
 
 if (cloud) cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 
+// CloudBase Storage is a service API, not a WeChat OpenAPI.  The node SDK
+// obtains the function's CloudBase credentials automatically when deployed.
+let storage
+try {
+  const tcb = require('@cloudbase/node-sdk')
+  storage = tcb.init({})
+} catch (error) {
+  if (error.code !== 'MODULE_NOT_FOUND') throw error
+  storage = null
+}
+
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 const MAX_MULTIPART_OVERHEAD = 1024 * 1024
 const MAX_REQUEST_BYTES = MAX_UPLOAD_BYTES + MAX_MULTIPART_OVERHEAD
@@ -190,10 +201,10 @@ const secretFromEnvironment = () => process.env.CRUXSET_CLOUDBASE_SIGNING_KEY ||
 const objectKeys = value => value && typeof value === 'object' && !Array.isArray(value) ? Object.keys(value).sort() : []
 
 const uploadMetadata = async (cloudPath) => {
-  if (!cloud || typeof cloud.callOpenAPI !== 'function') fail('CLOUDBASE_RUNTIME_MISSING')
+  if (!storage || typeof storage.getUploadMetadata !== 'function') fail('CLOUDBASE_RUNTIME_MISSING')
   let result
   try {
-    result = await cloud.callOpenAPI({ api: 'storage.getUploadMetaData', data: { path: cloudPath } })
+    result = await storage.getUploadMetadata({ cloudPath })
   } catch (error) {
     console.log('storageUpload metadata diagnostic', {
       callErrorCode: typeof error?.code === 'string' ? error.code : undefined,
@@ -201,25 +212,20 @@ const uploadMetadata = async (cloudPath) => {
     })
     fail('STORAGE_UPLOAD_METADATA_FAILED')
   }
-  const body = result?.body
-  const value = result?.body?.data || result?.result?.data || result?.result || result?.data || result
-  const uploadUrl = value?.uploadUrl || value?.upload_url || value?.url
+  const value = result?.data || result
+  const uploadUrl = value?.url || value?.uploadUrl || value?.upload_url
   const authorization = value?.authorization
   const token = value?.token
-  const cloudObjectMeta = value?.cloudObjectMeta || value?.cosFileID || value?.cosFileId || value?.cos_file_id
-  const fileID = value?.fileID || value?.fileId || value?.file_id
+  const cloudObjectMeta = value?.cosFileId || value?.cosFileID || value?.cloudObjectMeta || value?.cos_file_id
+  const fileID = value?.fileId || value?.fileID || value?.file_id
   if (![uploadUrl, authorization, token, cloudObjectMeta, fileID].every(item => typeof item === 'string' && item)) {
     console.log('storageUpload metadata diagnostic', {
-      statusCode: Number.isInteger(result?.statusCode) ? result.statusCode : undefined,
-      bodyCode: typeof body?.code === 'string' ? body.code : undefined,
-      bodyMessage: typeof body?.message === 'string' ? body.message.slice(0, 200) : undefined,
       resultKeys: objectKeys(result),
-      bodyKeys: objectKeys(body),
       dataKeys: objectKeys(value),
     })
     fail('STORAGE_UPLOAD_METADATA_FAILED')
   }
-  return { fileID, uploadUrl, authorization, token, cloudObjectMeta }
+  return { fileID, uploadUrl, authorization, token, cloudObjectMeta, cloudPath }
 }
 
 const main = async event => {
@@ -274,3 +280,4 @@ exports._verifySignature = verifySignature
 exports._bodyBufferFrom = bodyBufferFrom
 exports._signedMetadataFor = signedMetadataFor
 exports._setCloudForTests = value => { cloud = value }
+exports._setStorageForTests = value => { storage = value }

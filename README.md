@@ -102,7 +102,7 @@ export const runtimeMode: RuntimeMode = 'mock'
 将 `wechat/miniprogram/config/runtime.ts` 的 `runtimeMode` 改为 `cloudbase`，并在 `wechat/miniprogram/app.ts` 配置实际 CloudBase 环境 ID。随后：
 
 1. 创建 `users`、`walls`、`problems`、`admins`、`counters`、`segmentationPublishes` 六个集合，导入 [集合声明](config/cloudbase.collections.json)，并应用 [权限规则](config/cloudbase.rules.json)。
-2. 部署 `login`、`adminWall`、`wallManager`、`saveProblem`、`updateProblem`、`deleteProblem`、`getWallImageUrl`、`storageUpload`、`segmentationPublish` 九个云函数；每个函数均在云端安装 `wx-server-sdk` 依赖。
+2. 部署 `login`、`adminWall`、`wallManager`、`saveProblem`、`updateProblem`、`deleteProblem`、`getWallImageUrl`、`storageUpload`、`segmentationPublish` 九个云函数；`storageUpload` 还会安装 `@cloudbase/node-sdk`，用于以云函数自身的 CloudBase 权限申请 Storage 直传凭证。
 3. 为已有 Wall 补齐 `ownerId` 与 `visibility`；墙图保持私有存储，经 `getWallImageUrl` 权限校验后提供短期访问地址。
 4. 运行 `npm run verify:phase1`；正式发布前运行 `npm run verify:phase1 -- --release`，再按[测试与验收](docs/testing.md)完成 CloudBase 和 Android/iPhone 真机检查。
 

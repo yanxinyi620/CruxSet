@@ -2,6 +2,7 @@
   "name": "cruxset-storage-upload",
   "private": true,
   "dependencies": {
+    "@cloudbase/node-sdk": "^3.18.3",
     "wx-server-sdk": "^3.0.1"
   }
 }

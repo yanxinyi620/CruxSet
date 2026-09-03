@@ -165,11 +165,14 @@ async def test_sync_uploads_large_image_to_granted_storage_url():
                 "authorization": "cos-signature",
                 "token": "cos-token",
                 "cloudObjectMeta": "cloud-meta",
+                "cloudPath": "segmentation/image.png",
             })
         if request.url.host == "cos.example":
             assert request.headers["authorization"] == "cos-signature"
+            assert request.headers["signature"] == "cos-signature"
             assert request.headers["x-cos-security-token"] == "cos-token"
             assert request.headers["x-cos-meta-fileid"] == "cloud-meta"
+            assert request.headers["key"] == "segmentation%2Fimage.png"
             assert await request.aread() == image
             return httpx.Response(200)
         return httpx.Response(201, json={"wallId": "wall-1"})

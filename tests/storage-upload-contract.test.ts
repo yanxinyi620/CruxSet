@@ -74,13 +74,13 @@ it('accepts a signed multipart file and returns the CloudBase fileID', async () 
 it('returns a short-lived direct upload grant for signed JSON metadata', async () => {
   const storageUpload = require(resolve(process.cwd(), 'wechat/cloudfunctions/storageUpload/index.js')) as {
     main: (event: Record<string, unknown>) => Promise<unknown>
-    _setCloudForTests: (cloud: { callOpenAPI: (input: unknown) => Promise<unknown> }) => void
+    _setStorageForTests: (storage: { getUploadMetadata: (input: unknown) => Promise<unknown> }) => void
   }
   let request: unknown
-  storageUpload._setCloudForTests({
-    callOpenAPI: async input => {
+  storageUpload._setStorageForTests({
+    getUploadMetadata: async input => {
       request = input
-      return { result: { data: { fileID: 'cloud://cruxset/segmentation/image.png', uploadUrl: 'https://cos.example/upload', authorization: 'auth', token: 'token', cloudObjectMeta: 'meta' } } }
+      return { data: { fileId: 'cloud://cruxset/segmentation/image.png', url: 'https://cos.example/upload', authorization: 'auth', token: 'token', cosFileId: 'meta' } }
     },
   })
   const metadata = metadataFor(pngBytes, timestamp)
@@ -88,17 +88,17 @@ it('returns a short-lived direct upload grant for signed JSON metadata', async (
     body: JSON.stringify(metadata), httpMethod: 'POST', headers: {
       'content-type': 'application/json', 'x-cruxset-signature': sign(metadata, secret),
     },
-  })).resolves.toMatchObject({ fileID: 'cloud://cruxset/segmentation/image.png', uploadUrl: 'https://cos.example/upload' })
-  expect(request).toEqual({ api: 'storage.getUploadMetaData', data: { path: expect.stringMatching(/^segmentation\/[a-z0-9-]+\.png$/) } })
+  })).resolves.toMatchObject({ fileID: 'cloud://cruxset/segmentation/image.png', uploadUrl: 'https://cos.example/upload', cloudPath: expect.stringMatching(/^segmentation\/[a-z0-9-]+\.png$/) })
+  expect(request).toEqual({ cloudPath: expect.stringMatching(/^segmentation\/[a-z0-9-]+\.png$/) })
 })
 
 it('accepts the CloudBase storage metadata response nested under body.data', async () => {
   const storageUpload = require(resolve(process.cwd(), 'wechat/cloudfunctions/storageUpload/index.js')) as {
     main: (event: Record<string, unknown>) => Promise<unknown>
-    _setCloudForTests: (cloud: { callOpenAPI: () => Promise<unknown> }) => void
+    _setStorageForTests: (storage: { getUploadMetadata: () => Promise<unknown> }) => void
   }
-  storageUpload._setCloudForTests({
-    callOpenAPI: async () => ({ body: { data: { fileID: 'cloud://cruxset/segmentation/image.png', url: 'https://cos.example/upload', authorization: 'auth', token: 'token', cloudObjectMeta: 'meta' } } }),
+  storageUpload._setStorageForTests({
+    getUploadMetadata: async () => ({ data: { fileId: 'cloud://cruxset/segmentation/image.png', url: 'https://cos.example/upload', authorization: 'auth', token: 'token', cosFileId: 'meta' } }),
   })
   const metadata = metadataFor(pngBytes, timestamp)
   await expect(storageUpload.main({
@@ -111,10 +111,10 @@ it('accepts the CloudBase storage metadata response nested under body.data', asy
 it('logs only metadata response shape and error details when an upload grant is unavailable', async () => {
   const storageUpload = require(resolve(process.cwd(), 'wechat/cloudfunctions/storageUpload/index.js')) as {
     main: (event: Record<string, unknown>) => Promise<unknown>
-    _setCloudForTests: (cloud: { callOpenAPI: () => Promise<unknown> }) => void
+    _setStorageForTests: (storage: { getUploadMetadata: () => Promise<unknown> }) => void
   }
-  storageUpload._setCloudForTests({
-    callOpenAPI: async () => ({ statusCode: 403, body: { code: 'PERMISSION_DENIED', message: 'storage API permission missing', data: { token: 'secret-token', authorization: 'secret-authorization' } } }),
+  storageUpload._setStorageForTests({
+    getUploadMetadata: async () => { throw Object.assign(new Error('storage API permission missing'), { code: 'PERMISSION_DENIED' }) },
   })
   const log = vi.spyOn(console, 'log').mockImplementation(() => undefined)
   const metadata = metadataFor(pngBytes, timestamp)
@@ -124,12 +124,8 @@ it('logs only metadata response shape and error details when an upload grant is 
     },
   })).rejects.toThrow('STORAGE_UPLOAD_METADATA_FAILED')
   expect(log).toHaveBeenCalledWith('storageUpload metadata diagnostic', {
-    statusCode: 403,
-    bodyCode: 'PERMISSION_DENIED',
-    bodyMessage: 'storage API permission missing',
-    resultKeys: ['body', 'statusCode'],
-    bodyKeys: ['code', 'data', 'message'],
-    dataKeys: ['authorization', 'token'],
+    callErrorCode: 'PERMISSION_DENIED',
+    callErrorMessage: 'storage API permission missing',
   })
   expect(log.mock.calls.flat().join(' ')).not.toContain('secret-token')
   expect(log.mock.calls.flat().join(' ')).not.toContain('secret-authorization')
@@ -139,10 +135,10 @@ it('logs only metadata response shape and error details when an upload grant is 
 it('accepts signed JSON metadata up to 30 seconds ahead of the CloudBase clock', async () => {
   const storageUpload = require(resolve(process.cwd(), 'wechat/cloudfunctions/storageUpload/index.js')) as {
     main: (event: Record<string, unknown>) => Promise<unknown>
-    _setCloudForTests: (cloud: { callOpenAPI: () => Promise<unknown> }) => void
+    _setStorageForTests: (storage: { getUploadMetadata: () => Promise<unknown> }) => void
   }
-  storageUpload._setCloudForTests({
-    callOpenAPI: async () => ({ result: { data: { fileID: 'cloud://cruxset/segmentation/image.png', uploadUrl: 'https://cos.example/upload', authorization: 'auth', token: 'token', cloudObjectMeta: 'meta' } } }),
+  storageUpload._setStorageForTests({
+    getUploadMetadata: async () => ({ data: { fileId: 'cloud://cruxset/segmentation/image.png', url: 'https://cos.example/upload', authorization: 'auth', token: 'token', cosFileId: 'meta' } }),
   })
   const futureTimestamp = String(Math.floor(Date.now() / 1000) + 30)
   const metadata = metadataFor(pngBytes, futureTimestamp)

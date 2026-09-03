@@ -16,6 +16,7 @@ import time
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 
@@ -360,15 +361,22 @@ class CloudBaseSynchronizer:
         authorization = payload.get("authorization")
         token = payload.get("token")
         cloud_object_meta = payload.get("cloudObjectMeta", payload.get("cosFileID", payload.get("cosFileId")))
-        if upload_url and authorization and token and cloud_object_meta:
+        cloud_path = payload.get("cloudPath")
+        if upload_url and authorization and token and cloud_object_meta and cloud_path:
+            if not isinstance(cloud_path, str) or not cloud_path:
+                raise _invalid("cloudbase_storage_failed", "CloudBase Storage returned an invalid cloud path", True)
             try:
                 upload_response = await client.put(
                     upload_url,
                     content=image,
                     headers={
+                        # CloudBase's generated COS grant requires both the
+                        # signature fields and the encoded destination key.
+                        "Signature": authorization,
                         "Authorization": authorization,
                         "X-Cos-Security-Token": token,
                         "X-Cos-Meta-Fileid": cloud_object_meta,
+                        "key": quote(cloud_path, safe=""),
                         "Content-Type": content_type,
                     },
                 )
@@ -376,6 +384,8 @@ class CloudBaseSynchronizer:
                 raise _invalid("cloudbase_unavailable", "CloudBase Storage upload URL is unavailable", True) from error
             if not 200 <= upload_response.status_code < 300:
                 raise _invalid("cloudbase_storage_failed", f"CloudBase direct image upload failed (HTTP {upload_response.status_code})", upload_response.status_code >= 500)
+        elif any(value is not None for value in (upload_url, authorization, token, cloud_object_meta, cloud_path)):
+            raise _invalid("cloudbase_storage_failed", "CloudBase Storage returned incomplete upload metadata", True)
         return file_id
 
     async def publish(self, image: bytes, filename: str, metadata: dict[str, Any]) -> dict[str, Any]:
