@@ -1,7 +1,7 @@
 import crypto from 'node:crypto'
 import { createRequire } from 'node:module'
 import { resolve } from 'node:path'
-import { expect, it, beforeEach, afterEach } from 'vitest'
+import { expect, it, beforeEach, afterEach, vi } from 'vitest'
 
 const require = createRequire(import.meta.url)
 
@@ -90,6 +90,26 @@ it('returns a short-lived direct upload grant for signed JSON metadata', async (
     },
   })).resolves.toMatchObject({ fileID: 'cloud://cruxset/segmentation/image.png', uploadUrl: 'https://cos.example/upload' })
   expect(request).toEqual({ api: 'storage.getUploadMetaData', data: { path: expect.stringMatching(/^segmentation\/[a-z0-9-]+\.png$/) } })
+})
+
+it('logs non-sensitive clock diagnostics before rejecting a future signed timestamp', async () => {
+  const storageUpload = require(resolve(process.cwd(), 'wechat/cloudfunctions/storageUpload/index.js')) as {
+    main: (event: Record<string, unknown>) => Promise<unknown>
+  }
+  const log = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+  const futureTimestamp = String(Math.floor(Date.now() / 1000) + 60)
+  const metadata = metadataFor(pngBytes, futureTimestamp)
+  await expect(storageUpload.main({
+    body: JSON.stringify(metadata), httpMethod: 'POST', headers: {
+      'content-type': 'application/json', 'x-cruxset-signature': sign(metadata, secret),
+    },
+  })).rejects.toThrow('REQUEST_IN_FUTURE')
+  expect(log).toHaveBeenCalledWith('storageUpload clock diagnostic', expect.objectContaining({
+    receivedTimestamp: Number(futureTimestamp),
+    serverTimestamp: expect.any(Number),
+    differenceSeconds: expect.any(Number),
+  }))
+  log.mockRestore()
 })
 
 it('rejects an invalid signature before calling CloudBase Storage', async () => {

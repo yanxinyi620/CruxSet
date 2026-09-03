@@ -216,6 +216,11 @@ const main = async event => {
     const required = { timestamp, filename, contentType: type, contentSha256: metadata.contentSha256, contentLength: metadata.contentLength }
     if (!/^\d+$/.test(timestamp) || !/^[a-f0-9]{64}$/i.test(String(required.contentSha256 || '')) || !Number.isSafeInteger(Number(required.contentLength)) || Number(required.contentLength) <= 0 || Number(required.contentLength) > MAX_UPLOAD_BYTES || !extension) fail('INVALID_METADATA')
     const now = Math.floor(Date.now() / 1000)
+    console.log('storageUpload clock diagnostic', {
+      receivedTimestamp: Number(timestamp),
+      serverTimestamp: now,
+      differenceSeconds: Number(timestamp) - now,
+    })
     if (Number(timestamp) > now) fail('REQUEST_IN_FUTURE')
     if (now - Number(timestamp) > SIGNATURE_MAX_AGE_SECONDS) fail('REQUEST_EXPIRED')
     const signature = header(event.headers, 'x-cruxset-signature')
