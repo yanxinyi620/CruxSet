@@ -46,7 +46,7 @@ export CRUXSET_CLOUDBASE_SIGNING_KEY='与 segmentationPublish 云函数相同的
 export CRUXSET_CLOUDBASE_OWNER_OPENID='用于解析 CruxSet 用户的 OpenID'
 ```
 
-只有选择 `cloudbase` 或 `both` 时，实验台才会先使用签名元数据从 `storageUpload` 获取临时上传凭证，将墙图直传私有 CloudBase Storage，再调用 `segmentationPublish`；`web` 目标不会调用 CloudBase。直传避免了 HTTP 网关调用云函数时 6 MB 的请求体上限。为控制 CloudBase 墙面写入大小，只有同步副本的岩点轮廓会保形简化到最多 12 个顶点，并重算中心、边界和半径；实验台原始校准与 Web 发布不会被修改。`both` 模式下本地 FastAPI 发布与 CloudBase 同步互相独立，CloudBase 失败不会撤销本地发布，校准记录会保留每个目标的状态。密钥只能放在本机服务端环境变量中，切勿提交到版本库。
+只有选择 `cloudbase` 或 `both` 时，实验台才会先使用签名元数据从 `storageUpload` 获取临时上传凭证，将墙图和完整签名校准 JSON 直传私有 CloudBase Storage，再由 `segmentationPublish` 下载 JSON 并创建墙面；`web` 目标不会调用 CloudBase。这样 HTTP 网关只接收很小的 `payloadFileId` 请求，本地校准、Web 与 CloudBase 的岩点几何保持一致。`both` 模式下本地 FastAPI 发布与 CloudBase 同步互相独立，CloudBase 失败不会撤销本地发布，校准记录会保留每个目标的状态。密钥只能放在本机服务端环境变量中，切勿提交到版本库。
 
 首次运行 `sam2` / `sam2_tiled` 时，Transformers 会下载 `facebook/sam2.1-hiera-large` 权重；需要联网并预留足够的磁盘空间。模型状态会在页面的“02 选择模型”中显示。`sam3` 需要另行安装其依赖并提供本地 checkpoint；未满足条件时会保持不可用。
 
