@@ -27,6 +27,7 @@ export interface WallCanvasOptions {
   getAssignments: () => Record<HoldRole, readonly string[]>
   getSelectedRole: () => HoldRole | null
   onTapHold: (holdId: string) => void
+  onTapCanvas?: () => void
 }
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value))
@@ -42,6 +43,10 @@ export const holdArea = (hold: Hold) => {
 export const wallHoldAt = (point: Point, holds: Hold[], tolerance: number) => {
   const hit = holds.filter(hold => hold.polygon?.length ? polygonHitTest(point, hold) : circleHitTest(point, hold)).sort((a, b) => holdArea(a) - holdArea(b))[0]
   return hit ?? nearestHold(point, holds, tolerance)
+}
+export const dispatchCanvasTap = (holdId: string | undefined, onTapHold: (holdId: string) => void, onTapCanvas?: () => void) => {
+  if (holdId) onTapHold(holdId)
+  else onTapCanvas?.()
 }
 export const imageUrlFor = (imageFileId: string) => /^(https?:\/\/|\/)/.test(imageFileId) ? imageFileId : `/api/v1/media/${encodeURIComponent(imageFileId)}`
 export const projectHoldPoint = (point: Point, scale: number, imageWidth: number, pixels = false): Point => [point[0] * scale / (pixels ? imageWidth : 1), point[1] * scale / (pixels ? imageWidth : 1)]
@@ -198,7 +203,7 @@ export class WallCanvasView {
     const normalizedPoint: Point = [point[0], point[1] / this.aspect]
     const polygonPoint: Point = this.opts.polygonCoordinates === 'pixels' ? [point[0] * this.opts.imageWidth, point[1] * this.opts.imageWidth] : normalizedPoint
     const hold = wallHoldAt(polygonPoint, this.opts.holds.map(item => this.opts.polygonCoordinates === 'pixels' && item.polygon?.length ? { ...item, polygon: item.polygon.map(([x, y]) => [x / this.opts.imageWidth, y / this.opts.imageWidth] as Point) } : item), SNAP_PX / this.scale)
-    if (hold) this.opts.onTapHold(hold.id)
+    dispatchCanvasTap(hold?.id, this.opts.onTapHold, this.opts.onTapCanvas)
   }
 
   private roleOf(holdId: string): HoldRole | null {
