@@ -1,7 +1,15 @@
 const crypto = require('crypto')
-const cloud = require('wx-server-sdk')
+// Keep pure validation importable by local contract tests. CloudBase always
+// provides wx-server-sdk at deployment time.
+let cloud
+try {
+  cloud = require('wx-server-sdk')
+} catch (error) {
+  if (error.code !== 'MODULE_NOT_FOUND') throw error
+  cloud = null
+}
 
-cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
+if (cloud) cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 
 const HOLD_KINDS = new Set(['hold', 'volume'])
 const ANGLES = new Set([20, 25, 30, 35, 40, 45])
@@ -41,6 +49,36 @@ const polygonArea = polygon => Math.abs(polygon.reduce((sum, point, index) => {
   return sum + point[0] * next[1] - next[0] * point[1]
 }, 0) / 2)
 
+const orientation = (a, b, c) => (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
+const onSegment = (a, b, point) => point[0] >= Math.min(a[0], b[0]) && point[0] <= Math.max(a[0], b[0]) && point[1] >= Math.min(a[1], b[1]) && point[1] <= Math.max(a[1], b[1])
+const segmentsIntersect = (a, b, c, d) => {
+  const abC = orientation(a, b, c)
+  const abD = orientation(a, b, d)
+  const cdA = orientation(c, d, a)
+  const cdB = orientation(c, d, b)
+  const epsilon = 1e-12
+  if (((abC > epsilon && abD < -epsilon) || (abC < -epsilon && abD > epsilon)) && ((cdA > epsilon && cdB < -epsilon) || (cdA < -epsilon && cdB > epsilon))) return true
+  return (Math.abs(abC) <= epsilon && onSegment(a, b, c)) || (Math.abs(abD) <= epsilon && onSegment(a, b, d)) || (Math.abs(cdA) <= epsilon && onSegment(c, d, a)) || (Math.abs(cdB) <= epsilon && onSegment(c, d, b))
+}
+const hasSelfIntersection = polygon => {
+  for (let i = 0; i < polygon.length; i += 1) {
+    for (let j = i + 1; j < polygon.length; j += 1) {
+      if (j === i || j === (i + 1) % polygon.length || (i === 0 && j === polygon.length - 1)) continue
+      if (segmentsIntersect(polygon[i], polygon[(i + 1) % polygon.length], polygon[j], polygon[(j + 1) % polygon.length])) return true
+    }
+  }
+  return false
+}
+const pointInPolygon = (point, polygon) => {
+  let inside = false
+  for (let index = 0; index < polygon.length; index += 1) {
+    const current = polygon[index]
+    const previous = polygon[(index + polygon.length - 1) % polygon.length]
+    if ((current[1] > point[1]) !== (previous[1] > point[1]) && point[0] < (previous[0] - current[0]) * (point[1] - current[1]) / (previous[1] - current[1]) + current[0]) inside = !inside
+  }
+  return inside
+}
+
 const validatePayload = payload => {
   const required = ['publishRequestId', 'sourceExperimentId', 'sourceCalibrationId', 'wallName', 'imageWidth', 'imageHeight', 'imageFileId', 'ownerOpenid', 'holds']
   if (required.some(field => typeof payload[field] !== 'string' && !['imageWidth', 'imageHeight', 'holds'].includes(field)) || required.some(field => payload[field] === undefined || payload[field] === null)) fail('INVALID_METADATA')
@@ -56,8 +94,15 @@ const validatePayload = payload => {
     if (hold.id !== `H${String(index + 1).padStart(3, '0')}` || typeof hold.sourceId !== 'string' || !hold.sourceId || sourceIds.has(hold.sourceId)) fail('INVALID_HOLDS')
     ids.add(hold.id)
     sourceIds.add(hold.sourceId)
-    if (!Array.isArray(hold.polygon) || hold.polygon.length < 3 || hold.polygon.some(point => !Array.isArray(point) || point.length !== 2 || point.some(value => !Number.isFinite(value) || value < 0 || value > 1)) || polygonArea(hold.polygon) < 1e-6) fail('INVALID_HOLDS')
+    if (!Array.isArray(hold.polygon) || hold.polygon.length < 3 || hold.polygon.some(point => !Array.isArray(point) || point.length !== 2 || point.some(value => !Number.isFinite(value) || value < 0 || value > 1)) || polygonArea(hold.polygon) < 1e-6 || hasSelfIntersection(hold.polygon)) fail('INVALID_HOLDS')
     if (!Array.isArray(hold.bbox) || hold.bbox.length !== 4 || hold.bbox.some(value => !Number.isFinite(value) || value < 0 || value > 1) || hold.bbox[0] > hold.bbox[2] || hold.bbox[1] > hold.bbox[3]) fail('INVALID_HOLDS')
+    const xs = hold.polygon.map(point => point[0])
+    const ys = hold.polygon.map(point => point[1])
+    const expectedBbox = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]
+    if (expectedBbox.some((value, bboxIndex) => Math.abs(value - hold.bbox[bboxIndex]) > 1e-9)) fail('INVALID_HOLDS')
+    if (!pointInPolygon([hold.x, hold.y], hold.polygon)) fail('INVALID_HOLDS')
+    const expectedRadius = Math.sqrt(polygonArea(hold.polygon) / Math.PI)
+    if (Math.abs(hold.radius - expectedRadius) > Math.max(1e-6, expectedRadius * 1e-6)) fail('INVALID_HOLDS')
     if (![hold.x, hold.y, hold.radius].every(Number.isFinite) || hold.x < 0 || hold.x > 1 || hold.y < 0 || hold.y > 1 || hold.radius <= 0 || hold.radius > 1) fail('INVALID_HOLDS')
   })
   return { ...payload, angleOptions: angles }
@@ -84,6 +129,7 @@ const ownerFor = async (db, ownerOpenid) => {
 }
 
 exports.main = async event => {
+  if (!cloud) fail('CLOUDBASE_RUNTIME_MISSING')
   const secret = process.env.CRUXSET_CLOUDBASE_SIGNING_KEY || process.env.CRUXSET_CLOUDBASE_SEGMENTATION_SIGNING_KEY || process.env.CRUXSET_SEGMENTATION_CLOUDBASE_SIGNING_KEY || ''
   verifySignature(event, secret)
   const payload = validatePayload(payloadFrom(event))
