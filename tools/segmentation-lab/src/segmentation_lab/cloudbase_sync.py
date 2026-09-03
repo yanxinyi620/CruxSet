@@ -337,7 +337,16 @@ class CloudBaseSynchronizer:
         except httpx.HTTPError as error:
             raise _invalid("cloudbase_unavailable", "CloudBase Storage is unavailable", True) from error
         if not 200 <= response.status_code < 300:
-            raise _invalid("cloudbase_storage_failed", "CloudBase image upload failed", response.status_code >= 500)
+            detail = "CloudBase image upload failed"
+            try:
+                body = response.json()
+                if isinstance(body, dict):
+                    detail = body.get("message") or body.get("error") or body.get("code") or detail
+            except ValueError:
+                text = response.text.strip()
+                if text:
+                    detail = text[:200]
+            raise _invalid("cloudbase_storage_failed", f"{detail} (HTTP {response.status_code})", response.status_code >= 500)
         try:
             payload = response.json()
         except ValueError as error:
