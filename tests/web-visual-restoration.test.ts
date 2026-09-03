@@ -21,6 +21,10 @@ describe('Wall-only visual restoration', () => {
     expect(source).toContain('roi-grid')
   })
 
+  it('does not show gesture instructions in the wall annotation toolbar', () => {
+    expect(source).not.toContain('双指缩放 · 单指平移')
+  })
+
   it('keeps the login screen focused on sign in and registration choices', () => {
     expect(source).toContain('<h1>CRUXSET <span>创作工作台</span></h1>')
     expect(source).toContain('data-login')
