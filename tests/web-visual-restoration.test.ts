@@ -13,12 +13,11 @@ describe('Wall-only visual restoration', () => {
     expect(source).not.toMatch(/\bLayout\b|layoutId|activeLayoutId|data-layout|\/layouts/)
   })
 
-  it('contains the restored Wall annotation controls', () => {
+  it('contains the wall annotation controls', () => {
     expect(source).toContain('自动识别')
-    expect(source).toContain('确认全部')
-    expect(source).toContain('识别区域')
-    expect(source).toContain('candidate-list')
-    expect(source).toContain('roi-grid')
+    expect(source).toContain('手动校准')
+    expect(source).toContain('annotation-mode-toolbar')
+    expect(source).toContain('annotation-history-toolbar')
   })
 
   it('does not show gesture instructions in the wall annotation toolbar', () => {

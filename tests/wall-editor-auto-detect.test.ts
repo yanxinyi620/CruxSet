@@ -6,7 +6,9 @@ it('adds full-image local detections directly to the wall annotation', () => {
 
   expect(source).toContain('autoDetectHolds')
   expect(source).toContain('[data-detect]')
-  expect(source).toContain('confirmCandidates')
+  expect(source).toContain('c.editor.replace(detected)')
   expect(source).not.toContain('data-roi')
   expect(source).not.toContain('data-confirm-all')
+  expect(source).toContain('data-manual-calibration')
+  expect(source).toContain('data-redo')
 })

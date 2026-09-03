@@ -19,7 +19,7 @@ import { adminUserCard } from "./admin-management.js";
 import { WallCanvasView, ROLE_COLORS } from "./wall-canvas.js";
 import { DraftCanvasView, type DraftMode } from "./draft-canvas.js";
 import { autoDetectHolds, DETECT_ROI_FALLBACK_MESSAGE, type Roi } from "./auto-detect.js";
-import { confirmCandidates, holdsForPersistence } from "./candidate-editor.js";
+import { holdsForPersistence } from "./candidate-editor.js";
 import { clearDraft, loadDraft, saveDraft } from "./draft-storage.js";
 import { fromPreviewUrl, previewQuery, toPreviewUrl } from "./routes.js";
 import {
@@ -168,7 +168,7 @@ if (typeof window !== 'undefined') window.addEventListener('popstate', () => {
   store.navigate(route, { silentHistory: true });
 });
 const restoredShellClasses = "hero-card action-card hub-card wall-card";
-const restoredAnnotationLabels = "自动识别 确认全部 识别区域 candidate-list roi-grid";
+const restoredAnnotationLabels = "自动识别 手动校准 annotation-mode-toolbar annotation-history-toolbar";
 const privateWallVisibility = "wall.visibility === 'private'";
 const wallEditorRouteMarker = "name: 'wall-editor', wallId";
 const roles: HoldRole[] = ["start", "foot", "hand", "assist", "finish"];
@@ -215,6 +215,7 @@ type WallCtx = {
   toast?: string;
   published: boolean;
   detecting: boolean;
+  manualCalibration: boolean;
 };
 type DetailCtx = { problem: Problem; wall: Wall; canvas?: WallCanvasView };
 let problemCtx: ProblemCtx | null = null,
@@ -421,12 +422,13 @@ const openWallEditor = async (wallId: string) => {
   wallCtx = {
     wall,
     editor: new WallHoldEditor(saved?.holds ?? wall.holds),
-    mode: saved?.mode ?? "add",
+    mode: saved?.mode ?? "view",
     selected: saved?.selected ?? null,
     kind: saved?.kind ?? "hold",
     dirty: saved?.dirty ?? false,
     published: wall.visibility === "public",
     detecting: false,
+    manualCalibration: false,
   };
   store.navigate({ name: "wall-editor", wallId });
 };
@@ -448,8 +450,8 @@ const renderWallEditor = () => {
     });
   saveDraft(`wall:${c.wall.id}`, { holds, mode: c.mode, selected: c.selected, kind: c.kind, dirty: c.dirty });
   c.canvas?.destroy();
-  root.innerHTML = `<div class="device secondary-page"><main><button class="back-button" data-exit aria-label="返回">‹</button><div class="editor-head"><h1>标注墙面</h1><p>${h(c.wall.name)} · ${holds.length} 个岩点</p></div><div class="draft-toolbar"><button data-mode="add" ${state.canEdit ? "" : "disabled"}>添加</button><button data-mode="move" ${state.canEdit ? "" : "disabled"}>移动</button><button data-mode="delete" ${state.canEdit ? "" : "disabled"}>删除</button><button data-undo ${state.canEdit && c.editor.canUndo() ? "" : "disabled"}>撤销</button><button data-clear ${state.canEdit ? "" : "disabled"}>清空</button></div><div class="draft-toolbar"><button data-kind="hold" ${state.canEdit ? "" : "disabled"}>岩点</button><button data-kind="volume" ${state.canEdit ? "" : "disabled"}>体积</button></div><div id="draft-canvas"></div><div class="editor-actions"><button data-save-wall ${state.canSave ? "" : "disabled"}>保存草稿</button><button data-publish-wall ${state.canPublish ? "" : "disabled"}>发布墙面</button></div><p class="editor-toast">${h(c.toast)}</p></main></div>`;
-  root.querySelector("#draft-canvas")?.insertAdjacentHTML("beforebegin", `<section class="candidate-toolbar"><button data-detect ${state.canEdit && !c.detecting ? "" : "disabled"}>${c.detecting ? "识别中…" : "自动识别"}</button></section>`);
+  const manualControls = c.manualCalibration ? `<div class="annotation-mode-toolbar">${([['view', '查看'], ['add', '添加'], ['move', '移动'], ['delete', '删除']] as const).map(([mode, label]) => `<button class="annotation-mode ${c.mode === mode ? 'active' : ''}" data-mode="${mode}" ${state.canEdit ? '' : 'disabled'}>${label}</button>`).join('')}</div><div class="annotation-history-toolbar"><button data-undo ${state.canEdit && c.editor.canUndo() ? '' : 'disabled'}>撤销</button><button data-redo ${state.canEdit && c.editor.canRedo() ? '' : 'disabled'}>恢复</button><button data-clear ${state.canEdit ? '' : 'disabled'}>清空</button></div>` : '';
+  root.innerHTML = `<div class="device secondary-page"><main><button class="back-button" data-exit aria-label="返回">‹</button><div class="editor-head"><h1>标注墙面</h1><p>${h(c.wall.name)} · ${holds.length} 个岩点</p></div><div class="annotation-primary-toolbar"><button data-detect ${state.canEdit && !c.detecting ? '' : 'disabled'}>${c.detecting ? '识别中…' : '自动识别'}</button><button data-manual-calibration ${state.canEdit ? '' : 'disabled'}>手动校准</button></div>${manualControls}<div id="draft-canvas"></div><div class="editor-actions"><button data-save-wall ${state.canSave ? "" : "disabled"}>保存草稿</button><button data-publish-wall ${state.canPublish ? "" : "disabled"}>发布墙面</button></div><p class="editor-toast">${h(c.toast)}</p></main></div>`;
   root.querySelector("[data-exit]")!.addEventListener("click", () => {
     c.canvas?.destroy();
     wallCtx = null;
@@ -466,21 +468,34 @@ const renderWallEditor = () => {
         renderWallEditor();
       }),
   );
+  root.querySelector<HTMLButtonElement>("[data-manual-calibration]")?.addEventListener("click", () => {
+    if (!state.canEdit) return;
+    c.manualCalibration = true;
+    c.mode = "view";
+    c.selected = null;
+    renderWallEditor();
+  });
   root.querySelectorAll<HTMLElement>("[data-kind]").forEach(
     (x) =>
       (x.onclick = () => {
         if (state.canEdit) c.kind = x.dataset.kind as "hold" | "volume";
       }),
   );
-  root.querySelector("[data-undo]")!.addEventListener("click", () => {
+  root.querySelector("[data-undo]")?.addEventListener("click", () => {
     if (!state.canEdit) return;
     c.editor.undo();
     c.dirty = true;
     renderWallEditor();
   });
-  root.querySelector("[data-clear]")!.addEventListener("click", () => {
+  root.querySelector("[data-redo]")?.addEventListener("click", () => {
     if (!state.canEdit) return;
-    c.editor = new WallHoldEditor([]);
+    c.editor.redo();
+    c.dirty = true;
+    renderWallEditor();
+  });
+  root.querySelector("[data-clear]")?.addEventListener("click", () => {
+    if (!state.canEdit) return;
+    c.editor.replace([]);
     c.dirty = true;
     renderWallEditor();
   });
@@ -522,6 +537,7 @@ const renderWallEditor = () => {
   root.querySelector<HTMLButtonElement>("[data-detect]")?.addEventListener("click", async () => {
     if (!state.canEdit || c.detecting) return;
     c.detecting = true;
+    c.manualCalibration = false;
     renderWallEditor();
     try {
       const image = await new Promise<HTMLImageElement>((resolve, reject) => {
@@ -531,12 +547,10 @@ const renderWallEditor = () => {
         next.src = c.wall.imageFileId;
       });
       const detected = autoDetectHolds(image);
-      if (detected.length) {
-        const next = confirmCandidates({ confirmed: c.editor.value(), candidates: detected });
-        c.editor = new WallHoldEditor(next.confirmed);
-        c.dirty = true;
-      }
-      c.toast = detected.length ? `已添加 ${detected.length} 个识别岩点，可切换删除模式移除不需要的岩点` : "未识别到岩点";
+      c.editor.replace(detected);
+      c.selected = null;
+      c.dirty = true;
+      c.toast = detected.length ? `已识别 ${detected.length} 个岩点，可进入手动校准删除或调整` : "未识别到岩点，已清空当前标注";
     } catch (error) {
       c.toast = `自动识别失败：${error instanceof Error ? error.message : String(error)}`;
     } finally {

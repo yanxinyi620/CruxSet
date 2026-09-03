@@ -1,7 +1,7 @@
 import type { Hold, Point } from "../../miniprogram/domain/types.js"
 import { clampTransform, screenToImage, zoomAroundAnchor } from "../../miniprogram/domain/transform.js"
 
-export type DraftMode = 'add' | 'move' | 'delete'
+export type DraftMode = 'view' | 'add' | 'move' | 'delete'
 
 export const canvasBitmapSize = (width: number, height: number, devicePixelRatio: number) => ({
   width: Math.round(width * devicePixelRatio),
