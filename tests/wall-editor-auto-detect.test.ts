@@ -11,4 +11,5 @@ it('adds full-image local detections directly to the wall annotation', () => {
   expect(source).not.toContain('data-confirm-all')
   expect(source).toContain('data-manual-calibration')
   expect(source).toContain('data-redo')
+  expect(source).toContain('annotation-primary-active')
 })

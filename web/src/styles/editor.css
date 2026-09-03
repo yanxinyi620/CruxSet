@@ -77,7 +77,7 @@ button.problem-row strong { color: #9a9cb2; font-size: 15px; margin-left: auto; 
 .draft-hint { align-self: center; margin-left: auto; font-size: 12px; color: #9a9cb2; }
 .annotation-primary-toolbar { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:13px 0; }
 .annotation-primary-toolbar button { padding:11px 10px; border:1px solid #4338b8; border-radius:13px; background:#fff; color:#4338b8; font-size:14px; font-weight:800; }
-.annotation-primary-toolbar button[data-detect] { background:#4338b8; color:#fff; }
+.annotation-primary-toolbar button.annotation-primary-active { background:#4338b8; color:#fff; }
 .annotation-primary-toolbar button:disabled, .annotation-mode-toolbar button:disabled, .annotation-history-toolbar button:disabled { opacity:.45; }
 .annotation-mode-toolbar { display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; margin:10px 0 7px; }
 .annotation-mode { padding:9px 4px; border:1px solid var(--line); border-radius:11px; background:#fff; color:#555673; font-size:12px; font-weight:800; }
