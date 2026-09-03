@@ -29,8 +29,10 @@ uv run --extra test pytest -s -q
 ## 小程序 Mock 模式
 
 - [ ] 保持 `runtimeMode = 'mock'`，未部署云函数也可编译并打开小程序。
-- [ ] 创建页可编辑私有 Wall；公开且至少两个岩点的 Wall 可用于新建线路。
+- [ ] 小程序只显示公开墙面浏览、线路查看/创建、我的线路和管理员墙面管理入口；不显示创建墙面、上传、岩点标注或发布入口。
+- [ ] 公开且至少两个岩点的 Wall 可用于新建线路。
 - [ ] 新建线路只提交 `wallId`，所选 Hold 必须属于该 Wall。
+- [ ] 创建者可编辑、删除自己的线路；其他用户不能编辑或删除。
 - [ ] 删除含关联线路的 Wall 显示不可删除提示；删除线路后可删除该 Wall。
 
 ## CloudBase 与真机
@@ -38,14 +40,14 @@ uv run --extra test pytest -s -q
 - [ ] 小程序不暴露墙面 create、update、hold annotation、publish 动作；`wallManager` 的 `listAdminWalls` 与 `deleteWall` 仅管理员可用。
 - [ ] 私有 Wall 图仅所有者或管理员能通过 `getWallImageUrl` 预览；公开墙图正常显示。
 - [ ] 普通用户不能修改他人私有 Wall，不能取得无关联私有文件的访问地址。
-- [ ] 发布前不足两个 Hold 返回 `WALL_NOT_ROUTABLE`；发布后更新返回 `WALL_LOCKED`。
 - [ ] 删除有关联 Problem 的 Wall 返回 `WALL_IN_USE`，且不级联删除 Problem。
 - [ ] 至少在一台 Android 与一台 iPhone 上验证单指拖动、双指缩放、密集 Hold 命中和性能。
 - [ ] 验证墙图上传、Wall 发布、线路保存和分享链接。
 ## 分割实验台发布验收
 
 - [ ] 在实验台选择已保存校准结果并点击“发布到 CruxSet”。
-- [ ] 刷新 Web 浏览页后出现新的公开 Wall，岩点数量与校准结果一致。
-- [ ] 新 Wall 可正常定线，并出现在管理员“我的墙面”。
-- [ ] 有线路时删除 Wall 被阻止；删除线路后可以删除 Wall。
+- [ ] `web` 目标只在本机 Web 创建新的公开 Wall；`cloudbase` 目标只在 CloudBase 创建；`both` 显示两路独立结果。
+- [ ] 选择 `cloudbase` 后，原图大于 6 MB 时仍能完成直传 Storage，随后出现新的公开 Wall；岩点数量与校准结果一致。
+- [ ] 在小程序 CloudBase 模式刷新公开墙面列表，能看到新 Wall、墙图和岩点，并可正常创建线路。
+- [ ] 管理员可在小程序查看并删除无关联线路的已发布墙面；有线路时删除被 `WALL_IN_USE` 阻止。
 - [ ] 再次发布同一校准结果生成新的 Wall ID，不修改旧 Wall。

@@ -1,6 +1,6 @@
 # CruxSet
 
-CruxSet 是用于数字化真实攀岩墙的系统：用户通过微信小程序浏览、筛选和创建线路；管理员通过本地 Web 工作台维护墙面、岩点和线路；独立的分割实验台用于探索 AI 岩点识别。
+CruxSet 是用于数字化真实攀岩墙的系统：用户通过微信小程序浏览公开墙面、查看和创建线路，并编辑或删除自己的线路；管理员可在小程序管理、删除墙面。本地 Web 工作台负责墙面创建、岩点标注和线路管理；独立分割实验台可将人工校准结果发布为本地 Web 和/或小程序 CloudBase 的公开墙面。
 
 ```text
 本地 Web 创作台 → FastAPI → SQLite + 本地图片
@@ -9,7 +9,7 @@ CruxSet 是用于数字化真实攀岩墙的系统：用户通过微信小程序
 
 微信小程序 → CloudBase 云函数 → CloudBase 数据库 / 存储
 
-分割实验台：独立本地服务，可显式发布已校准结果到本机 FastAPI
+分割实验台：独立本地服务，可显式发布已校准结果到本机 FastAPI 和/或 CloudBase
 ```
 
 Web 与小程序共享 Wall、Hold、Problem 的字段语义，但不共享草稿、登录会话或后端。Web 草稿只保存在本地；小程序不依赖 FastAPI 在线运行。
@@ -101,14 +101,23 @@ export const runtimeMode: RuntimeMode = 'mock'
 
 将 `miniprogram/config/runtime.ts` 的 `runtimeMode` 改为 `cloudbase`，并在 `miniprogram/app.ts` 配置实际 CloudBase 环境 ID。随后：
 
-1. 创建 `users`、`walls`、`problems`、`admins`、`counters` 五个集合，导入 [集合声明](config/cloudbase.collections.json)，并应用 [权限规则](config/cloudbase.rules.json)。
+1. 创建 `users`、`walls`、`problems`、`admins`、`counters`、`segmentationPublishes` 六个集合，导入 [集合声明](config/cloudbase.collections.json)，并应用 [权限规则](config/cloudbase.rules.json)。
 2. 部署 `login`、`adminWall`、`wallManager`、`saveProblem`、`updateProblem`、`deleteProblem`、`getWallImageUrl`、`storageUpload`、`segmentationPublish` 九个云函数；每个函数均在云端安装 `wx-server-sdk` 依赖。
 3. 为已有 Wall 补齐 `ownerId` 与 `visibility`；墙图保持私有存储，经 `getWallImageUrl` 权限校验后提供短期访问地址。
 4. 运行 `npm run verify:phase1`；正式发布前运行 `npm run verify:phase1 -- --release`，再按[测试与验收](docs/testing.md)完成 CloudBase 和 Android/iPhone 真机检查。
 
 数据与业务约束见[设计参考](docs/reference.md)，真机检查见[测试与验收](docs/testing.md)。
 
-分割实验台同步还需要 `storageUpload` 的 CloudBase Storage HTTP 端点和 `segmentationPublish` HTTP 触发器 URL，分别填入 `CRUXSET_CLOUDBASE_STORAGE_URL`、`CRUXSET_CLOUDBASE_FUNCTION_URL`。实验台先用 `CRUXSET_CLOUDBASE_SIGNING_KEY` 签名小 JSON 元数据，从 `storageUpload` 获取临时 COS 上传凭证，再将原图直接 PUT 到 CloudBase Storage，避免 HTTP 网关请求体限制；云函数使用同名环境变量验签，`CRUXSET_CLOUDBASE_OWNER_OPENID` 用于解析 `users.openid`。必须在 CloudBase 控制台将 Storage 设为私有；客户端不直接读取对象，`getWallImageUrl` 是墙图唯一访问入口。
+分割实验台同步还需要 `storageUpload` 的 HTTP 网关 URL 和 `segmentationPublish` HTTP 触发器 URL，分别填入 `CRUXSET_CLOUDBASE_STORAGE_URL`、`CRUXSET_CLOUDBASE_FUNCTION_URL`。在 `/etc/cruxset.env` 写入以下服务端配置（权限建议为 `600`）：
+
+```bash
+CRUXSET_CLOUDBASE_STORAGE_URL='https://<环境域名>/api/storage-upload'
+CRUXSET_CLOUDBASE_FUNCTION_URL='https://<环境域名>/api/segmentation-publish'
+CRUXSET_CLOUDBASE_SIGNING_KEY='与两个云函数相同的随机密钥'
+CRUXSET_CLOUDBASE_OWNER_OPENID='CloudBase 管理员的 OpenID'
+```
+
+`scripts/cruxset-dev` 会读取该文件，shell 中同名变量优先。实验台先以签名的小 JSON 元数据向 `storageUpload` 申请临时上传凭证，再将原图直传 CloudBase Storage，最后将返回的 `fileID` 提交给 `segmentationPublish`；这避免了 HTTP 网关调用云函数时的 6 MB 请求体限制。两个 HTTP 网关路由均使用 `POST`、关闭网关身份认证、保持默认跨域和路径透传设置即可；认证由 HMAC 签名完成。必须在 CloudBase 控制台将 Storage 设为私有；客户端不直接读取对象，`getWallImageUrl` 是墙图唯一访问入口。
 
 ## 核心规则
 
@@ -182,4 +191,4 @@ CRUXSET_WEB_URL='http://127.0.0.1:5173' \
 uv run uvicorn segmentation_lab.api:app --host 127.0.0.1 --port 8765
 ```
 
-打开 `http://127.0.0.1:8765/`，在 **04 人工校准** 的已保存校准结果中点击“发布”。发布目标默认是 `web`，只创建本机 CruxSet 的公开 Wall；只有显式选择 `cloudbase` 或 `both` 才会同步到小程序 CloudBase。`both` 两路独立执行并分别显示状态；每次发布都创建一面新的公开 Wall，不覆盖旧 Wall。
+打开 `http://127.0.0.1:8765/`，在 **04 人工校准** 的已保存校准结果中点击“发布”。发布目标默认是 `web`，只创建本机 CruxSet 的公开 Wall；选择 `cloudbase` 时，原图经临时凭证直传私有 CloudBase Storage，校准岩点与墙面元数据再由 `segmentationPublish` 写入 CloudBase；选择 `both` 则两路独立执行并分别显示状态。每次发布都创建一面新的公开 Wall，不覆盖旧 Wall。

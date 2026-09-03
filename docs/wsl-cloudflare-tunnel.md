@@ -16,7 +16,7 @@
 
     ./scripts/cruxset-web start --setup
 
-该命令会构建并发布前端、更新 Caddy 和 systemd 配置、检查 /etc/cruxset.env，然后启动 Caddy、FastAPI 与 Quick Tunnel。它不会显示已有环境变量；SESSION_SECRET、CRUXSET_SEGMENTATION_PUBLISH_KEY 和 CRUXSET_SEGMENTATION_PUBLISH_OWNER_ID 只有缺失时才会询问，已有值会保留。环境文件权限保持为 600 root:root。
+该命令会构建并发布前端、更新 Caddy 和 systemd 配置、检查 `/etc/cruxset.env`，然后启动 Caddy、FastAPI 与 Quick Tunnel。它不会显示已有环境变量；`SESSION_SECRET`、`CRUXSET_SEGMENTATION_PUBLISH_KEY` 和 `CRUXSET_SEGMENTATION_PUBLISH_OWNER_ID` 只有缺失时才会询问，已有值会保留。环境文件权限保持为 `600 root:root`。小程序 CloudBase 发布所需的变量可写入同一文件，但它们由 `scripts/cruxset-dev` 的分割实验台读取，不影响本节的 Web 服务。
 
 日常管理命令如下：
 
@@ -123,6 +123,17 @@ printf 'SESSION_SECRET=%s\nSESSION_COOKIE_SECURE=true\nCRUXSET_SEGMENTATION_PUBL
 unset SESSION_SECRET
 unset CRUXSET_SEGMENTATION_PUBLISH_KEY CRUXSET_SEGMENTATION_PUBLISH_OWNER_ID
 ```
+
+如需让分割实验台把人工校准墙面发布到小程序 CloudBase，再以 `sudoedit /etc/cruxset.env` 追加以下四项；这不会让 Web 自动同步墙面：
+
+```bash
+CRUXSET_CLOUDBASE_STORAGE_URL=https://<环境域名>/api/storage-upload
+CRUXSET_CLOUDBASE_FUNCTION_URL=https://<环境域名>/api/segmentation-publish
+CRUXSET_CLOUDBASE_SIGNING_KEY=<与两个云函数相同的随机密钥>
+CRUXSET_CLOUDBASE_OWNER_OPENID=<CloudBase 管理员 OpenID>
+```
+
+部署最新 `storageUpload` 云函数后，实验台会先申请上传凭证并将原图直传私有 CloudBase Storage，因此不受云函数 HTTP 请求体 6 MB 限制；随后再由 `segmentationPublish` 创建公开墙面。Web 的 systemd 服务本身不调用这两个 URL。
 
 从仓库根目录执行以下命令，生成服务文件。这里会自动记录当前 WSL 用户、仓库绝对路径和 `uv` 的绝对路径：
 
