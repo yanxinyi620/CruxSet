@@ -255,15 +255,12 @@ export class WallCanvasView {
         ctx.arc(sx, sy, hold.radius * this.scale, 0, Math.PI * 2)
       }
       if (role) {
+        ctx.lineWidth = 6
+        ctx.strokeStyle = "#ffffff"
+        ctx.stroke()
         ctx.lineWidth = 2
-        ctx.shadowColor = "#ffffff"
-        ctx.shadowBlur = 4
-        ctx.shadowOffsetX = 0
-        ctx.shadowOffsetY = 0
         ctx.strokeStyle = ROLE_COLORS[role]
         ctx.stroke()
-        ctx.shadowColor = "transparent"
-        ctx.shadowBlur = 0
       }
     }
   }
