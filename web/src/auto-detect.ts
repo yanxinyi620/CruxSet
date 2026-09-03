@@ -1,4 +1,4 @@
-import type { Hold, Point } from '../../miniprogram/domain/types.js'
+import type { Hold, Point } from '../../wechat/miniprogram/domain/types.js'
 
 /**
  * 墙图岩点/体积自动识别（启发式，非 ML）。

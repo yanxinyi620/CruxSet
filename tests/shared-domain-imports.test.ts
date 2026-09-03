@@ -1,10 +1,10 @@
 import { expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { createProblem, filterProblems, searchProblems } from '../src/domain/routes.js'
-import { createProblem as miniCreateProblem, filterProblems as miniFilterProblems, searchProblems as miniSearchProblems } from '../miniprogram/domain/routes.js'
+import { createProblem as miniCreateProblem, filterProblems as miniFilterProblems, searchProblems as miniSearchProblems } from '../wechat/miniprogram/domain/routes.js'
 
 it('keeps mini program routes inside its package while preserving route behavior', () => {
-  const source = readFileSync('miniprogram/domain/routes.ts', 'utf8')
+  const source = readFileSync('wechat/miniprogram/domain/routes.ts', 'utf8')
   expect(source).not.toContain('/src/')
 
   const draft = {

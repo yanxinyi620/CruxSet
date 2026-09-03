@@ -1,4 +1,4 @@
-import type { Wall } from '../../miniprogram/domain/types.js'
+import type { Wall } from '../../wechat/miniprogram/domain/types.js'
 import { PreviewSession } from './data/preview-session.js'
 import { ApiSession } from './data/api-session.js'
 import { LocalApiClient } from './api.js'

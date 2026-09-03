@@ -1,4 +1,4 @@
-import type { Hold, Problem, ProblemHolds, Wall } from '../../../miniprogram/domain/types.js'
+import type { Hold, Problem, ProblemHolds, Wall } from '../../../wechat/miniprogram/domain/types.js'
 export const previewOwnerId = 'usr_mock_owner'
 export type CreateWallInput = Pick<Wall, 'name' | 'imageWidth' | 'imageHeight'> & Partial<Pick<Wall, 'description' | 'imageFileId' | 'displayImageFileId' | 'geometryType' | 'angleOptions'>> & { image?: File }
 const clone = <T>(value: T): T => structuredClone(value)

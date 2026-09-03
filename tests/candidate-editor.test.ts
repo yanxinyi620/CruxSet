@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { Hold, Point } from '../miniprogram/domain/types.js'
+import type { Hold, Point } from '../wechat/miniprogram/domain/types.js'
 import {
   changeCandidateKind,
   clearCandidates,

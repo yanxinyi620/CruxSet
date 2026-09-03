@@ -3,7 +3,7 @@ import { resolve } from 'node:path'
 import { expect, it } from 'vitest'
 
 const require = createRequire(import.meta.url)
-const publishFunction = require(resolve(process.cwd(), 'cloudfunctions/segmentationPublish/index.js')) as {
+const publishFunction = require(resolve(process.cwd(), 'wechat/cloudfunctions/segmentationPublish/index.js')) as {
   _validatePayload: (payload: Record<string, unknown>) => unknown
   _payloadFromHttpEvent: (event: Record<string, unknown>) => Record<string, unknown>
 }

@@ -1,6 +1,6 @@
-import type { Hold, HoldRole, Point, ViewTransform } from "../../miniprogram/domain/types.js"
-import { clampTransform, screenToImage, zoomAroundAnchor } from "../../miniprogram/domain/transform.js"
-import { circleHitTest, nearestHold, polygonHitTest } from "../../miniprogram/domain/geometry.js"
+import type { Hold, HoldRole, Point, ViewTransform } from "../../wechat/miniprogram/domain/types.js"
+import { clampTransform, screenToImage, zoomAroundAnchor } from "../../wechat/miniprogram/domain/transform.js"
+import { circleHitTest, nearestHold, polygonHitTest } from "../../wechat/miniprogram/domain/geometry.js"
 
 /** 统一角色配色：Start 绿、Foot 黄、Hand 蓝、Assist 橙、Finish 紫。 */
 export const ROLE_COLORS: Record<HoldRole, string> = {

@@ -1,4 +1,4 @@
-import type { Hold, HoldKind, Point } from '../../miniprogram/domain/types.js'
+import type { Hold, HoldKind, Point } from '../../wechat/miniprogram/domain/types.js'
 
 const clone = (holds: Hold[]) => holds.map(hold => ({ ...hold, polygon: hold.polygon?.map(([x, y]) => [x, y] as Point) }))
 

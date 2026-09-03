@@ -3,7 +3,7 @@ import { resolve } from 'node:path'
 import { expect, it } from 'vitest'
 
 const require = createRequire(import.meta.url)
-const validation = require(resolve(process.cwd(), 'cloudfunctions/saveProblem/validation.js')) as { validateRouteMetadata: (draft: Record<string, unknown>) => void }
+const validation = require(resolve(process.cwd(), 'wechat/cloudfunctions/saveProblem/validation.js')) as { validateRouteMetadata: (draft: Record<string, unknown>) => void }
 
 it('rejects non-string or overlong route names', () => {
   expect(() => validation.validateRouteMetadata({ name: 3 })).toThrow('INVALID_ROUTE_METADATA')

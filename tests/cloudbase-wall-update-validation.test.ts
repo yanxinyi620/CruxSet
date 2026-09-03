@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { completeWall, validateWallUpdate } from '../cloudfunctions/adminWall/validation.js'
+import { completeWall, validateWallUpdate } from '../wechat/cloudfunctions/adminWall/validation.js'
 
 const wall = {
   id: 'wall_1', name: 'Wall', description: '', imageFileId: 'cloud://wall.jpg', imageWidth: 100, imageHeight: 100,

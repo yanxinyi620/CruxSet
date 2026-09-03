@@ -3,18 +3,18 @@ import { resolve } from 'node:path'
 import { expect, it } from 'vitest'
 
 it('removes the wall draft page from the mini-program creation hub', () => {
-  const config = JSON.parse(readFileSync(resolve('miniprogram/app.json'), 'utf8'))
+  const config = JSON.parse(readFileSync(resolve('wechat/miniprogram/app.json'), 'utf8'))
   expect(config.pages).not.toContain('pages/create/drafts/index')
-  expect(readFileSync(resolve('miniprogram/pages/create/index.wxml'), 'utf8')).not.toContain('bindtap="openDrafts"')
-  expect(existsSync(resolve('miniprogram/pages/create/drafts/index.wxml'))).toBe(true)
-  const source = readFileSync(resolve('miniprogram/pages/create/drafts/index.ts'), 'utf8')
+  expect(readFileSync(resolve('wechat/miniprogram/pages/create/index.wxml'), 'utf8')).not.toContain('bindtap="openDrafts"')
+  expect(existsSync(resolve('wechat/miniprogram/pages/create/drafts/index.wxml'))).toBe(true)
+  const source = readFileSync(resolve('wechat/miniprogram/pages/create/drafts/index.ts'), 'utf8')
   expect(source).not.toMatch(/resumeDraft|listMyWalls|pages\/admin\/wall-editor/)
   expect(source).not.toMatch(/layoutId|listLayouts|draftLayoutsForWalls/)
 })
 
 it('registers only wall routes and passes only wallId', () => {
-  const config = readFileSync(resolve('miniprogram/app.json'), 'utf8')
-  const pages = readFileSync(resolve('miniprogram/pages/create/index.ts'), 'utf8') + readFileSync(resolve('miniprogram/pages/walls/index.ts'), 'utf8')
+  const config = readFileSync(resolve('wechat/miniprogram/app.json'), 'utf8')
+  const pages = readFileSync(resolve('wechat/miniprogram/pages/create/index.ts'), 'utf8') + readFileSync(resolve('wechat/miniprogram/pages/walls/index.ts'), 'utf8')
   expect(config).toContain('pages/wall-picker/index')
   expect(config).not.toContain('pages/admin/wall-editor/index')
   expect(config).not.toMatch(/layout-picker|layout-editor|layout-create/)

@@ -1,4 +1,4 @@
-import type { Hold, Problem, Wall } from '../../../miniprogram/domain/types.js'
+import type { Hold, Problem, Wall } from '../../../wechat/miniprogram/domain/types.js'
 import { LocalApiClient } from '../api.js'
 import { PreviewSession, type CreateWallInput } from './preview-session.js'
 

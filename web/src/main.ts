@@ -3,7 +3,7 @@ import "./styles/base.css";
 import "./styles/device.css";
 import "./styles/editor.css";
 import "./styles/responsive.css";
-import ProblemEditor from "../../miniprogram/domain/editor.js";
+import ProblemEditor from "../../wechat/miniprogram/domain/editor.js";
 import type {
   FootRule,
   Grade,
@@ -11,7 +11,7 @@ import type {
   HoldRole,
   Problem,
   Wall,
-} from "../../miniprogram/domain/types.js";
+} from "../../wechat/miniprogram/domain/types.js";
 import { WallHoldEditor } from "./wall-hold-editor.js";
 import { PreviewStore } from "./preview-store.js";
 import { LocalApiClient, type AdminUser } from "./api.js";
@@ -202,7 +202,7 @@ type ProblemCtx = {
   toast?: string;
   submitting: boolean;
   problemId?: string;
-  viewportTransform?: import("../../miniprogram/domain/types.js").ViewTransform;
+  viewportTransform?: import("../../wechat/miniprogram/domain/types.js").ViewTransform;
 };
 type WallCtx = {
   wall: Wall;

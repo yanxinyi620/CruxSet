@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { createMockRepository } from '../miniprogram/services/mock-repository.js'
+import { createMockRepository } from '../wechat/miniprogram/services/mock-repository.js'
 
 it('rejects a route against a private wall', async () => {
   const repo = createMockRepository()

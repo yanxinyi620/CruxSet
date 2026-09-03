@@ -7,12 +7,12 @@
                          ↓ 仅显式发布
                     已发布数据包 → CloudBase
 
-微信小程序：miniprogram/ → Node 云函数 → CloudBase
+微信小程序：wechat/miniprogram/ → Node 云函数 → CloudBase
 ```
 
 Web 是管理员本地创作工作台，小程序独立运行。二者共享 Wall、Hold、Problem 的字段语义，但 Web 草稿、会话和 SQLite 数据不会自动同步到 CloudBase。唯一跨边界的发布入口是分割实验台：已人工校准的墙面可显式创建为 CloudBase 中一面新的公开 Wall。
 
-小程序页面和组件通过 `miniprogram/services/` 访问数据；页面不得直接依赖 CloudBase。框架无关的坐标、命中、手势、线路校验、筛选、随机与编辑状态位于 `src/domain/`，可由 Vitest 独立验证。
+小程序页面和组件通过 `wechat/miniprogram/services/` 访问数据；页面不得直接依赖 CloudBase。框架无关的坐标、命中、手势、线路校验、筛选、随机与编辑状态位于 `wechat/miniprogram/domain/`，可由 Vitest 独立验证；根目录 `src/domain/` 只保留 Web 兼容导出。
 
 分割实验台使用 SAM 模型生成候选 polygon 并支持人工校准。选择 CloudBase 发布时，它先向 `storageUpload` 获取经过 HMAC 验证的短期上传凭证，原图直传私有 Storage，再将 `fileID`、标准化岩点和墙面元数据提交给 `segmentationPublish`。该流程为单向创建，不会读取、修改或覆盖已有 CloudBase Wall。
 

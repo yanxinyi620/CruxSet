@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest'
-import { validateProblemUpdate } from '../cloudfunctions/updateProblem/validation.js'
-import { MockRepository, mockCurrentUserId } from '../miniprogram/services/mock-repository.js'
+import { validateProblemUpdate } from '../wechat/cloudfunctions/updateProblem/validation.js'
+import { MockRepository, mockCurrentUserId } from '../wechat/miniprogram/services/mock-repository.js'
 
 const wall = {
   id: 'wall_public', visibility: 'public', angleOptions: [20, 35],

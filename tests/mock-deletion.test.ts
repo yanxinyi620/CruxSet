@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { createMockRepository } from '../miniprogram/services/mock-repository.js'
+import { createMockRepository } from '../wechat/miniprogram/services/mock-repository.js'
 
 const holds = [
   { id: 'H001', x: .1, y: .1, radius: .02, kind: 'hold' },

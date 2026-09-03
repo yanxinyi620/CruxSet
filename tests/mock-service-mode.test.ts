@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest'
-import { mockCurrentUserId, repositoryForMode } from '../miniprogram/services/mock-repository.js'
-import { currentUserId } from '../miniprogram/services/users.js'
+import { mockCurrentUserId, repositoryForMode } from '../wechat/miniprogram/services/mock-repository.js'
+import { currentUserId } from '../wechat/miniprogram/services/users.js'
 
 it('selects the stable mock identity and repository in mock mode', () => {
   expect(mockCurrentUserId).toBe('usr_mock_owner')

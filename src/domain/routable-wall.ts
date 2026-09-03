@@ -1,1 +1,1 @@
-export { isRoutableWall } from '../../miniprogram/domain/routable-wall.js'
+export { isRoutableWall } from '../../wechat/miniprogram/domain/routable-wall.js'

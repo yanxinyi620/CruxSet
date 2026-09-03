@@ -38,7 +38,7 @@ afterEach(() => {
 })
 
 it('accepts a signed multipart file and returns the CloudBase fileID', async () => {
-  const storageUpload = require(resolve(process.cwd(), 'cloudfunctions/storageUpload/index.js')) as {
+  const storageUpload = require(resolve(process.cwd(), 'wechat/cloudfunctions/storageUpload/index.js')) as {
     main: (event: Record<string, unknown>) => Promise<{ fileID: string }>
     _setCloudForTests: (cloud: { uploadFile: (input: { cloudPath: string; fileContent: Buffer }) => Promise<{ fileID: string }> }) => void
   }
@@ -72,7 +72,7 @@ it('accepts a signed multipart file and returns the CloudBase fileID', async () 
 })
 
 it('returns a short-lived direct upload grant for signed JSON metadata', async () => {
-  const storageUpload = require(resolve(process.cwd(), 'cloudfunctions/storageUpload/index.js')) as {
+  const storageUpload = require(resolve(process.cwd(), 'wechat/cloudfunctions/storageUpload/index.js')) as {
     main: (event: Record<string, unknown>) => Promise<unknown>
     _setCloudForTests: (cloud: { callOpenAPI: (input: unknown) => Promise<unknown> }) => void
   }
@@ -93,7 +93,7 @@ it('returns a short-lived direct upload grant for signed JSON metadata', async (
 })
 
 it('rejects an invalid signature before calling CloudBase Storage', async () => {
-  const storageUpload = require(resolve(process.cwd(), 'cloudfunctions/storageUpload/index.js')) as {
+  const storageUpload = require(resolve(process.cwd(), 'wechat/cloudfunctions/storageUpload/index.js')) as {
     main: (event: Record<string, unknown>) => Promise<unknown>
     _setCloudForTests: (cloud: { uploadFile: () => Promise<never> }) => void
   }
@@ -120,7 +120,7 @@ it('rejects an invalid signature before calling CloudBase Storage', async () => 
 })
 
 it('rejects unsupported image types and files larger than 50MB', async () => {
-  const storageUpload = require(resolve(process.cwd(), 'cloudfunctions/storageUpload/index.js')) as {
+  const storageUpload = require(resolve(process.cwd(), 'wechat/cloudfunctions/storageUpload/index.js')) as {
     main: (event: Record<string, unknown>) => Promise<unknown>
     _setCloudForTests: (cloud: { uploadFile: () => Promise<never> }) => void
   }
@@ -153,7 +153,7 @@ it('rejects unsupported image types and files larger than 50MB', async () => {
 })
 
 it('accepts JPEG and WebP files only when their magic bytes match the MIME type', async () => {
-  const storageUpload = require(resolve(process.cwd(), 'cloudfunctions/storageUpload/index.js')) as {
+  const storageUpload = require(resolve(process.cwd(), 'wechat/cloudfunctions/storageUpload/index.js')) as {
     main: (event: Record<string, unknown>) => Promise<{ fileID: string }>
     _setCloudForTests: (cloud: { uploadFile: () => Promise<{ fileID: string }> }) => void
   }
@@ -180,14 +180,14 @@ it('accepts JPEG and WebP files only when their magic bytes match the MIME type'
 })
 
 it('rejects direct client invocation without an HTTP request body and headers', async () => {
-  const storageUpload = require(resolve(process.cwd(), 'cloudfunctions/storageUpload/index.js')) as {
+  const storageUpload = require(resolve(process.cwd(), 'wechat/cloudfunctions/storageUpload/index.js')) as {
     main: (event: Record<string, unknown>) => Promise<unknown>
   }
   await expect(storageUpload.main({ file: Buffer.from('png bytes') })).rejects.toThrow('CLIENT_CALL_FORBIDDEN')
 })
 
 it('rejects HTTP events without an explicit POST method', async () => {
-  const storageUpload = require(resolve(process.cwd(), 'cloudfunctions/storageUpload/index.js')) as {
+  const storageUpload = require(resolve(process.cwd(), 'wechat/cloudfunctions/storageUpload/index.js')) as {
     main: (event: Record<string, unknown>) => Promise<unknown>
   }
   const body = multipart(pngBytes)
@@ -209,7 +209,7 @@ it('rejects HTTP events without an explicit POST method', async () => {
 })
 
 it('rejects a request whose declared multipart body exceeds the request limit', async () => {
-  const storageUpload = require(resolve(process.cwd(), 'cloudfunctions/storageUpload/index.js')) as {
+  const storageUpload = require(resolve(process.cwd(), 'wechat/cloudfunctions/storageUpload/index.js')) as {
     main: (event: Record<string, unknown>) => Promise<unknown>
   }
   const body = multipart(pngBytes)
@@ -232,7 +232,7 @@ it('rejects a request whose declared multipart body exceeds the request limit', 
 })
 
 it('rejects expired and future signatures, and reports CloudBase upload failures', async () => {
-  const storageUpload = require(resolve(process.cwd(), 'cloudfunctions/storageUpload/index.js')) as {
+  const storageUpload = require(resolve(process.cwd(), 'wechat/cloudfunctions/storageUpload/index.js')) as {
     main: (event: Record<string, unknown>) => Promise<unknown>
     _setCloudForTests: (cloud: { uploadFile: () => Promise<never> }) => void
   }
@@ -261,7 +261,7 @@ it('rejects expired and future signatures, and reports CloudBase upload failures
 })
 
 it('rejects multipart bodies with trailing data after the closing boundary', async () => {
-  const storageUpload = require(resolve(process.cwd(), 'cloudfunctions/storageUpload/index.js')) as {
+  const storageUpload = require(resolve(process.cwd(), 'wechat/cloudfunctions/storageUpload/index.js')) as {
     main: (event: Record<string, unknown>) => Promise<unknown>
   }
   const body = Buffer.concat([multipart(pngBytes), Buffer.from('trailing data')])

@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { createMockRepository } from '../miniprogram/services/mock-repository.js'
+import { createMockRepository } from '../wechat/miniprogram/services/mock-repository.js'
 
 it('publishes a routable wall and locks it', async () => {
   const repo = createMockRepository()

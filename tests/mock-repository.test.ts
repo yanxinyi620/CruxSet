@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { createMockRepository } from '../miniprogram/services/mock-repository.js'
+import { createMockRepository } from '../wechat/miniprogram/services/mock-repository.js'
 
 it('creates a fresh draft wall with the local wall image for each repository', async () => {
   const first = createMockRepository()

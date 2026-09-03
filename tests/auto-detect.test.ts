@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import jpeg from 'jpeg-js'
 import { describe, expect, it, vi } from 'vitest'
 import { AUTO_DETECT_DEFAULTS, DETECT_ROI_FALLBACK_MESSAGE, detectFromPixels } from '../web/src/auto-detect.js'
-import type { Hold } from '../miniprogram/domain/types.js'
+import type { Hold } from '../wechat/miniprogram/domain/types.js'
 import { RITAN_SPRAYWALL_FIXTURE, RITAN_SPRAYWALL_FIXTURE_METADATA } from './fixtures/ritan-spraywall-rgba.js'
 
 vi.mock('../web/src/preview-store.js', () => ({ PreviewStore: class { subscribe() {} } }))

@@ -83,9 +83,9 @@ PYTHONPATH=. uv run python scripts/create_local_admin.py admin@example.com
 
 ## 微信小程序
 
-使用微信开发者工具导入仓库根目录；工具会读取 `project.config.json`，小程序源码位于 `miniprogram/`。
+使用微信开发者工具导入仓库中的 **`wechat/` 目录**，而不是仓库根目录；工具会读取 `wechat/project.config.json`，只扫描其中的小程序与云函数源码，避免加载 Web、服务端和分割实验台文件。
 
-运行模式配置位于 [runtime.ts](miniprogram/config/runtime.ts)：
+运行模式配置位于 [runtime.ts](wechat/miniprogram/config/runtime.ts)：
 
 ```ts
 export const runtimeMode: RuntimeMode = 'mock'
@@ -99,7 +99,7 @@ export const runtimeMode: RuntimeMode = 'mock'
 
 ## CloudBase 部署与验收
 
-将 `miniprogram/config/runtime.ts` 的 `runtimeMode` 改为 `cloudbase`，并在 `miniprogram/app.ts` 配置实际 CloudBase 环境 ID。随后：
+将 `wechat/miniprogram/config/runtime.ts` 的 `runtimeMode` 改为 `cloudbase`，并在 `wechat/miniprogram/app.ts` 配置实际 CloudBase 环境 ID。随后：
 
 1. 创建 `users`、`walls`、`problems`、`admins`、`counters`、`segmentationPublishes` 六个集合，导入 [集合声明](config/cloudbase.collections.json)，并应用 [权限规则](config/cloudbase.rules.json)。
 2. 部署 `login`、`adminWall`、`wallManager`、`saveProblem`、`updateProblem`、`deleteProblem`、`getWallImageUrl`、`storageUpload`、`segmentationPublish` 九个云函数；每个函数均在云端安装 `wx-server-sdk` 依赖。
@@ -135,8 +135,8 @@ CRUXSET_CLOUDBASE_OWNER_OPENID='CloudBase 管理员的 OpenID'
 ```text
 web/               本地 Web 创作工作台
 server/            FastAPI、SQLite、本地图片与发布工具
-miniprogram/       微信原生小程序（独立运行）
-cloudfunctions/    小程序 CloudBase 云函数入口
+wechat/miniprogram/       微信原生小程序（独立运行）
+wechat/cloudfunctions/    小程序 CloudBase 云函数入口
 src/domain/        可测试的共享领域规则
 src/repository/    数据访问边界
 tests/             自动测试

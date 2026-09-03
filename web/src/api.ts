@@ -1,4 +1,4 @@
-import type { Wall } from '../../miniprogram/domain/types.js'
+import type { Wall } from '../../wechat/miniprogram/domain/types.js'
 export type LocalUser = { id: string; email: string; displayName?: string; isAdmin: boolean }
 export type AdminUser = { id: string; email: string; displayName: string; role: 'admin' | 'user'; createdAt: number }
 export type BrowseData = { walls: unknown[]; problems: unknown[] }

@@ -1,6 +1,6 @@
 import { expect, it, vi } from 'vitest'
 import { ApiSession } from '../web/src/data/api-session.js'
-import type { Hold, ProblemHolds, Wall } from '../miniprogram/domain/types.js'
+import type { Hold, ProblemHolds, Wall } from '../wechat/miniprogram/domain/types.js'
 
 const wall = (patch: Partial<Wall> = {}): Wall => ({ id: 'wall_1', name: 'Test wall', description: '', imageFileId: 'mock://wall', imageWidth: 100, imageHeight: 200, geometryType: 'circle', holds: [], angleOptions: [20, 25], ownerId: 'usr_admin', visibility: 'private', createdAt: 0, updatedAt: 0, ...patch })
 const fixture = () => {

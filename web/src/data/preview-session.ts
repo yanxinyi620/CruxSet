@@ -1,4 +1,4 @@
-import type { Hold, Problem } from '../../../miniprogram/domain/types.js'
+import type { Hold, Problem } from '../../../wechat/miniprogram/domain/types.js'
 import { PreviewRepository, type CreateWallInput } from './preview-repository.js'
 export type { CreateWallInput } from './preview-repository.js'
 export class PreviewSession {

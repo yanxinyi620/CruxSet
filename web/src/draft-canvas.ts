@@ -1,5 +1,5 @@
-import type { Hold, Point } from "../../miniprogram/domain/types.js"
-import { clampTransform } from "../../miniprogram/domain/transform.js"
+import type { Hold, Point } from "../../wechat/miniprogram/domain/types.js"
+import { clampTransform } from "../../wechat/miniprogram/domain/transform.js"
 
 export type DraftMode = 'view' | 'add' | 'move' | 'delete'
 
