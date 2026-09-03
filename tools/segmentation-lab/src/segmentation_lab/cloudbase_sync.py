@@ -11,6 +11,7 @@ import hashlib
 import hmac
 import json
 import math
+import re
 import time
 from decimal import Decimal
 from pathlib import Path
@@ -297,10 +298,20 @@ class CloudBaseSynchronizer:
     async def _upload_image(self, client: httpx.AsyncClient, image: bytes, filename: str) -> str:
         if not self.storage_url:
             raise _invalid("cloudbase_storage_not_configured", "CloudBase Storage endpoint is not configured")
-        safe_filename = Path(str(filename).replace("\\", "/")).name or "upload"
         content_type = detect_image_content_type(image)
         if content_type is None:
             raise _invalid("cloudbase_invalid_image", "CloudBase upload requires a valid PNG, JPEG, or WebP image")
+        original_filename = Path(str(filename).replace("\\", "/")).name or "upload"
+        # Multipart Content-Disposition headers are ASCII-oriented in common
+        # HTTP clients. Keep the original name in experiment metadata, but use
+        # a deterministic ASCII transport name so Chinese filenames cannot
+        # abort request construction before it reaches CloudBase.
+        stem = Path(original_filename).stem.encode("ascii", "ignore").decode("ascii")
+        stem = re.sub(r"[^A-Za-z0-9._-]+", "-", stem).strip(".-") or "upload"
+        extension = Path(original_filename).suffix
+        if not re.fullmatch(r"\.[A-Za-z0-9]{1,10}", extension):
+            extension = {"image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp"}[content_type]
+        safe_filename = f"{stem}{extension}"
         timestamp = str(int(time.time()))
         signed_metadata = {
             "timestamp": timestamp,

@@ -167,6 +167,17 @@ async def test_sync_sniffs_image_content_and_handles_windows_filename():
 
 
 @pytest.mark.anyio
+async def test_sync_uses_ascii_transport_filename_for_unicode_source_name():
+    async def handler(request: httpx.Request) -> httpx.Response:
+        assert request.headers["x-cruxset-filename"] == "upload.png"
+        return httpx.Response(201, json={"fileID": "cloud://wall/image.png"})
+
+    synchronizer = CloudBaseSynchronizer("https://function.example/publish", "secret", storage_url="https://function.example/storage", owner_openid="owner")
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        assert await synchronizer._upload_image(client, b"\x89PNG\r\n\x1a\nimage", "日坛喷涂墙.png") == "cloud://wall/image.png"
+
+
+@pytest.mark.anyio
 async def test_sync_rejects_unknown_image_content_before_network_calls():
     called = False
 
