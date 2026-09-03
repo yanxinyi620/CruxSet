@@ -13,5 +13,6 @@ it('adds full-image local detections directly to the wall annotation', () => {
   expect(source).toContain('data-redo')
   expect(source).toContain('annotation-primary-active')
   expect(source).toContain('确认一键清空所有岩点？')
+  expect(source).toContain('发布后即公开并锁定墙面，不支持再次修改。')
   expect(source).not.toContain('saveDraft(`wall:')
 })

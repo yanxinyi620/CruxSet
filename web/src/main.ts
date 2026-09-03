@@ -517,6 +517,7 @@ const renderWallEditor = () => {
     .querySelector("[data-publish-wall]")!
     .addEventListener("click", async () => {
       if (!state.canPublish) return;
+      if (!confirm("发布后即公开并锁定墙面，不支持再次修改。")) return;
       try {
         c.wall = await store.session.publishWall(
           c.wall.id,
