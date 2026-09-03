@@ -17,7 +17,7 @@ import { PreviewStore } from "./preview-store.js";
 import { LocalApiClient, type AdminUser } from "./api.js";
 import { adminUserCard } from "./admin-management.js";
 import { WallCanvasView, ROLE_COLORS } from "./wall-canvas.js";
-import { DraftCanvasView, type DraftMode } from "./draft-canvas.js";
+import { DraftCanvasView, type DraftMode, type DraftTransform } from "./draft-canvas.js";
 import { autoDetectHolds, DETECT_ROI_FALLBACK_MESSAGE, type Roi } from "./auto-detect.js";
 import { holdsForPersistence } from "./candidate-editor.js";
 import { clearDraft, loadDraft, saveDraft } from "./draft-storage.js";
@@ -216,6 +216,7 @@ type WallCtx = {
   published: boolean;
   detecting: boolean;
   manualCalibration: boolean;
+  viewportTransform?: DraftTransform;
 };
 type DetailCtx = { problem: Problem; wall: Wall; canvas?: WallCanvasView };
 let problemCtx: ProblemCtx | null = null,
@@ -447,6 +448,7 @@ const renderWallEditor = () => {
       dirty: c.dirty,
       holdCount: holds.length,
     });
+  if (c.canvas) c.viewportTransform = c.canvas.getTransform();
   c.canvas?.destroy();
   const manualControls = c.manualCalibration ? `<div class="annotation-mode-toolbar">${([['view', '查看'], ['add', '添加'], ['move', '移动'], ['delete', '删除']] as const).map(([mode, label]) => `<button class="annotation-mode ${c.mode === mode ? 'active' : ''}" data-mode="${mode}" ${state.canEdit ? '' : 'disabled'}>${label}</button>`).join('')}</div><div class="annotation-history-toolbar"><button data-undo ${state.canEdit && c.editor.canUndo() ? '' : 'disabled'}>撤销</button><button data-redo ${state.canEdit && c.editor.canRedo() ? '' : 'disabled'}>恢复</button><button data-clear ${state.canEdit ? '' : 'disabled'}>清空</button></div>` : '';
   root.innerHTML = `<div class="device secondary-page"><main><button class="back-button" data-exit aria-label="返回">‹</button><div class="editor-head"><h1>标注墙面</h1><p>${h(c.wall.name)} · ${holds.length} 个岩点</p></div><div class="annotation-primary-toolbar"><button class="${c.manualCalibration ? '' : 'annotation-primary-active'}" data-detect ${state.canEdit && !c.detecting ? '' : 'disabled'}>${c.detecting ? '识别中…' : '自动识别'}</button><button class="${c.manualCalibration ? 'annotation-primary-active' : ''}" data-manual-calibration ${state.canEdit ? '' : 'disabled'}>手动校准</button></div>${manualControls}<div id="draft-canvas"></div><div class="editor-actions"><button data-save-wall ${state.canSave ? "" : "disabled"}>保存草稿</button><button data-publish-wall ${state.canPublish ? "" : "disabled"}>发布墙面</button></div><p class="editor-toast">${h(c.toast)}</p></main></div>`;
@@ -564,6 +566,7 @@ const renderWallEditor = () => {
       holds,
       mode: c.mode,
       selectedId: c.selected,
+      initialTransform: c.viewportTransform,
       onAddHold: (p) => {
         if (!state.canEdit) return;
         c.editor.add({

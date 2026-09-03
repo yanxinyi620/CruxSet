@@ -12,6 +12,10 @@ export const canvasBitmapSize = (width: number, height: number, devicePixelRatio
 export const draftPointToScreen = ([x, y]: Point, width: number, aspect: number, offsetX = 0, offsetY = 0): Point =>
   [x * width + offsetX, y * width * aspect + offsetY]
 
+export type DraftTransform = { scale: number; offsetX: number; offsetY: number }
+
+export const resolveDraftTransform = (fallback: DraftTransform, current?: DraftTransform): DraftTransform => current ?? fallback
+
 const draftScreenToPoint = ([x, y]: Point, width: number, aspect: number, offsetX: number, offsetY: number): Point =>
   [(x - offsetX) / width, (y - offsetY) / (width * aspect)]
 
@@ -22,6 +26,7 @@ export interface DraftCanvasOptions {
   holds: Hold[]
   mode: DraftMode
   selectedId: string | null
+  initialTransform?: DraftTransform
   onAddHold: (point: Point) => void
   onMoveStart: (holdId: string) => void
   onMoveHold: (holdId: string, point: Point) => void
@@ -134,16 +139,21 @@ export class DraftCanvasView {
     const bitmap = canvasBitmapSize(width, height, dpr)
     this.viewportWidth = width
     this.viewportHeight = height
-    this.scale = this.minScale = width
+    this.minScale = width
     this.maxScale = width * 5
+    const transform = resolveDraftTransform(
+      { scale: this.minScale, offsetX: 0, offsetY: 0 },
+      opts.initialTransform,
+    )
+    this.scale = transform.scale
+    this.offsetX = transform.offsetX
+    this.offsetY = transform.offsetY
     this.canvas.width = bitmap.width
     this.canvas.height = bitmap.height
     this.canvas.style.width = width + "px"
     this.canvas.style.height = height + "px"
     this.canvas.style.touchAction = "none"
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-    this.offsetY = 0
-
     this.bindEvents()
     const img = new Image()
     img.onload = () => { this.image = img; this.redraw() }
@@ -289,6 +299,10 @@ export class DraftCanvasView {
     this.opts.candidates = candidates
     this.opts.selectedCandidateId = selectedCandidateId
     this.redraw()
+  }
+
+  getTransform(): DraftTransform {
+    return { scale: this.scale, offsetX: this.offsetX, offsetY: this.offsetY }
   }
 
   toScreen(point: Point): Point {
