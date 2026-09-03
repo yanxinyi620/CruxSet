@@ -1,4 +1,4 @@
-import { demoDraftWall, demoWall } from '../data/demo.js'
+import { demoDraftWall, demoPolygonWall, demoWall } from '../data/demo.js'
 import { demoProblems } from '../data/demo-problems.js'
 import type { Problem, ProblemHolds, Wall } from '../domain/types.js'
 export const mockCurrentUserId = 'usr_mock_owner'
@@ -19,7 +19,7 @@ const validateUpdate = (problem: Problem, wall: Wall, draft: Partial<Problem>) =
   return { ...problem, name: draft.name ?? '', description: draft.description ?? '', angle: draft.angle, grade: draft.grade, footRule, holds: selected, updatedAt: Date.now() }
 }
 export class MockRepository {
-  private walls = clone([demoWall, demoDraftWall]); private problems = clone(demoProblems)
+  private walls = clone([demoWall, demoPolygonWall, demoDraftWall]); private problems = clone(demoProblems)
   private admin = false
   setAdmin(value: boolean){ this.admin = value }
   async listWalls(){return clone(this.walls.filter(w=>w.visibility==='public'&&w.holds.length>=2))}

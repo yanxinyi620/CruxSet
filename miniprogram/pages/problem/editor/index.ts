@@ -4,6 +4,7 @@ import { ProblemEditor } from '../../../domain/editor.js'
 import { getProblem, saveProblem, updateProblem } from '../../../services/problems.js'
 import { getWall } from '../../../services/walls.js'
 import { currentUserId } from '../../../services/users.js'
+import { cloudErrorMessage } from '../../../services/errors.js'
 let wall=demoWall,wallId='wall_demo',problemId='',draftKey=`problemDraft:${wallId}`,editor=new ProblemEditor({}),saved={}
 const roles=[{id:'start',label:'Start',color:'#39a96b'},{id:'foot',label:'Foot',color:'#d7ad18'},{id:'hand',label:'Hand',color:'#316eea'},{id:'assist',label:'Assist',color:'#ef8f39'},{id:'finish',label:'Finish',color:'#8b55c7'}],footRules=['feet_follow','specified','all'],grades=Array.from({length:13},(_,i)=>`V${i}`),labels={feet_follow:'跟随手点',specified:'指定脚点',all:'全墙脚点'},hints={feet_follow:'手类点可踩，黄色 Foot 只能脚踩',specified:'脚只能踩线路中的黄色 Foot',all:'当前墙面所有岩点均可作为脚点'}
 const persist=page=>wx.setStorageSync(draftKey,{name:page.data.name,description:page.data.description,angle:page.data.angle,grade:page.data.grade,footRule:page.data.footRule,holds:editor.value().holds})
