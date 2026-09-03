@@ -660,14 +660,18 @@ const render = async () => {
     browse = routeBrowser || (selected
       ? `${back}<h1>${h(selected.name)}</h1><p>${selected.holds.length} 个岩点 · ${wallProblems.length} 条线路</p><div id="wall-preview"></div><button class="hero-card route-browser-entry" data-open-route-browser><b>浏览线路</b><span>按角度、难度查找并查看线路</span></button>`
       : `<div class="editor-head"><h1>线路</h1><p>选择一面公开墙面。</p></div>${publicWalls.map((w) => `<button class="wall-card" data-wall="${h(w.id)}">${thumb}<span><b>${h(w.name)}</b><em>${w.holds.length} 个岩点 · ${problems.filter((p) => p.wallId === w.id).length} 条线路</em></span></button>`).join("")}`);
-  const create =
-    panel === "new-wall"
+  const wallCreationActions = isAdmin
+      ? `<button class="hub-card walls" data-panel="new-wall"><i>＋</i><span><b>新建墙面</b><em>上传墙面图片</em></span><strong>›</strong></button><button class="hub-card problems" data-panel="drafts"><i>□</i><span><b>标注岩点</b><em>标注后可保存草稿或发布</em></span><strong>›</strong></button>`
+      : "",
+    wallPublicationNote = isAdmin ? '<p class="lead">发布即公开并锁定。</p>' : "",
+    create =
+    panel === "new-wall" && isAdmin
       ? `${back}<div class="editor-head"><h1>新建墙面</h1></div><div class="field"><input id="wall-image-library" type="file" accept="image/*"><input id="wall-image-camera" type="file" accept="image/*" capture="environment"><button class="image-picker" data-open-image-picker><span id="image-picker-label">选择图片</span><small id="image-picker-hint">从相册、文件或相机添加</small></button></div><dialog id="image-source-dialog"><h2>选择图片来源</h2><button data-image-source="library">相册 / 文件</button><button data-image-source="camera">拍照</button><button data-close-image-picker>取消</button></dialog><dialog id="wall-name-dialog"><label><span class="wall-name-heading">墙面名称<small>（可修改）</small></span><input id="wall-name" maxlength="100" readonly></label><button data-confirm-upload>确认上传</button></dialog><p id="wall-error"></p><button class="hero-card upload-button" data-create-wall><b>上传</b></button>`
       : panel === "new-route"
         ? `${back}<div class="editor-head"><h1>新建线路</h1><p>选择一面已发布墙面开始定线。</p></div>${publicWalls.filter((w) => w.holds.length >= 2).map((w) => `<button class="wall-card" data-new-problem="${h(w.id)}">${thumb}<span><b>${h(w.name)}</b><em>${w.holds.length} 个岩点</em></span></button>`).join("") || "<p class=\"lead\">没有可定线的已发布墙面</p>"}`
-        : panel === "drafts"
+        : panel === "drafts" && isAdmin
           ? `${back}<div class="editor-head"><h1>标注岩点</h1><p>选择一面草稿墙面，继续标注岩点。</p></div>${drafts.map((w) => `<button class="mine-card hub-card" data-edit-wall="${h(w.id)}">${thumb}<span><b>${h(w.name)}</b><em>${w.holds.length} 个岩点 · 私有草稿</em></span><strong>›</strong></button>`).join("") || "<p class=\"lead\">没有待标注的草稿墙面</p>"}`
-          : `<div class="editor-head"><h1>创建</h1><p class="lead">从墙面或线路开始创作。</p></div><button class="hub-card walls" data-panel="new-wall"><i>＋</i><span><b>新建墙面</b><em>上传墙面图片</em></span><strong>›</strong></button><button class="hub-card problems" data-panel="drafts"><i>□</i><span><b>标注岩点</b><em>标注后可保存草稿或发布</em></span><strong>›</strong></button><button class="hub-card problems" data-panel="new-route"><i>◇</i><span><b>新建线路</b><em>选择已发布墙面后定线</em></span><strong>›</strong></button><p class="lead">发布即公开并锁定。</p>`;
+          : `<div class="editor-head"><h1>创建</h1><p class="lead">从墙面或线路开始创作。</p></div>${wallCreationActions}<button class="hub-card problems" data-panel="new-route"><i>◇</i><span><b>新建线路</b><em>选择已发布墙面后定线</em></span><strong>›</strong></button>${wallPublicationNote}`;
   const cards = mine
       .map(
         (w) =>
