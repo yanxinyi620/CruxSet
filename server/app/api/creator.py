@@ -265,8 +265,11 @@ async def publish_wall(wall_id: str, request: Request, user=Depends(require_admi
 
 
 @router.delete("/problems/{problem_id}")
-async def delete_problem(problem_id: str, request: Request, _=Depends(require_admin)):
-    if not _repo(request).find_problem(problem_id):
+async def delete_problem(problem_id: str, request: Request, user=Depends(require_user)):
+    problem = _repo(request).find_problem(problem_id)
+    account = _repo(request).find_admin_by_user_id(str(user["id"]))
+    is_admin = account and account.get("role") == "admin"
+    if not problem or (problem.get("createdBy") != user["id"] and not is_admin):
         raise ApiError("NOT_FOUND", "Resource not found", 404)
     _repo(request).delete_problem(problem_id)
     return {"ok": True}
