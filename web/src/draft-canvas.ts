@@ -1,5 +1,5 @@
 import type { Hold, Point } from "../../miniprogram/domain/types.js"
-import { clampTransform, screenToImage, zoomAroundAnchor } from "../../miniprogram/domain/transform.js"
+import { clampTransform } from "../../miniprogram/domain/transform.js"
 
 export type DraftMode = 'view' | 'add' | 'move' | 'delete'
 
@@ -7,6 +7,13 @@ export const canvasBitmapSize = (width: number, height: number, devicePixelRatio
   width: Math.round(width * devicePixelRatio),
   height: Math.round(height * devicePixelRatio),
 })
+
+/** 将归一化岩点坐标投影到画布；纵轴必须使用图片显示高度。 */
+export const draftPointToScreen = ([x, y]: Point, width: number, aspect: number, offsetX = 0, offsetY = 0): Point =>
+  [x * width + offsetX, y * width * aspect + offsetY]
+
+const draftScreenToPoint = ([x, y]: Point, width: number, aspect: number, offsetX: number, offsetY: number): Point =>
+  [(x - offsetX) / width, (y - offsetY) / (width * aspect)]
 
 export interface DraftCanvasOptions {
   imageUrl: string
@@ -146,7 +153,7 @@ export class DraftCanvasView {
 
   private toImage(e: Pick<MouseEvent, 'clientX' | 'clientY'>): Point {
     const rect = this.canvas.getBoundingClientRect()
-    return screenToImage([e.clientX - rect.left, e.clientY - rect.top], { scale: this.scale, offsetX: this.offsetX, offsetY: this.offsetY })
+    return draftScreenToPoint([e.clientX - rect.left, e.clientY - rect.top], this.scale, this.aspect, this.offsetX, this.offsetY)
   }
 
   private hitTest(point: Point): Hold | null {
@@ -161,7 +168,8 @@ export class DraftCanvasView {
     const anchor: Point = [(a.x + b.x) / 2 - rect.left, (a.y + b.y) / 2 - rect.top]
     const factor = dist / this.pinch!.dist
     const nextScale = clamp(this.pinch!.scale * factor, this.minScale * 0.6, this.maxScale)
-    this.applyTransform(zoomAroundAnchor({ scale: this.scale, offsetX: this.offsetX, offsetY: this.offsetY }, nextScale, anchor))
+    const image = draftScreenToPoint(anchor, this.scale, this.aspect, this.offsetX, this.offsetY)
+    this.applyTransform({ scale: nextScale, offsetX: anchor[0] - image[0] * nextScale, offsetY: anchor[1] - image[1] * nextScale * this.aspect })
     this.redraw()
   }
 
@@ -262,7 +270,8 @@ export class DraftCanvasView {
       const anchor: Point = [e.clientX - rect.left, e.clientY - rect.top]
       const factor = Math.exp(-e.deltaY * 0.001)
       const nextScale = clamp(this.scale * factor, this.minScale * 0.6, this.maxScale)
-      this.applyTransform(zoomAroundAnchor({ scale: this.scale, offsetX: this.offsetX, offsetY: this.offsetY }, nextScale, anchor))
+      const image = draftScreenToPoint(anchor, this.scale, this.aspect, this.offsetX, this.offsetY)
+      this.applyTransform({ scale: nextScale, offsetX: anchor[0] - image[0] * nextScale, offsetY: anchor[1] - image[1] * nextScale * this.aspect })
       this.redraw()
     }, { passive: false })
   }
@@ -283,7 +292,7 @@ export class DraftCanvasView {
   }
 
   toScreen(point: Point): Point {
-    return [point[0] * this.scale + this.offsetX, point[1] * this.scale + this.offsetY]
+    return draftPointToScreen(point, this.scale, this.aspect, this.offsetX, this.offsetY)
   }
 
   redraw() {
