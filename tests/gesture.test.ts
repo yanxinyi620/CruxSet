@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { GestureController } from '../src/domain/gesture.js'
+import { GestureController } from '../wechat/miniprogram/domain/gesture.js'
 
 it('recognizes a short tap but not a drag', () => {
   const controller = new GestureController({ scale: 1, offsetX: 0, offsetY: 0 })

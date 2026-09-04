@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest'
-import { isRoutableWall } from '../src/domain/routable-wall.js'
-import type { Wall } from '../src/domain/types.js'
+import { isRoutableWall } from '../wechat/miniprogram/domain/routable-wall.js'
+import type { Wall } from '../wechat/miniprogram/domain/types.js'
 
 const wall = { visibility:'public', holds:[{id:'H001'},{id:'H002'}] } as Wall
 

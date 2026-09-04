@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { createProblem } from '../src/domain/routes.js'
-import { isRoutableWall } from '../src/domain/routable-wall.js'
-import type { Wall } from '../src/domain/types.js'
+import { createProblem } from '../wechat/miniprogram/domain/routes.js'
+import { isRoutableWall } from '../wechat/miniprogram/domain/routable-wall.js'
+import type { Wall } from '../wechat/miniprogram/domain/types.js'
 
 const wall: Wall = {
   id: 'wall_1',

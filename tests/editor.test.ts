@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { ProblemEditor } from '../src/domain/editor.js'
+import ProblemEditor from '../wechat/miniprogram/domain/editor.js'
 
 it('moves a hold between roles and undoes the change', () => {
   const editor = new ProblemEditor({ start: [], foot: [], hand: ['H1'], assist: [], finish: [] })
