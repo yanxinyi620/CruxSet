@@ -1,0 +1,22 @@
+<view class="page route-browser">
+  <view class="eyebrow">墙面线路</view>
+  <view class="title">{{wallName}}</view>
+
+  <view class="filter-label">角度</view>
+  <scroll-view scroll-x class="chips">
+    <view wx:for="{{angles}}" wx:key="*this" class="chip {{angle === item ? 'active' : ''}}" data-value="{{item}}" bindtap="selectAngle">{{item === null ? '全部' : item + '°'}}</view>
+  </scroll-view>
+
+  <view class="filter-label">难度</view>
+  <scroll-view scroll-x class="chips">
+    <view wx:for="{{grades}}" wx:key="*this" class="chip {{grade === item ? 'active' : ''}}" data-value="{{item}}" bindtap="selectGrade">{{item}}</view>
+  </scroll-view>
+
+  <view wx:if="{{problems.length}}" class="problem-list">
+    <view wx:for="{{problems}}" wx:key="id" class="card problem" data-id="{{item.id}}" bindtap="openProblem">
+      <view class="problem-number">{{item.number}}</view>
+      <view class="muted">{{item.name || '未命名线路'}} · {{item.grade}} · {{item.angle}}°</view>
+    </view>
+  </view>
+  <view wx:else class="empty">当前筛选条件下暂无线路</view>
+</view>
