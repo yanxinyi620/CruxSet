@@ -2,15 +2,18 @@
   <view class="eyebrow">墙面线路</view>
   <view class="title">{{wallName}}</view>
 
-  <view class="filter-label">角度</view>
-  <scroll-view scroll-x class="chips">
+  <view class="filter-buttons"><button bindtap="openFilter" data-filter="angle">角度：{{angle === null ? '全部' : angle + '°'}}</button><button bindtap="openFilter" data-filter="grade">难度：{{grade}}</button></view>
+  <view wx:if="{{filter}}" class="filter-sheet"><view class="sheet-mask" bindtap="closeFilter"></view><view class="sheet-panel"><view class="sheet-title">选择{{filter === 'angle' ? '角度' : '难度'}}</view><view wx:if="{{filter === 'angle'}}" class="sheet-options"><button wx:for="{{angles}}" wx:key="*this" data-value="{{item}}" bindtap="selectAngle">{{item === null ? '全部' : item + '°'}}</button></view><view wx:else class="sheet-options"><button wx:for="{{grades}}" wx:key="*this" data-value="{{item}}" bindtap="selectGrade">{{item}}</button></view><button class="sheet-close" bindtap="closeFilter">关闭</button></view></view>
+  <!-- filters use a modal sheet to match Web's choice dialogs -->
+  <view hidden>
+  <view class="filter-label">角度</view><scroll-view scroll-x class="chips">
     <view wx:for="{{angles}}" wx:key="*this" class="chip {{angle === item ? 'active' : ''}}" data-value="{{item}}" bindtap="selectAngle">{{item === null ? '全部' : item + '°'}}</view>
   </scroll-view>
 
   <view class="filter-label">难度</view>
   <scroll-view scroll-x class="chips">
     <view wx:for="{{grades}}" wx:key="*this" class="chip {{grade === item ? 'active' : ''}}" data-value="{{item}}" bindtap="selectGrade">{{item}}</view>
-  </scroll-view>
+  </scroll-view></view>
 
   <view wx:if="{{problems.length}}" class="problem-list">
     <view wx:for="{{problems}}" wx:key="id" class="card problem" data-id="{{item.id}}" bindtap="openProblem">
