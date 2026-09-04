@@ -36,6 +36,15 @@ async function wallAccess (db, id, actor) {
   throw new Error('FORBIDDEN')
 }
 
+async function imageStillReferenced (db, fileId) {
+  if (!fileId || !fileId.startsWith('cloud://')) return false
+  const [primary, display] = await Promise.all([
+    db.collection('walls').where({ imageFileId: fileId }).limit(1).get(),
+    db.collection('walls').where({ displayImageFileId: fileId }).limit(1).get(),
+  ])
+  return primary.data.length > 0 || display.data.length > 0
+}
+
 exports.main = async event => {
   const db = cloud.database()
   const actor = await identity(db)
@@ -80,7 +89,11 @@ exports.main = async event => {
   const wall = await wallAccess(db, data.wallId, actor)
   const problems = await db.collection('problems').where({ wallId: wall.id }).limit(1).get()
   if (problems.data.length) throw new Error('WALL_IN_USE')
+  const files = [...new Set([wall.imageFileId, wall.displayImageFileId].filter(fileId => typeof fileId === 'string' && fileId.startsWith('cloud://')))]
   await db.collection('walls').doc(wall.id).remove()
+  const orphaned = []
+  for (const fileId of files) if (!(await imageStillReferenced(db, fileId))) orphaned.push(fileId)
+  if (orphaned.length) await cloud.deleteFile({ fileList: orphaned })
   return { ok: true }
 }
 

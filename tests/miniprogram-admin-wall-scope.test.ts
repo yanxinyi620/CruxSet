@@ -43,12 +43,14 @@ it('requires administrator identity for every wall-management server action', ()
 it('removes wall mutation actions from the mini-program cloud boundary', () => {
   const service = read('wechat/miniprogram/services/walls.ts')
   const adminWall = read('wechat/cloudfunctions/adminWall/index.js')
+  const cloud = read('wechat/cloudfunctions/wallManager/index.js')
   for (const action of ['createWall', 'updateWall', 'updateWallHolds', 'publishWall']) {
     expect(service).not.toMatch(new RegExp(`export const ${action}`))
     expect(adminWall).not.toContain(`'${action}'`)
   }
   expect(service).toContain('listAdminWalls')
   expect(service).toContain('deleteWall')
+  expect(cloud).toContain('cloud.deleteFile')
 })
 
 it('keeps phase-one verification and docs aligned with the admin-only contract', () => {
