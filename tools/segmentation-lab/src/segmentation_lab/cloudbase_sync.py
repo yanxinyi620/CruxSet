@@ -13,12 +13,14 @@ import json
 import math
 import re
 import time
+from io import BytesIO
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
 import httpx
+from PIL import Image
 
 from .errors import SegmentationLabError
 from .experiments import ExperimentStore
@@ -73,6 +75,14 @@ def detect_image_content_type(content: bytes) -> str | None:
     if len(content) >= 12 and content[:4] == b"RIFF" and content[8:12] == b"WEBP":
         return "image/webp"
     return None
+
+
+def mobile_webp(content: bytes) -> bytes:
+    with Image.open(BytesIO(content)) as source:
+        source.thumbnail((3072, 3072), Image.Resampling.LANCZOS)
+        output = BytesIO()
+        source.convert("RGB").save(output, format="WEBP", quality=90, method=6)
+    return output.getvalue()
 
 
 def normalize_polygon(polygon: Any, width: int, height: int) -> list[list[float]]:
@@ -464,7 +474,7 @@ async def sync_calibration(store: ExperimentStore, experiment_id: str, calibrati
             "imageHeight": experiment["height"],
             "holds": store.read_calibration_candidates(experiment_id, calibration_id),
         }
-        result = await synchronizer.publish(image_path.read_bytes(), str(experiment["imageName"]), metadata)
+        result = await synchronizer.publish(mobile_webp(image_path.read_bytes()), f"{image_path.stem}.webp", metadata)
         receipt = {**result, "target": "cloudbase", "publishRequestId": request_id, "status": "succeeded", "updatedAt": time.time()}
         store.record_calibration_sync(experiment_id, calibration_id, receipt)
         return result

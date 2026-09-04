@@ -1,9 +1,11 @@
 import json
 import hashlib
 import hmac
+from io import BytesIO
 
 import httpx
 import pytest
+from PIL import Image
 
 from segmentation_lab.cloudbase_sync import (
     CloudBaseSynchronizer,
@@ -11,6 +13,7 @@ from segmentation_lab.cloudbase_sync import (
     normalize_polygon,
     _canonical_json,
     sync_calibration,
+    mobile_webp,
 )
 from segmentation_lab.errors import SegmentationLabError
 from segmentation_lab.experiments import ExperimentStore
@@ -22,6 +25,17 @@ def test_normalize_polygon_maps_pixels_to_unit_coordinates():
         [0.5, 0.125],
         [0.25, 0.5],
     ]
+
+
+def test_mobile_webp_downscales_large_images_without_changing_aspect_ratio():
+    source = BytesIO()
+    Image.new("RGB", (4000, 2000), "white").save(source, format="PNG")
+
+    output = mobile_webp(source.getvalue())
+
+    with Image.open(BytesIO(output)) as image:
+        assert image.format == "WEBP"
+        assert image.size == (3072, 1536)
 
 
 def test_build_normalized_holds_sorts_and_assigns_stable_contiguous_ids():

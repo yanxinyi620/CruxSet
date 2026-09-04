@@ -89,7 +89,7 @@ CRUXSET_CLOUDBASE_OWNER_OPENID='CloudBase 管理员的 OpenID'
 
 ## 4. 发布校准墙面并验收
 
-在实验台 **04 人工校准** 的已保存结果中点击“发布”：`web` 只创建本机 Wall，并同时保存原图与最长边不超过 3072px、质量 90 的 WebP 展示图；网页优先加载展示图，旧 Wall 则回退原图。`cloudbase` 将原图和完整、已签名的校准 JSON 分别直传私有 Storage；`both` 两路独立执行。`segmentationPublish` 只接收小型 `payloadFileId`，下载并验签完整 JSON 后创建公开墙面，因此避开云函数文本请求体 100 KB 和二进制请求体 6 MB 限制。每次发布创建新的 Wall，不覆盖旧 Wall。
+在实验台 **04 人工校准** 的已保存结果中点击“发布”：`web` 只创建本机 Wall，并同时保存原图与最长边不超过 3072px、质量 90 的 WebP 展示图；网页优先加载展示图，旧 Wall 则回退原图。`cloudbase` 将同规格 WebP 展示图和完整、已签名的校准 JSON 分别直传私有 Storage；`both` 两路独立执行。`segmentationPublish` 只接收小型 `payloadFileId`，下载并验签完整 JSON 后创建公开墙面，因此避开云函数文本请求体 100 KB 和二进制请求体 6 MB 限制。每次发布创建新的 Wall，不覆盖旧 Wall。
 
 小程序重新编译后刷新公开墙面，确认墙图、岩点、线路查看，以及创建、编辑、删除自己的线路。正式验收运行 `npm run verify:phase1 -- --release`，并按[测试与验收](docs/testing.md)完成真机检查。
 
