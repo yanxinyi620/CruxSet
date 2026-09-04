@@ -24,8 +24,12 @@ Component({
       const index = Number(event.currentTarget.dataset.index)
       if (!Number.isInteger(index) || !tabs[index]) return
       this.setData({ selected: index })
-      if (index === this.data.selected && tabs[index].path.slice(1) === getCurrentPages().at(-1)?.route) return
-      wx.switchTab({ url: tabs[index].path })
+      const pages = getCurrentPages()
+      if (tabs[index].path.slice(1) === pages[pages.length - 1]?.route) return
+      wx.switchTab({
+        url: tabs[index].path,
+        success: () => this.setData({ selected: index }),
+      })
     },
   },
 })
