@@ -10,7 +10,7 @@ The change applies to images served by the local `GET /api/v1/media/{media_id}` 
 
 ## Design
 
-The media endpoint will return `Cache-Control: private, max-age=31536000, immutable` for an authorized image. Media IDs are random, are never overwritten, and a changed image gets a new ID, so a long immutable cache lifetime is valid. `private` limits reuse to the visitor's browser cache rather than shared caches, which preserves the current authorization model for private walls.
+The media endpoint will return `Cache-Control: private, max-age=604800, immutable` for an authorized image. Media IDs are random, are never overwritten, and a changed image gets a new ID, so a seven-day immutable cache lifetime is valid. `private` limits reuse to the visitor's browser cache rather than shared caches, which preserves the current authorization model for private walls.
 
 The web app will add a small module-level image loader keyed by the normalized source URL. A request for the same URL returns the same pending or loaded `HTMLImageElement`; loading failures remove that key so a later render can retry. `WallCanvasView` will use this loader rather than constructing its own image. This keeps rendering and canvas behavior unchanged while preventing repeated downloads and decodes during app navigation or re-renders.
 

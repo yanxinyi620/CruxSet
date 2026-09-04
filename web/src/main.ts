@@ -225,6 +225,7 @@ let problemCtx: ProblemCtx | null = null,
   wallPreview: WallCanvasView | null = null,
   fullscreenRoutePreview: WallCanvasView | null = null;
 let routeFullscreen = false;
+const wallImage = (wall: Wall) => wall.displayImageFileId || wall.imageFileId;
 
  if (typeof root.addEventListener === "function") root.addEventListener("click", (event) => {
   root.querySelectorAll<HTMLDialogElement>("dialog[open]").forEach((dialog) => {
@@ -354,7 +355,7 @@ const renderProblemEditor = () => {
     saveDialog.showModal();
     const preview = root.querySelector("#problem-preview-canvas") as HTMLElement;
     preview.replaceChildren();
-    new WallCanvasView(preview, { imageUrl: c.wall.imageFileId, imageWidth: c.wall.imageWidth, imageHeight: c.wall.imageHeight, polygonCoordinates: "normalized", viewportHeight: 220, fitContain: true, holds: c.wall.holds, getAssignments: () => c.editor.value().holds, getSelectedRole: () => null, onTapHold: () => {} });
+    new WallCanvasView(preview, { imageUrl: wallImage(c.wall), imageWidth: c.wall.imageWidth, imageHeight: c.wall.imageHeight, polygonCoordinates: "normalized", viewportHeight: 220, fitContain: true, holds: c.wall.holds, getAssignments: () => c.editor.value().holds, getSelectedRole: () => null, onTapHold: () => {} });
     saveDialog.focus();
   });
   root.querySelector("[data-confirm-problem-save]")!.addEventListener("click", async () => {
@@ -397,7 +398,7 @@ const renderProblemEditor = () => {
   c.canvas = new WallCanvasView(
     root.querySelector("#editor-canvas") as HTMLElement,
     {
-      imageUrl: c.wall.imageFileId,
+      imageUrl: wallImage(c.wall),
       imageWidth: c.wall.imageWidth,
       imageHeight: c.wall.imageHeight,
       polygonCoordinates: "normalized",
@@ -560,7 +561,7 @@ const renderWallEditor = () => {
   c.canvas = new DraftCanvasView(
     root.querySelector("#draft-canvas") as HTMLElement,
     {
-      imageUrl: c.wall.imageFileId,
+      imageUrl: wallImage(c.wall),
       imageWidth: c.wall.imageWidth,
       imageHeight: c.wall.imageHeight,
       holds,
@@ -620,7 +621,7 @@ const renderDetail = () => {
   c.canvas = new WallCanvasView(
     root.querySelector("#detail-canvas") as HTMLElement,
     {
-      imageUrl: c.wall.imageFileId,
+      imageUrl: wallImage(c.wall),
       imageWidth: c.wall.imageWidth,
       imageHeight: c.wall.imageHeight,
       holds: c.wall.holds,
@@ -768,7 +769,7 @@ const render = async () => {
   }
   if (selected && route.name === "wall") {
     wallPreview = new WallCanvasView(root.querySelector("#wall-preview") as HTMLElement, {
-      imageUrl: selected.imageFileId,
+      imageUrl: wallImage(selected),
       imageWidth: selected.imageWidth,
       imageHeight: selected.imageHeight,
       polygonCoordinates: "normalized",
@@ -784,7 +785,7 @@ const render = async () => {
       void render();
     };
     wallPreview = new WallCanvasView(root.querySelector("#route-preview") as HTMLElement, {
-      imageUrl: selected.imageFileId,
+      imageUrl: wallImage(selected),
       imageWidth: selected.imageWidth,
       imageHeight: selected.imageHeight,
       polygonCoordinates: "normalized",
@@ -797,7 +798,7 @@ const render = async () => {
     });
     if (routeFullscreen) {
       fullscreenRoutePreview = new WallCanvasView(root.querySelector("#route-fullscreen-canvas") as HTMLElement, {
-        imageUrl: selected.imageFileId,
+        imageUrl: wallImage(selected),
         imageWidth: selected.imageWidth,
         imageHeight: selected.imageHeight,
         polygonCoordinates: "normalized",

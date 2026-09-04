@@ -1,3 +1,4 @@
+import pytest
 from fastapi.testclient import TestClient
 
 from app.auth.passwords import create_admin_account
@@ -6,7 +7,18 @@ from app.main import app
 from app.repositories.memory import MemoryRepository
 
 
-def test_upload_image_returns_a_readable_local_media_url(tmp_path, monkeypatch):
+@pytest.fixture
+def isolated_repository():
+    original = app.state.repository
+    repository = MemoryRepository()
+    app.state.repository = repository
+    try:
+        yield repository
+    finally:
+        app.state.repository = original
+
+
+def test_upload_image_returns_a_readable_local_media_url(tmp_path, monkeypatch, isolated_repository):
     monkeypatch.setenv("CRUXSET_MEDIA_DIR", str(tmp_path))
     response = TestClient(app).post(
         "/api/v1/media/images",
@@ -16,8 +28,10 @@ def test_upload_image_returns_a_readable_local_media_url(tmp_path, monkeypatch):
     assert response.status_code == 201
     media = response.json()["media"]
     assert media["url"].startswith("/api/v1/media/")
-    app.state.repository.insert_wall({"id": "wall_public", "imageFileId": media["url"], "visibility": "public", "published": True})
-    assert TestClient(app).get(media["url"]).content == b"\xff\xd8\xff\xe0test-image"
+    isolated_repository.insert_wall({"id": "wall_public", "imageFileId": media["url"], "visibility": "public", "published": True})
+    image = TestClient(app).get(media["url"])
+    assert image.content == b"\xff\xd8\xff\xe0test-image"
+    assert image.headers["cache-control"] == "private, max-age=604800, immutable"
 
 
 def test_private_wall_media_requires_its_owner(tmp_path, monkeypatch):

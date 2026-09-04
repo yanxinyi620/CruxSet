@@ -1,8 +1,10 @@
 import json
+from io import BytesIO
 from pathlib import Path
 from typing import Any
 
 import httpx
+from PIL import Image
 
 from .errors import SegmentationLabError
 
@@ -14,12 +16,17 @@ class CruxSetPublisher:
         self.transport = transport
 
     async def publish(self, image: bytes, filename: str, metadata: dict[str, Any]) -> dict[str, Any]:
+        with Image.open(BytesIO(image)) as source:
+            source.thumbnail((3072, 3072), Image.Resampling.LANCZOS)
+            display = BytesIO()
+            source.convert("RGB").save(display, format="WEBP", quality=90, method=6)
+        content_type = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp"}.get(Path(filename).suffix.lower(), "image/png")
         try:
             async with httpx.AsyncClient(transport=self.transport, timeout=60) as client:
                 response = await client.post(
                     f"{self.base_url}/api/v1/admin/segmentation-walls",
                     headers={"Authorization": f"Bearer {self.publish_key}"},
-                    files={"image": (Path(filename).name, image, "image/png")},
+                    files={"image": (Path(filename).name, image, content_type), "display_image": (f"{Path(filename).stem}-display.webp", display.getvalue(), "image/webp")},
                     data={"metadata": json.dumps(metadata, ensure_ascii=False)},
                 )
         except httpx.HTTPError as error:

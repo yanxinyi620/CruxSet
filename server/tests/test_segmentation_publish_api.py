@@ -53,7 +53,7 @@ def test_segmentation_publish_creates_public_wall_with_normalized_holds(monkeypa
     response = client.post(
         "/api/v1/admin/segmentation-walls",
         headers={"Authorization": "Bearer test-key"},
-        files={"image": ("wall.png", _png(), "image/png")},
+        files={"image": ("wall.png", _png(), "image/png"), "display_image": ("wall-display.webp", b"RIFFxxxxWEBPVP8 ", "image/webp")},
         data={"metadata": json.dumps(_metadata())},
     )
     assert response.status_code == 201
@@ -63,6 +63,7 @@ def test_segmentation_publish_creates_public_wall_with_normalized_holds(monkeypa
     assert wall["ownerId"] == owner_id
     assert wall["visibility"] == "public"
     assert wall["published"] is True
+    assert wall["displayImageFileId"].endswith(".webp")
     assert wall["wallNumber"] == 4
     assert wall["holds"][0]["id"] == "H001"
     assert wall["holds"][0]["polygon"][0] == [0.1, 0.1]

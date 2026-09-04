@@ -1,6 +1,7 @@
 import type { Hold, HoldRole, Point, ViewTransform } from "../../wechat/miniprogram/domain/types.js"
 import { clampTransform, screenToImage, zoomAroundAnchor } from "../../wechat/miniprogram/domain/transform.js"
 import { circleHitTest, nearestHold, polygonHitTest } from "../../wechat/miniprogram/domain/geometry.js"
+import { loadCachedImage } from "./image-cache.js"
 
 /** 统一角色配色：Start 绿、Foot 黄、Hand 蓝、Assist 橙、Finish 紫。 */
 export const ROLE_COLORS: Record<HoldRole, string> = {
@@ -97,10 +98,10 @@ export class WallCanvasView {
     if (opts.initialTransform) this.applyTransform(opts.initialTransform)
 
     this.bindEvents()
-    const img = new Image()
-    img.onload = () => { this.image = img; this.redraw() }
-    img.onerror = () => { this.imageError = true; this.redraw() }
-    img.src = imageUrlFor(opts.imageUrl)
+    loadCachedImage(imageUrlFor(opts.imageUrl)).then(
+      (image) => { this.image = image; this.redraw() },
+      () => { this.imageError = true; this.redraw() },
+    )
   }
 
   private updatePinch() {

@@ -132,7 +132,7 @@ def _segmentation_holds(raw_holds: Any, width: int, height: int) -> list[dict[st
 
 
 @router.post("/admin/segmentation-walls")
-async def publish_segmentation_wall(request: Request, image: UploadFile = File(...), metadata: str = Form(...), authorization: str | None = Header(default=None)):
+async def publish_segmentation_wall(request: Request, image: UploadFile = File(...), display_image: UploadFile | None = File(default=None), metadata: str = Form(...), authorization: str | None = Header(default=None)):
     _publish_key(request, authorization)
     try:
         payload = json.loads(metadata)
@@ -160,8 +160,11 @@ async def publish_segmentation_wall(request: Request, image: UploadFile = File(.
         raise ApiError("PUBLISH_NOT_CONFIGURED", "Segmentation publishing owner is not configured", 503)
     content = await image.read()
     media = store_image(content, image.content_type or "", int(os.environ.get("SEGMENTATION_MAX_UPLOAD_BYTES", "52428800")))
+    display_media = store_image(await display_image.read(), display_image.content_type or "", int(os.environ.get("SEGMENTATION_MAX_UPLOAD_BYTES", "52428800"))) if display_image else None
     now = _now()
     wall = {"id": _id("wall"), "wallNumber": _next_wall_number(request), "name": name, "description": str(payload.get("description", "")), "imageFileId": media["id"], "imageWidth": width, "imageHeight": height, "geometryType": "polygon", "holds": holds, "published": True, "angleOptions": payload.get("angleOptions", [20, 25, 30, 35, 40, 45]), "ownerId": owner_id, "visibility": "public", "source": {"type": "segmentation_lab", "experimentId": experiment_id, "calibrationId": calibration_id, "publishRequestId": request_id}, "createdAt": now, "updatedAt": now}
+    if display_media:
+        wall["displayImageFileId"] = display_media["id"]
     _repo(request).insert_wall(wall)
     return JSONResponse(status_code=201, content={"wallId": wall["id"], "wallName": wall["name"], "holdCount": len(holds), "browsePath": f"/wall/{wall['id']}", "created": True})
 

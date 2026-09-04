@@ -89,4 +89,4 @@ async def read_media(media_id: str, request: Request):
         is_owner = any(wall.get("ownerId") == user_id for wall in walls)
         if not is_admin and not is_owner:
             raise HTTPException(status_code=403, detail="Forbidden")
-    return FileResponse(path)
+    return FileResponse(path, headers={"Cache-Control": "private, max-age=604800, immutable"})
