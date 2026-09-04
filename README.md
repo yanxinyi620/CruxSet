@@ -107,10 +107,11 @@ CRUXSET_CLOUDBASE_OWNER_OPENID='CloudBase 管理员的 OpenID'
 
 ```text
 web/                    本地 Web 创作工作台
+web/src/                Web 端页面、编辑器和业务实现
 server/                 FastAPI、SQLite、本地图片与发布工具
 wechat/miniprogram/     微信原生小程序
+wechat/miniprogram/domain/ 小程序端领域规则与交互实现
 wechat/cloudfunctions/  CloudBase 云函数
-src/domain/             可测试的共享领域规则
 tests/                  自动测试
 docs/                   权威参考与部署文档
 tools/segmentation-lab/  AI 分割与人工校准实验台
