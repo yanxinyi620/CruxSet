@@ -23,12 +23,11 @@ Component({
     switchTab(event) {
       const index = Number(event.currentTarget.dataset.index)
       if (!Number.isInteger(index) || !tabs[index]) return
-      this.setData({ selected: index })
       const pages = getCurrentPages()
-      if (tabs[index].path.slice(1) === pages[pages.length - 1]?.route) return
+      if (tabs[index].path.slice(1) === pages[pages.length - 1]?.route) return this.syncSelected()
       wx.switchTab({
         url: tabs[index].path,
-        success: () => this.setData({ selected: index }),
+        fail: () => this.syncSelected(),
       })
     },
   },

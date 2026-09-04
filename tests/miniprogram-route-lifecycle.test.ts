@@ -4,12 +4,13 @@ import { expect, it } from 'vitest'
 
 const read = (path: string) => readFileSync(resolve(path), 'utf8')
 
-it('lets route owners open the editor and delete from route detail', () => {
+it('keeps route ownership actions in My Routes rather than the public detail page', () => {
   const detail = read('wechat/miniprogram/pages/problem/detail/index.ts') + read('wechat/miniprogram/pages/problem/detail/index.wxml')
-  expect(detail).toContain('currentUserId')
-  expect(detail).toContain('deleteProblem')
-  expect(detail).toContain('/pages/problem/editor/index?problemId=')
-  expect(detail).toContain('wx:if="{{isOwner}}"')
+  const myRoutes = read('wechat/miniprogram/pages/me/problems/index.ts') + read('wechat/miniprogram/pages/me/problems/index.wxml')
+  expect(detail).not.toContain('deleteProblem')
+  expect(detail).not.toContain('wx:if="{{isOwner}}"')
+  expect(myRoutes).toContain('deleteProblem')
+  expect(myRoutes).toContain('/pages/problem/editor/index?problemId=')
 })
 
 it('uses the stable cloud error mapper in route lifecycle pages', () => {
@@ -41,14 +42,14 @@ it('includes a public polygon wall fixture in the browse repository', () => {
   expect(repository).toContain('demoPolygonWall')
 })
 
-it('renders owner actions in the detail template and keeps my routes navigable', () => {
+it('keeps My Routes navigable without duplicating owner actions in the detail template', () => {
   const list = read('wechat/miniprogram/pages/me/problems/index.ts') + read('wechat/miniprogram/pages/me/problems/index.wxml')
   const detail = read('wechat/miniprogram/pages/problem/detail/index.wxml')
   expect(list).toContain('open')
   expect(list).toContain('edit')
   expect(list).toContain('/pages/problem/editor/index?problemId=')
-  expect(detail).toContain('编辑线路')
-  expect(detail).toContain('删除线路')
+  expect(detail).not.toContain('编辑线路')
+  expect(detail).not.toContain('删除线路')
 })
 
 it('maps editor save failures instead of showing a fixed generic message', () => {
