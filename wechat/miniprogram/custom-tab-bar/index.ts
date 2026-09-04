@@ -7,6 +7,9 @@ const tabs = [
 
 Component({
   data: { tabs, selected: 0 },
+  lifetimes: {
+    attached() { this.syncSelected() },
+  },
   pageLifetimes: {
     show() { this.syncSelected() },
   },
@@ -18,8 +21,10 @@ Component({
       if (index >= 0) this.setData({ selected: index })
     },
     switchTab(event) {
-      const index = event.currentTarget.dataset.index
-      if (index === this.data.selected) return
+      const index = Number(event.currentTarget.dataset.index)
+      if (!Number.isInteger(index) || !tabs[index]) return
+      this.setData({ selected: index })
+      if (index === this.data.selected && tabs[index].path.slice(1) === getCurrentPages().at(-1)?.route) return
       wx.switchTab({ url: tabs[index].path })
     },
   },
