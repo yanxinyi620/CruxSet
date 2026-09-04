@@ -20,5 +20,6 @@ tools/segmentation-lab/models/
 .worktrees/
 server/data/
 .playwright-cli/
+.superpowers/
 .runtime/**/*.log
 .runtime/**/*.pid
