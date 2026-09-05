@@ -130,7 +130,7 @@ const loadAdminManagement = async () => {
   adminLoading = true;
   managementError = "";
   try {
-    const [users, data] = await Promise.all([api.listAdminUsers(), api.loadBrowseData()]);
+    const [users, data] = await Promise.all([api.listAdminUsers(), api.loadBootstrap()]);
     adminUsers = users;
     adminWalls = data.walls as Wall[];
     adminLoaded = true;
