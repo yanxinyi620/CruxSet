@@ -32,4 +32,12 @@ describe('mini program public browsing contract', () => {
     expect(detail).not.toContain('编辑线路')
     expect(detail).not.toContain('删除线路')
   })
+
+  test('uses a route mark for creating and a wall image for wall selection', () => {
+    const create = readFileSync('wechat/miniprogram/pages/create/index.wxml', 'utf8')
+    const picker = readFileSync('wechat/miniprogram/pages/wall-picker/index.wxml', 'utf8')
+    expect(create).toContain('>◇<')
+    expect(picker).toContain('wall-visual')
+    expect(picker).not.toContain('item.imageUrl')
+  })
 })

@@ -4,7 +4,7 @@
   <view class="page-lead">选择一个公开墙面，开始创建线路。</view>
   <view class="section-label">设置线路</view>
   <view class="wall-row" bindtap="createProblem">
-    <view class="route-visual"></view>
+    <view class="route-visual">◇</view>
     <view class="wall-copy"><view class="wall-name">新建线路</view><view class="wall-meta">选择一个公开 墙面 后开始设置</view></view>
     <view class="action-arrow">›</view>
   </view>

@@ -7,4 +7,5 @@ test('wall canvas caches the loaded image and avoids repeated image creation', (
   expect(source).toContain('this.loadingImage')
   expect(source).toContain('this.imageFile')
   expect(source).toContain('Object.keys(active).reduce')
+  expect(source).toContain('if (!role) continue')
 })

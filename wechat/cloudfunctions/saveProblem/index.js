@@ -26,7 +26,13 @@ exports.main = async event => {
   const now = Date.now()
   let number
   await db.runTransaction(async transaction => {
-    const counter = await transaction.collection('counters').doc('problem_number').get()
+    let counter
+    try {
+      counter = await transaction.collection('counters').doc('problem_number').get()
+    } catch (error) {
+      if (!String(error?.message || error).includes('problem_number does not exist')) throw error
+      counter = { data: { value: 0 } }
+    }
     const next = (counter.data?.value || 0) + 1
     number = `CS-${String(next).padStart(6, '0')}`
     await transaction.collection('counters').doc('problem_number').set({ data: { value: next } })

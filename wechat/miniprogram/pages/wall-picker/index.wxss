@@ -1,1 +1,1 @@
-.card{margin-top:22rpx}.title-small{font-size:30rpx;font-weight:800}
+.card{margin-top:22rpx}.wall-picker-card{display:flex;align-items:center;gap:20rpx}.wall-visual{flex:0 0 auto;width:62rpx;height:62rpx;border-radius:19rpx;background:linear-gradient(140deg,#523fa4 0 35%,#ef8b65 35% 61%,#f6d470 61%)}.wall-picker-copy{min-width:0;flex:1}.title-small{font-size:30rpx;font-weight:800}
