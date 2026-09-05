@@ -34,23 +34,11 @@ it('calls the default browser fetch with globalThis as its receiver', async () =
 })
 it('uses a same-origin API base for LAN and localhost pages', () => { expect(localApiBaseUrl({ protocol: 'http:', hostname: '192.168.43.179' })).toBe(''); expect(localApiBaseUrl({ protocol: 'http:', hostname: 'localhost' })).toBe('') })
 
-it('loads only walls and problems from the local API', async () => {
-  const fetcher = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ walls: [{ id: 'wall_demo' }] }))).mockResolvedValueOnce(new Response(JSON.stringify({ problems: [{ id: 'problem_1' }] })))
-  await expect(new LocalApiClient('http://localhost:8000', fetcher).loadBrowseData()).resolves.toEqual({ walls: [{ id: 'wall_demo' }], problems: [{ id: 'problem_1' }] }); expect(fetcher).toHaveBeenCalledTimes(2)
-})
-
-it('starts walls and problems requests together during the initial browse load', async () => {
-  let resolveWalls!: (response: Response) => void
-  let resolveProblems!: (response: Response) => void
-  const fetcher = vi.fn((url: string) => new Promise<Response>((resolve) => {
-    if (url.endsWith('/walls')) resolveWalls = resolve
-    if (url.endsWith('/problems')) resolveProblems = resolve
-  }))
-  const loading = new LocalApiClient('http://localhost:8000', fetcher as typeof fetch).loadBrowseData()
-  expect(fetcher).toHaveBeenCalledTimes(2)
-  resolveWalls(new Response(JSON.stringify({ walls: [] })))
-  resolveProblems(new Response(JSON.stringify({ problems: [] })))
-  await expect(loading).resolves.toEqual({ walls: [], problems: [] })
+it('loads the complete session snapshot with one bootstrap request', async () => {
+  const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({ user: { id: 'usr_1', isAdmin: true }, walls: [{ id: 'wall_demo' }], problems: [{ id: 'problem_1' }] })))
+  await expect(new LocalApiClient('http://localhost:8000', fetcher).loadBootstrap()).resolves.toEqual({ user: { id: 'usr_1', isAdmin: true }, walls: [{ id: 'wall_demo' }], problems: [{ id: 'problem_1' }] })
+  expect(fetcher).toHaveBeenCalledOnce()
+  expect(fetcher).toHaveBeenCalledWith('http://localhost:8000/api/v1/bootstrap', expect.objectContaining({ credentials: 'include' }))
 })
 
 it('uploads an image and creates one complete private wall', async () => {
