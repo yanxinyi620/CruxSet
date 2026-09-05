@@ -16,8 +16,11 @@ it('rejects non-string or overlong route descriptions', () => {
   expect(() => validation.validateRouteMetadata({ description: 'x'.repeat(501) })).toThrow('INVALID_ROUTE_METADATA')
 })
 
-it('initializes the problem number counter when its document is missing', () => {
+it('uses the wall number and per-wall route sequence for generated numbers', () => {
   const source = readFileSync(resolve(process.cwd(), 'wechat/cloudfunctions/saveProblem/index.js'), 'utf8')
-  expect(source).toContain('problem_number does not exist')
-  expect(source).toContain('value: 0')
+  expect(source).toContain('wallNumber')
+  expect(source).toContain('wallId')
+  expect(source).toContain('padStart(2')
+  expect(source).toContain('padStart(4')
+  expect(source).not.toContain("doc('problem_number')")
 })

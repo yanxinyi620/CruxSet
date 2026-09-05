@@ -194,8 +194,18 @@ exports.main = async event => {
       return
     }
     const now = Date.now()
+    const walls = (await transaction.collection('walls').get()).data
+    const numbered = walls.filter(item => Number.isInteger(item.wallNumber) && item.wallNumber > 0)
+    const missing = walls.filter(item => !Number.isInteger(item.wallNumber) || item.wallNumber <= 0).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0) || String(a.id).localeCompare(String(b.id)))
+    let nextWallNumber = Math.max(0, ...numbered.map(item => item.wallNumber)) + 1
+    for (const item of missing) {
+      await transaction.collection('walls').doc(item.id).update({ data: { wallNumber: nextWallNumber } })
+      nextWallNumber += 1
+    }
+    const wallNumber = nextWallNumber
     await transaction.collection('walls').doc(wallId).set({ data: {
       id: wallId,
+      wallNumber,
       name: validated.wallName,
       description: validated.description || '',
       imageFileId: validated.imageFileId,
