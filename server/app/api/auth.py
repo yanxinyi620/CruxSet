@@ -39,6 +39,17 @@ def _current_admin(request: Request):
     return user
 
 
+def _safe_user(request: Request):
+    user_id = read_session(request.cookies.get(session_cookie_name()))
+    if not user_id:
+        return None
+    user = _repository(request).find_user(user_id)
+    admin = _repository(request).find_admin_by_user_id(user_id)
+    if not user or not admin:
+        return None
+    return {"id": user["id"], "email": admin["emailNormalized"], "displayName": user.get("displayName", ""), "isAdmin": admin.get("role") == "admin"}
+
+
 def require_admin(request: Request):
     user = _current_admin(request)
     admin = _repository(request).find_admin_by_user_id(str(user["id"]))
@@ -117,9 +128,10 @@ async def list_admin_users(request: Request, _=Depends(require_admin)):
 
 @router.get("/me")
 async def me(request: Request):
-    user = _current_admin(request)
-    admin = _repository(request).find_admin_by_user_id(str(user["id"]))
-    return {"user": {"id": user["id"], "email": admin["emailNormalized"], "displayName": user.get("displayName", ""), "isAdmin": admin.get("role") == "admin"}}
+    user = _safe_user(request)
+    if not user:
+        raise ApiError("AUTH_REQUIRED", "Authentication required", 401)
+    return {"user": user}
 
 @router.patch("/profile")
 async def update_profile(payload: ProfileUpdate, request: Request, user=Depends(require_user)):

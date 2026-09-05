@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, File, Form, Header, Request, UploadFile
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.api.auth import require_admin, require_user
+from app.api.auth import _safe_user, require_admin, require_user
 from app.api.errors import ApiError
 from app.auth.sessions import read_session, session_cookie_name
 from app.api.media import _media_basename, _media_directory, store_image
@@ -205,6 +205,24 @@ def _visible_walls(request: Request) -> list[dict]:
     ]
 
 
+def _problems_for_walls(request: Request, walls: list[dict]) -> list[dict]:
+    repository = _repo(request)
+    visible_wall_ids = {wall["id"] for wall in walls}
+    problems = [problem for problem in repository.list_problems() if problem.get("wallId") in visible_wall_ids]
+    creator_ids = {str(problem.get("createdBy", "")) for problem in problems if problem.get("createdBy")}
+    users = {user_id: repository.find_user(user_id) for user_id in creator_ids}
+    accounts = {user_id: repository.find_admin_by_user_id(user_id) for user_id in creator_ids}
+    result = []
+    for problem in problems:
+        item = dict(problem)
+        creator_id = str(problem.get("createdBy", ""))
+        user, account = users.get(creator_id), accounts.get(creator_id)
+        if account:
+            item["setterName"] = str((user or {}).get("displayName") or str(account.get("emailNormalized", "")).split("@", 1)[0])
+        result.append(item)
+    return result
+
+
 @router.get("/walls")
 async def list_walls(request: Request):
     _ensure_wall_numbers(request)
@@ -213,17 +231,13 @@ async def list_walls(request: Request):
 
 @router.get("/problems")
 async def list_problems(request: Request):
-    visible_wall_ids = {wall["id"] for wall in _visible_walls(request)}
-    problems = []
-    for problem in _repo(request).list_problems():
-        if problem.get("wallId") not in visible_wall_ids: continue
-        item = dict(problem)
-        creator = _repo(request).find_admin_by_user_id(str(problem.get("createdBy", "")))
-        creator_user = _repo(request).find_user(str(problem.get("createdBy", "")))
-        if creator:
-            item["setterName"] = str((creator_user or {}).get("displayName") or str(creator.get("email", "")).split("@", 1)[0])
-        problems.append(item)
-    return {"problems": problems}
+    return {"problems": _problems_for_walls(request, _visible_walls(request))}
+
+
+@router.get("/bootstrap")
+async def bootstrap(request: Request):
+    walls = _visible_walls(request)
+    return {"user": _safe_user(request), "walls": walls, "problems": _problems_for_walls(request, walls)}
 
 
 @router.post("/walls", status_code=201)

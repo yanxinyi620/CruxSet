@@ -92,3 +92,35 @@ def test_problem_listing_follows_wall_visibility():
     assert [problem["id"] for problem in client.get("/api/v1/problems", cookies=owner_cookie).json()["problems"]] == ["problem_public", "problem_private"]
     other_cookie = {session_cookie_name(): create_session("usr_other")}
     assert [problem["id"] for problem in client.get("/api/v1/problems", cookies=other_cookie).json()["problems"]] == ["problem_public"]
+
+
+def test_bootstrap_returns_anonymous_public_content_and_setter_name():
+    repository = MemoryRepository()
+    owner = create_admin_account(repository, "owner@example.com", "correct horse")
+    repository.insert_user({"id": "usr_other"})
+    repository.insert_wall(_wall("wall_public", "public", owner["userId"]))
+    repository.insert_wall(_wall("wall_private", "private", owner["userId"]))
+    repository.insert_problem({"id": "problem_public", "wallId": "wall_public", "createdBy": owner["userId"]})
+    repository.insert_problem({"id": "problem_private", "wallId": "wall_private", "createdBy": owner["userId"]})
+    app.state.repository = repository
+
+    response = TestClient(app).get("/api/v1/bootstrap")
+
+    assert response.status_code == 200
+    assert response.json()["user"] is None
+    assert [wall["id"] for wall in response.json()["walls"]] == ["wall_public"]
+    assert response.json()["problems"] == [{"id": "problem_public", "wallId": "wall_public", "createdBy": owner["userId"], "setterName": "owner"}]
+
+
+def test_bootstrap_returns_owned_private_content_and_safe_current_user():
+    repository = MemoryRepository()
+    owner = create_admin_account(repository, "owner@example.com", "correct horse")
+    repository.insert_wall(_wall("wall_public", "public", owner["userId"]))
+    repository.insert_wall(_wall("wall_private", "private", owner["userId"]))
+    app.state.repository = repository
+
+    response = TestClient(app).get("/api/v1/bootstrap", cookies={session_cookie_name(): create_session(owner["userId"])})
+
+    assert response.status_code == 200
+    assert [wall["id"] for wall in response.json()["walls"]] == ["wall_public", "wall_private"]
+    assert response.json()["user"] == {"id": owner["userId"], "email": "owner@example.com", "displayName": "", "isAdmin": True}
