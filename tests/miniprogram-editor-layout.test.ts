@@ -28,3 +28,8 @@ test('starts a new route with the Start role selected', () => {
   const source = readFileSync('wechat/miniprogram/pages/problem/editor/index.ts', 'utf8')
   expect(source).toContain("selectedRole: 'start'")
 })
+
+test('successful new route save reopens a clean editor for the same wall', () => {
+  const source = readFileSync('wechat/miniprogram/pages/problem/editor/index.ts', 'utf8')
+  expect(source).toContain("wx.redirectTo({ url: `/pages/problem/editor/index?wallId=${encodeURIComponent(wallId)}` })")
+})

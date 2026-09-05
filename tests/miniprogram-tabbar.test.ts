@@ -23,3 +23,11 @@ test('each tab page synchronizes the custom tab bar when it becomes visible', ()
     expect(readFileSync(file, 'utf8')).toContain(`syncTabBar(this, ${selected})`)
   }
 })
+
+test('primary navigation and page headings use compact title sizing', () => {
+  const tabbar = readFileSync('wechat/miniprogram/custom-tab-bar/index.wxss', 'utf8')
+  const app = readFileSync('wechat/miniprogram/app.wxss', 'utf8')
+  expect(tabbar).toContain('font-size:32rpx')
+  expect(app).toContain('.page-title,.title')
+  expect(app).toContain('font-size:46rpx')
+})

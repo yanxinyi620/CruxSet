@@ -13,3 +13,8 @@ it('draws all three outline bands outside assigned holds', () => {
   expect(source).toContain('ctx.lineWidth = 2')
   expect(source).toContain('ctx.strokeStyle = ROLE_COLORS[role]')
 })
+
+it('maps detail-page hold-to-role assignments to role-colored outlines', () => {
+  const source = readFileSync('wechat/miniprogram/components/wall-canvas/index.ts', 'utf8')
+  expect(source).toContain("else if (typeof value === 'string') map[role] = value")
+})
