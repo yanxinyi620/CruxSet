@@ -42,6 +42,30 @@ async function createProblem(request: Request, db: D1Database, user: Record<stri
     return json(request, { problem: { id, number, wallId, name: body.name ?? null, description: body.description ?? null, angle, grade, footRule, createdBy: user.id, createdAt: now, updatedAt: now, holds: Object.fromEntries(roles.map((role) => [role, assignments.filter((item) => item.role === role).map((item) => item.id)])) } }, { status: 201 })
   } catch (caught) { console.error('problem_create_failed', caught instanceof Error ? caught.stack : String(caught)); return error(request, 'INVALID_INPUT', 'Unable to create route', 400) }
 }
+async function updateProblem(request: Request, db: D1Database, user: Record<string, unknown>, problemId: string) {
+  try {
+    const existing = await db.prepare('SELECT id,number,wall_id,created_by FROM problems WHERE id=?').bind(problemId).first() as Record<string, unknown> | null
+    if (!existing || (existing.created_by !== user.id && user.role !== 'admin')) return error(request, 'NOT_FOUND', 'Route not found', 404)
+    const body = await request.json() as { angle?: number; grade?: string; footRule?: string; name?: string; description?: string; holds?: Record<string, unknown> }
+    const angle = Number(body.angle ?? 20), grade = String(body.grade ?? 'V0'), footRule = String(body.footRule ?? 'feet_follow')
+    if (angle < 0 || angle > 70 || angle % 5 !== 0 || !/^V(?:[0-9]|1[0-6])$/.test(grade) || !['feet_follow', 'specified', 'all'].includes(footRule)) return error(request, 'INVALID_INPUT', 'Invalid route settings', 400)
+    const source = body.holds && typeof body.holds === 'object' ? body.holds : {}
+    const roles = ['start', 'foot', 'hand', 'assist', 'finish'], assignments: Array<{ role: string; id: string }> = []
+    for (const role of roles) for (const id of Array.isArray(source[role]) ? source[role] : []) assignments.push({ role, id: String(id) })
+    const uniqueIds = [...new Set(assignments.map((item) => item.id))]
+    if (!assignments.some((item) => item.role === 'start') || !assignments.some((item) => item.role === 'finish') || uniqueIds.length !== assignments.length) return error(request, 'INVALID_INPUT', 'Start and finish holds are required', 400)
+    const placeholders = uniqueIds.map(() => '?').join(',')
+    const valid = await db.prepare(`SELECT id FROM holds WHERE wall_id=? AND id IN (${placeholders})`).bind(existing.wall_id, ...uniqueIds).all()
+    if ((valid.results ?? []).length !== uniqueIds.length) return error(request, 'INVALID_INPUT', 'One or more holds are invalid', 400)
+    const now = Date.now()
+    await db.batch([
+      db.prepare('UPDATE problems SET name=?,description=?,angle=?,grade=?,foot_rule=?,updated_at=? WHERE id=?').bind(body.name ? String(body.name) : null, body.description ? String(body.description) : null, angle, grade, footRule, now, problemId),
+      db.prepare('DELETE FROM problem_holds WHERE problem_id=?').bind(problemId),
+      ...assignments.map((item) => db.prepare('INSERT INTO problem_holds (problem_id,wall_id,hold_id,role) VALUES (?,?,?,?)').bind(problemId, existing.wall_id, item.id, item.role)),
+    ])
+    return json(request, { problem: { id: problemId, number: existing.number, wallId: existing.wall_id, name: body.name ?? null, description: body.description ?? null, angle, grade, footRule, createdBy: existing.created_by, updatedAt: now, holds: Object.fromEntries(roles.map((role) => [role, assignments.filter((item) => item.role === role).map((item) => item.id)])) } })
+  } catch (caught) { console.error('problem_update_failed', caught instanceof Error ? caught.stack : String(caught)); return error(request, 'INVALID_INPUT', 'Unable to update route', 400) }
+}
 const worker: ExportedHandler<Env> = { async fetch(request, env) {
   const url = new URL(request.url), pathname = url.pathname
   if (pathname.startsWith('/api/v1/')) {
@@ -52,6 +76,8 @@ const worker: ExportedHandler<Env> = { async fetch(request, env) {
     if (pathname === '/api/v1/walls' && request.method === 'GET') return listWalls(request, env.DB)
     if (pathname === '/api/v1/problems' && request.method === 'GET') return listProblems(request, env.DB)
     if (pathname === '/api/v1/problems' && request.method === 'POST') { const u = await session(request, env.DB); return u ? createProblem(request, env.DB, u) : error(request, 'AUTH_REQUIRED', 'Authentication required', 401) }
+    const problemMatch = pathname.match(/^\/api\/v1\/problems\/([^/]+)$/)
+    if (problemMatch && request.method === 'PATCH') { const u = await session(request, env.DB); return u ? updateProblem(request, env.DB, u, decodeURIComponent(problemMatch[1])) : error(request, 'AUTH_REQUIRED', 'Authentication required', 401) }
     if (pathname === '/api/v1/auth/me' && request.method === 'GET') { const u=await session(request,env.DB); return u ? json(request,{user:{id:u.id,email:u.email_normalized,displayName:displayName(u),isAdmin:u.role==='admin'}}) : apiError('AUTH_REQUIRED','Authentication required',401) }
     if (pathname === '/api/v1/auth/logout' && request.method === 'POST') { const u=await session(request,env.DB); if(u) await env.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(u.token_hash).run(); return json(request,{ok:true},{headers:{'Set-Cookie':`${cookie}=; Max-Age=0; Path=/; Secure; HttpOnly; SameSite=Lax`}}) }
     if (pathname === '/api/v1/auth/admin/login' && request.method === 'POST') { try { const body=await request.json() as {email?:string,password?:string}; const row=await env.DB.prepare('SELECT u.id,u.display_name,a.role,a.email_normalized,a.password_hash FROM admins a JOIN users u ON u.id=a.user_id WHERE a.email_normalized=?').bind(String(body.email??'').trim().toLowerCase()).first() as Record<string,unknown>|null; if(!row || !(await passwordOk(String(row.password_hash),String(body.password??'')))) return json(request,{error:{code:'AUTH_REQUIRED',message:'Authentication required'}},{status:401}); const token=crypto.randomUUID()+crypto.randomUUID(); await env.DB.prepare('INSERT INTO sessions VALUES (?,?,?,?)').bind(await digest(token),row.id,Date.now()+28800000,Date.now()).run(); return json(request,{user:{id:row.id,email:row.email_normalized,displayName:displayName(row),isAdmin:row.role==='admin'}},{headers:{'Set-Cookie':`${cookie}=${token}; Max-Age=28800; Path=/; Secure; HttpOnly; SameSite=Lax`}}) } catch (error) { console.error('admin_login_failed', error instanceof Error ? error.stack : String(error)); return json(request,{error:{code:'LOGIN_FAILED',message:'Login service failed'}},{status:500}) } }
