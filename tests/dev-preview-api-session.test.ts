@@ -109,3 +109,13 @@ it('updates cached walls and linked problems locally after deleting a wall', asy
   await expect(session.getWall('wall_1')).rejects.toThrow('WALL_NOT_FOUND')
   expect(api.loadBootstrap).toHaveBeenCalledTimes(1)
 })
+
+it('hydrates a complete anonymous bootstrap without another fetch or demo content', async () => {
+  const { api, session } = fixture()
+  const snapshot = { user: null, walls: [wall({ visibility: 'public' })], problems: Array.from({ length: 150 }, (_, i) => ({ id: `problem_${i}`, wallId: 'wall_1' })) }
+  await session.refresh(snapshot)
+  expect(api.loadBootstrap).not.toHaveBeenCalled()
+  await expect(session.listWalls()).resolves.toEqual(snapshot.walls)
+  await expect(session.listProblems()).resolves.toHaveLength(150)
+  await expect(session.listMyWalls()).resolves.toEqual([])
+})

@@ -14,7 +14,8 @@ import type {
 } from "../../wechat/miniprogram/domain/types.js";
 import { WallHoldEditor } from "./wall-hold-editor.js";
 import { PreviewStore } from "./preview-store.js";
-import { LocalApiClient, type AdminUser } from "./api.js";
+import { LocalApiClient, wallImageUrl, type AdminUser, type WebCapabilities } from "./api.js";
+import { webAccess } from "./web-access.js";
 import { adminUserCard } from "./admin-management.js";
 import { WallCanvasView, ROLE_COLORS } from "./wall-canvas.js";
 import { DraftCanvasView, type DraftMode, type DraftTransform } from "./draft-canvas.js";
@@ -96,7 +97,7 @@ const root = document.querySelector<HTMLElement>("#app")!,
   store = new PreviewStore(),
   api = new LocalApiClient();
 let authenticated = false,
-  edgeReadOnly = false,
+  browseReady = false,
   loginError = "",
   profileEmail = "",
   profileName = "",
@@ -107,6 +108,8 @@ let authenticated = false,
   routeFilterAngle: number | undefined,
   routeFilterGrade: Grade | undefined,
   selectedRouteId = "";
+let capabilities: WebCapabilities | undefined;
+const access = () => webAccess(authenticated ? { id: profileUserId, email: profileEmail, isAdmin } : null, capabilities);
 let isAdmin = false,
   adminTab: "walls" | "users" = "walls",
   adminUsers: AdminUser[] = [],
@@ -226,7 +229,7 @@ let problemCtx: ProblemCtx | null = null,
   wallPreview: WallCanvasView | null = null,
   fullscreenRoutePreview: WallCanvasView | null = null;
 let routeFullscreen = false;
-const wallImage = (wall: Wall) => wall.displayImageFileId || wall.imageFileId;
+const wallImage = (wall: Wall) => wallImageUrl(wall.displayImageFileId || wall.imageFileId);
 
  if (typeof root.addEventListener === "function") root.addEventListener("click", (event) => {
   root.querySelectorAll<HTMLDialogElement>("dialog[open]").forEach((dialog) => {
@@ -235,7 +238,8 @@ const wallImage = (wall: Wall) => wall.displayImageFileId || wall.imageFileId;
 });
 
 const renderLogin = () => {
-  root.innerHTML = `<div class="device"><main class="login-page"><div class="login-card"><h1>CRUXSET <span>创作工作台</span></h1><div class="field"><label for="email">邮箱</label><input id="email" autocomplete="email"></div><div class="field"><label for="password">密码</label><input id="password" type="password" autocomplete="current-password"></div><div class="login-actions"><button class="login-submit" data-login>登录</button><button class="register-submit" type="button" data-register>注册</button></div><p class="login-error">${h(loginError)}</p></div></main></div>`;
+  root.innerHTML = `<div class="device"><main class="login-page"><div class="login-card"><h1>CRUXSET <span>创作工作台</span></h1><div class="field"><label for="email">邮箱</label><input id="email" autocomplete="email"></div><div class="field"><label for="password">密码</label><input id="password" type="password" autocomplete="current-password"></div><div class="login-actions"><button class="login-submit" data-login>登录</button><button class="register-submit" type="button" data-register>注册</button></div><p class="login-error">${h(loginError)}</p>${browseReady ? '<button type="button" data-continue-browse>继续浏览线路</button>' : ""}</div></main></div>`;
+  root.querySelector<HTMLButtonElement>("[data-continue-browse]")?.addEventListener("click", () => { panel = "home"; store.navigate({ name: "browse" }); });
   root.querySelector<HTMLButtonElement>("[data-login]")!.onclick = async () => {
     try {
       const user = await api.login(
@@ -248,6 +252,7 @@ const renderLogin = () => {
       isAdmin = user.isAdmin;
       await store.useApi(api);
       authenticated = true;
+      browseReady = true;
       void render();
     } catch (e) {
       loginError = (e as Error).message;
@@ -259,7 +264,7 @@ const renderLogin = () => {
     dialog.innerHTML = `<h2>注册普通用户</h2><input placeholder="邮箱" type="email" autocomplete="email"><input placeholder="密码（至少 8 位）" type="password" autocomplete="new-password"><input placeholder="再次输入密码" type="password" autocomplete="new-password"><div class="profile-name-actions"><button data-register-confirm>注册</button><button data-register-cancel>取消</button></div>`;
     document.body.append(dialog); dialog.showModal(); (dialog.querySelector("h2") as HTMLElement).focus();
     dialog.querySelector("[data-register-cancel]")!.addEventListener("click", () => dialog.close());
-    dialog.querySelector("[data-register-confirm]")!.addEventListener("click", async () => { const inputs = [...dialog.querySelectorAll("input")] as HTMLInputElement[]; try { const user = await api.register(inputs[0].value, inputs[1].value, inputs[2].value); profileEmail = user.email; profileName = user.displayName || ""; profileUserId = user.id; isAdmin = user.isAdmin; dialog.close(); dialog.remove(); authenticated = true; await store.useApi(api); void render(); } catch (error) { loginError = (error as Error).message; dialog.close(); dialog.remove(); renderLogin(); } });
+    dialog.querySelector("[data-register-confirm]")!.addEventListener("click", async () => { const inputs = [...dialog.querySelectorAll("input")] as HTMLInputElement[]; try { const user = await api.register(inputs[0].value, inputs[1].value, inputs[2].value); profileEmail = user.email; profileName = user.displayName || ""; profileUserId = user.id; isAdmin = user.isAdmin; dialog.close(); dialog.remove(); authenticated = true; await store.useApi(api); browseReady = true; void render(); } catch (error) { loginError = (error as Error).message; dialog.close(); dialog.remove(); renderLogin(); } });
     dialog.addEventListener("close", () => dialog.remove(), { once: true });
   };
 };
@@ -545,7 +550,7 @@ const renderWallEditor = () => {
         const next = new Image();
         next.onload = () => resolve(next);
         next.onerror = () => reject(new Error("墙图加载失败"));
-        next.src = c.wall.imageFileId;
+        next.src = wallImageUrl(c.wall.imageFileId);
       });
       const detected = autoDetectHolds(image);
       c.editor.replace(detected);
@@ -642,11 +647,15 @@ const imageDimensions = (file: File) =>
     image.src = URL.createObjectURL(file);
   });
 const render = async () => {
-  if (!authenticated && !edgeReadOnly) {
+  if (!browseReady || access().requiresLogin(store.state.route.name)) {
     renderLogin();
     return;
   }
   const route = store.state.route;
+  if (route.name === "wall-editor" && !access().wallAuthoring) {
+    store.navigate({ name: "create" }, { replace: true });
+    return;
+  }
   if (route.name === "wall-editor") {
     if (!wallCtx) await openWallEditor(route.wallId);
     renderWallEditor();
@@ -703,16 +712,16 @@ const render = async () => {
     browse = routeBrowser || (selected
       ? `${back}<h1>${h(selected.name)}</h1><p>${selected.holds.length} 个岩点 · ${wallProblems.length} 条线路</p><div id="wall-preview"></div><button class="hero-card route-browser-entry" data-open-route-browser><b>浏览线路</b><span>按角度、难度查找并查看线路</span></button>`
       : `<div class="editor-head"><h1>线路</h1><p>选择一面公开墙面。</p></div>${publicWalls.map((w) => `<button class="wall-card" data-wall="${h(w.id)}">${thumb}<span><b>${h(w.name)}</b><em>${w.holds.length} 个岩点 · ${problems.filter((p) => p.wallId === w.id).length} 条线路</em></span></button>`).join("")}`);
-  const wallCreationActions = isAdmin
+  const wallCreationActions = isAdmin && access().wallAuthoring
       ? `<button class="hub-card walls" data-panel="new-wall"><i>＋</i><span><b>新建墙面</b><em>上传墙面图片</em></span><strong>›</strong></button><button class="hub-card problems" data-panel="drafts"><i>□</i><span><b>标注岩点</b><em>标注后可保存草稿或发布</em></span><strong>›</strong></button>`
       : "",
-    wallPublicationNote = isAdmin ? '<p class="lead">发布即公开并锁定。</p>' : "",
+    wallPublicationNote = isAdmin && access().wallAuthoring ? '<p class="lead">发布即公开并锁定。</p>' : "",
     create =
-    panel === "new-wall" && isAdmin
+    panel === "new-wall" && isAdmin && access().wallAuthoring
       ? `${back}<div class="editor-head"><h1>新建墙面</h1></div><div class="field"><input id="wall-image-library" type="file" accept="image/*"><input id="wall-image-camera" type="file" accept="image/*" capture="environment"><button class="image-picker" data-open-image-picker><span id="image-picker-label">选择图片</span><small id="image-picker-hint">从相册、文件或相机添加</small></button></div><dialog id="image-source-dialog"><h2>选择图片来源</h2><button data-image-source="library">相册 / 文件</button><button data-image-source="camera">拍照</button><button data-close-image-picker>取消</button></dialog><dialog id="wall-name-dialog"><label><span class="wall-name-heading">墙面名称<small>（可修改）</small></span><input id="wall-name" maxlength="100" readonly></label><button data-confirm-upload>确认上传</button></dialog><p id="wall-error"></p><button class="hero-card upload-button" data-create-wall><b>上传</b></button>`
       : panel === "new-route"
         ? `${back}<div class="editor-head"><h1>新建线路</h1><p>选择一面已发布墙面开始定线。</p></div>${publicWalls.filter((w) => w.holds.length >= 2).map((w) => `<button class="wall-card" data-new-problem="${h(w.id)}">${thumb}<span><b>${h(w.name)}</b><em>${w.holds.length} 个岩点</em></span></button>`).join("") || "<p class=\"lead\">没有可定线的已发布墙面</p>"}`
-        : panel === "drafts" && isAdmin
+        : panel === "drafts" && isAdmin && access().wallAuthoring
           ? `${back}<div class="editor-head"><h1>标注岩点</h1><p>选择一面草稿墙面，继续标注岩点。</p></div>${drafts.map((w) => `<button class="mine-card hub-card" data-edit-wall="${h(w.id)}">${thumb}<span><b>${h(w.name)}</b><em>${w.holds.length} 个岩点 · 私有草稿</em></span><strong>›</strong></button>`).join("") || "<p class=\"lead\">没有待标注的草稿墙面</p>"}`
           : `<div class="editor-head"><h1>创建</h1><p class="lead">从墙面或线路开始创作。</p></div>${wallCreationActions}<button class="hub-card problems" data-panel="new-route"><i>◇</i><span><b>新建线路</b><em>选择已发布墙面后定线</em></span><strong>›</strong></button>${wallPublicationNote}`;
   const cards = mine
@@ -846,7 +855,9 @@ const render = async () => {
     adminLoaded = false;
     panel = "home";
     loginError = "";
-    renderLogin();
+    profileName = "";
+    await store.useApi(api);
+    store.navigate({ name: "browse" }, { replace: true });
   });
   root.querySelector<HTMLButtonElement>("[data-save-profile]")?.addEventListener("click", async () => { const dialog = document.createElement("dialog"); dialog.className = "profile-name-dialog"; dialog.innerHTML = `<h2 tabindex="-1">修改用户名称</h2><input value="${h(profileName || profileEmail.split("@", 1)[0] || "")}" maxlength="40" autocomplete="off" autocapitalize="off" spellcheck="false"><div class="profile-name-actions"><button data-profile-confirm>保存</button><button data-profile-cancel>取消</button></div>`; document.body.append(dialog); dialog.showModal(); (dialog.querySelector("h2") as HTMLElement).focus(); dialog.querySelector("[data-profile-cancel]")!.addEventListener("click", () => dialog.close()); dialog.querySelector("[data-profile-confirm]")!.addEventListener("click", async () => { const value = (dialog.querySelector("input") as HTMLInputElement).value.trim(); try { const result = await api.updateProfile(value); profileName = result.user.displayName || ""; dialog.close(); dialog.remove(); await store.useApi(api); await render(); } catch (error) { managementError = `保存用户名称失败：${(error as Error).message}`; dialog.close(); dialog.remove(); await render(); } }); dialog.addEventListener("close", () => dialog.remove(), { once: true }); });
   root.querySelectorAll<HTMLButtonElement>("[data-admin-tab]").forEach((button) => button.onclick = () => {
@@ -1077,29 +1088,20 @@ const render = async () => {
 };
 store.subscribe(() => { syncUiUrl(true); void render(); });
 renderLoading();
-void api
-  .currentUser()
-    .then(async (user) => {
-      authenticated = Boolean(user);
-      if (user) {
-        profileEmail = user.email; profileName = user.displayName || ""; profileUserId = user.id; isAdmin = user.isAdmin;
-        await store.useApi(api);
-      }
+void api.loadBootstrap()
+  .then(async (snapshot) => {
+    authenticated = Boolean(snapshot.user);
+    capabilities = snapshot.capabilities;
+    if (snapshot.user) {
+      const user = snapshot.user;
+      profileEmail = user.email; profileName = user.displayName || ""; profileUserId = user.id; isAdmin = user.isAdmin;
+    }
+    await store.useApi(api, snapshot);
+    browseReady = true;
     await render();
   })
   .catch(() => {
-    // The deployed edge site intentionally exposes only public read-only APIs.
-    // If bootstrap is available, keep the browse experience usable and defer
-    // the local-service requirement until a write or login action is used.
-    void api.loadBootstrap()
-      .then(async () => {
-        authenticated = false;
-        edgeReadOnly = true;
-        await store.useApi(api);
-        await render();
-      })
-      .catch(() => {
-        loginError = "本地服务未启动，请先启动 FastAPI。";
-        renderLogin();
-      });
+    browseReady = false;
+    loginError = "服务暂时不可用，请稍后重试。";
+    renderLogin();
   });

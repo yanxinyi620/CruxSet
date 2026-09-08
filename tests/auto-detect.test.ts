@@ -7,7 +7,7 @@ import type { Hold } from '../wechat/miniprogram/domain/types.js'
 import { RITAN_SPRAYWALL_FIXTURE, RITAN_SPRAYWALL_FIXTURE_METADATA } from './fixtures/ritan-spraywall-rgba.js'
 
 vi.mock('../web/src/preview-store.js', () => ({ PreviewStore: class { subscribe() {} } }))
-vi.mock('../web/src/api.js', () => ({ LocalApiClient: class { currentUser() { return Promise.resolve(null) } } }))
+vi.mock('../web/src/api.js', () => ({ LocalApiClient: class { loadBootstrap() { return new Promise(() => {}) } } }))
 const fakeRoot = { innerHTML: '', querySelector: () => ({ style: {}, classList: { toggle() {} }, set onclick(_: unknown) {} }), querySelectorAll: () => [] }
 vi.stubGlobal('document', { querySelector: () => fakeRoot })
 const { normalizeDetectRoi, resetDetectRoi, shouldReplaceDetectedHolds, createAutoDetectController, detectRoiValidationMessage } = await import('../web/src/main.js')

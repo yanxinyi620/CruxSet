@@ -32,28 +32,40 @@ export async function listWalls(request: Request, db?: D1Database): Promise<Resp
   if (url.searchParams.has('cursor') && !cursor) return apiError('INVALID_CURSOR', 'Invalid pagination cursor', 400)
   const statement = cursor
     ? db.prepare(`SELECT id, wall_number, name, description, image_path, image_width, image_height, geometry_type, angle_options_json, created_at, updated_at FROM walls WHERE visibility = 'public' AND published = 1 AND (created_at < ? OR (created_at = ? AND id < ?)) ORDER BY created_at DESC, id DESC LIMIT ?`).bind(cursor.createdAt, cursor.createdAt, cursor.id, limit + 1)
-    : db.prepare(`SELECT id, wall_number, name, description, image_path, image_width, image_height, geometry_type, angle_options_json, created_at, updated_at FROM walls WHERE visibility = 'public' AND published = 1 ORDER BY created_at DESC, id DESC LIMIT ?`).bind(limit + 1)
+    : db.prepare(`SELECT id, wall_number, name, description, image_path, image_width, image_height, geometry_type, angle_options_json, owner_id, visibility, published, created_at, updated_at FROM walls WHERE visibility = 'public' AND published = 1 ORDER BY created_at DESC, id DESC LIMIT ?`).bind(limit + 1)
   const result = await statement.all<Row>()
   const rows = result.results ?? []
   const hasMore = rows.length > limit
   const items = rows.slice(0, limit).map((row) => ({
-    id: row.id, wallNumber: row.wall_number, name: row.name, description: row.description,
+    id: row.id, wallNumber: row.wall_number, name: row.name, description: row.description, ownerId: row.owner_id, visibility: row.visibility, published: Boolean(row.published),
     imagePath: row.image_path, imageWidth: row.image_width, imageHeight: row.image_height,
     geometryType: row.geometry_type, angleOptions: JSON.parse(String(row.angle_options_json)),
     createdAt: row.created_at, updatedAt: row.updated_at,
-    holds: [] as Array<{ id: unknown; x: unknown; y: unknown; radius: unknown; kind: unknown }>,
+    holds: [] as Array<{ id: unknown; x: unknown; y: unknown; radius: unknown; kind: unknown; polygon?: unknown }>,
   }))
   if (items.length) {
     const ids = items.map((item) => String(item.id))
     const placeholders = ids.map(() => '?').join(', ')
-    const holdResult = await db.prepare(`SELECT wall_id, id, x, y, radius, kind FROM holds WHERE wall_id IN (${placeholders}) ORDER BY wall_id, id`).bind(...ids).all<Row>()
+    const holdResult = await db.prepare(`SELECT wall_id, id, x, y, radius, kind, polygon_json FROM holds WHERE wall_id IN (${placeholders}) ORDER BY wall_id, id`).bind(...ids).all<Row>()
     const byId = new Map(items.map((item) => [String(item.id), item]))
     for (const hold of holdResult.results ?? []) {
-      byId.get(String(hold.wall_id))?.holds.push({ id: hold.id, x: hold.x, y: hold.y, radius: hold.radius, kind: hold.kind })
+      byId.get(String(hold.wall_id))?.holds.push({ id: hold.id, x: hold.x, y: hold.y, radius: hold.radius, kind: hold.kind, polygon: hold.polygon_json ? JSON.parse(String(hold.polygon_json)) : undefined })
     }
   }
   const last = items.at(-1)
   return Response.json({ walls: items, nextCursor: hasMore && last ? encodeCursor(Number(last.createdAt), String(last.id)) : null }, { headers: publicHeaders })
+}
+
+export async function listAllPublicWalls(db: D1Database): Promise<unknown[]> {
+  const result = await db.prepare(`SELECT id, wall_number, name, description, image_path, image_width, image_height, geometry_type, angle_options_json, owner_id, visibility, published, created_at, updated_at FROM walls WHERE visibility = 'public' AND published = 1 ORDER BY created_at DESC, id DESC`).all<Row>()
+  const items = (result.results ?? []).map((row) => ({ id: row.id, wallNumber: row.wall_number, name: row.name, description: row.description, imageFileId: row.image_path, displayImageFileId: row.image_path, imageWidth: row.image_width, imageHeight: row.image_height, geometryType: row.geometry_type, angleOptions: JSON.parse(String(row.angle_options_json)), ownerId: row.owner_id, visibility: row.visibility, published: Boolean(row.published), createdAt: row.created_at, updatedAt: row.updated_at, holds: [] as Array<Record<string, unknown>> }))
+  if (items.length) {
+    const ids = items.map((item) => String(item.id)); const placeholders = ids.map(() => '?').join(', ')
+    const holds = await db.prepare(`SELECT wall_id,id,x,y,radius,kind,polygon_json FROM holds WHERE wall_id IN (${placeholders}) ORDER BY wall_id,id`).bind(...ids).all<Row>()
+    const byId = new Map(items.map((item) => [String(item.id), item]))
+    for (const hold of holds.results ?? []) byId.get(String(hold.wall_id))?.holds.push({ id: hold.id, x: hold.x, y: hold.y, radius: hold.radius, kind: hold.kind, polygon: hold.polygon_json ? JSON.parse(String(hold.polygon_json)) : undefined })
+  }
+  return items
 }
 
 export async function listProblems(request: Request, db?: D1Database): Promise<Response> {

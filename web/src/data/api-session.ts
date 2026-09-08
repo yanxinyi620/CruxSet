@@ -1,5 +1,5 @@
 import type { Hold, Problem, Wall } from '../../../wechat/miniprogram/domain/types.js'
-import { LocalApiClient } from '../api.js'
+import { LocalApiClient, type BootstrapData } from '../api.js'
 import { PreviewSession, type CreateWallInput } from './preview-session.js'
 
 const normalizeWall = (wall: unknown): Wall => {
@@ -14,7 +14,7 @@ export class ApiSession extends PreviewSession {
   private replaceProblem(problem: Problem) { this.problems = [...this.problems.filter(item => item.id !== problem.id), structuredClone(problem)] }
   private removeProblem(id: string) { this.problems = this.problems.filter(problem => problem.id !== id) }
   private removeWall(id: string) { this.walls = this.walls.filter(wall => wall.id !== id); this.problems = this.problems.filter(problem => problem.wallId !== id) }
-  async refresh() { const data = await this.api.loadBootstrap(); this.walls = structuredClone(data.walls.map(normalizeWall)); this.problems = structuredClone(data.problems) as Problem[]; this.currentUserId = data.user?.id ?? null }
+  async refresh(snapshot?: BootstrapData) { const data = snapshot ?? await this.api.loadBootstrap(); this.walls = structuredClone(data.walls.map(normalizeWall)); this.problems = structuredClone(data.problems) as Problem[]; this.currentUserId = data.user?.id ?? null }
   override async listWalls() { return structuredClone(this.walls.filter(wall => wall.visibility === 'public')) }
   override async listMyWalls() { return structuredClone(this.walls.filter(wall => wall.ownerId === this.currentUserId)) }
   override async getWall(id: string) { const wall = this.walls.find(item => item.id === id); if (!wall) throw new Error('WALL_NOT_FOUND'); return structuredClone(wall) }

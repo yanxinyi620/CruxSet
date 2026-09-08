@@ -66,3 +66,21 @@ it('surfaces the server error message from the error envelope', async () => {
   const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: { code: 'WALL_LOCKED', message: 'Wall is already published' } }), { status: 409 }))
   await expect(new LocalApiClient('http://localhost:8000', fetcher).publishWall('wall_1')).rejects.toThrow('Wall is already published')
 })
+
+it('uses the production API origin on each deployed frontend hostname', () => {
+  for (const hostname of ['cruxset.xinyilab.top', 'api.cruxset.xinyilab.top', 'cruxset-edge.cruxset.workers.dev']) {
+    expect(localApiBaseUrl({ protocol: 'https:', hostname })).toBe('https://api.cruxset.xinyilab.top')
+  }
+})
+
+it('resolves published static image paths against the API while preserving local URLs', async () => {
+  const { wallImageUrl } = await import('../web/src/api.js')
+  expect(wallImageUrl('wall-images/hash.webp', 'https://api.cruxset.xinyilab.top')).toBe('https://api.cruxset.xinyilab.top/wall-images/hash.webp')
+  expect(wallImageUrl('/wall-images/hash.webp', 'https://api.cruxset.xinyilab.top')).toBe('https://api.cruxset.xinyilab.top/wall-images/hash.webp')
+  for (const path of ['/api/v1/media/image.jpg', 'blob:local-image', 'https://images.example/wall.webp']) expect(wallImageUrl(path, '')).toBe(path)
+})
+
+it('uses a service error message for non-JSON server failures', async () => {
+  const api = new LocalApiClient('', vi.fn().mockResolvedValue(new Response('Unavailable', { status: 503 })))
+  await expect(api.loadBootstrap()).rejects.toThrow('服务暂时不可用，请稍后重试')
+})
