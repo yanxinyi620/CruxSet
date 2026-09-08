@@ -18,4 +18,4 @@
 
 当前 Worker 已实现 `GET /api/v1/walls`、`GET /api/v1/problems` 和只读 `GET /api/v1/bootstrap`。墙面和线路接口都支持 `limit`（默认 20，最大 50）和 `cursor` 游标；线路接口还支持 `wallId` 筛选。Bootstrap 会返回公开数据和 `readOnly` 能力标记。没有绑定 D1 时接口会返回 `503 SERVICE_UNAVAILABLE`，不会回退到静态页面。
 
-连接真实 Cloudflare 环境前，需要在本机完成 `wrangler login`，再创建 D1 数据库并将数据库绑定命名为 `DB`。数据库 ID 和生产域名属于部署环境配置，不写入仓库；完成绑定后先执行 `wrangler d1 migrations apply <database> --remote`，再进行 Worker 部署。当前开发阶段不执行登录、创建数据库或远端迁移。
+连接真实 Cloudflare 环境前，需要在本机完成 `wrangler login`，复制 `edge/wrangler.example.jsonc` 为本地部署配置，再创建 D1 数据库并将数据库绑定命名为 `DB`。数据库 ID 和生产域名属于部署环境配置，不写入仓库；完成绑定后先执行 `wrangler d1 migrations apply <database> --remote`，再进行 Worker 部署。当前开发阶段不执行登录、创建数据库或远端迁移。
