@@ -275,7 +275,7 @@ const renderLoading = () => {
 
 const openProblemEditor = async (wallId: string, problemId?: string, selectedProblem?: Problem) => {
   const sourceWall = await store.session.getWall(wallId);
-  const wall = sourceWall;
+  const wall = { ...sourceWall, angleOptions: routeAngles };
   const existing = selectedProblem ?? (problemId ? (await store.session.listProblems()).find((item) => item.id === problemId) : undefined);
   const draftKey = `problem:${wallId}`;
   const saved = problemId ? undefined : loadDraft<{ editor: string; role: HoldRole; angle: number; grade: Grade; footRule: FootRule; name: string; description: string }>(draftKey);
