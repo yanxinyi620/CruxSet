@@ -8,5 +8,13 @@
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
     "run_worker_first": ["/api/v1/*"]
-  }
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "cruxset-db",
+      "database_id": "f536b4b2-0b2f-4811-8351-3aeb9c3183d3",
+      "migrations_dir": "migrations"
+    }
+  ]
 }
