@@ -15,6 +15,7 @@ const json = (request: Request, body: unknown, init: ResponseInit = {}) => { con
 const error = (request: Request, code: string, message: string, status: number) => json(request, { error: { code, message } }, { status })
 async function digest(value: string) { const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)); return [...new Uint8Array(bytes)].map((b) => b.toString(16).padStart(2, '0')).join('') }
 async function passwordOk(encoded: string, password: string) { const p = encoded.split('$'); if (p.length < 6 || p[1] !== 'argon2id' || p[2] !== 'v=19') return false; const params = Object.fromEntries(p[3].split(',').map((x) => x.split('='))); const salt = Uint8Array.from(atob(p[4]), (c) => c.charCodeAt(0)); const actual = await argon2id({ password, salt, parallelism: Number(params.p), iterations: Number(params.t), memorySize: Number(params.m), hashLength: 32, outputType: 'encoded' }); return actual === encoded }
+async function hashPassword(password: string) { const salt = crypto.getRandomValues(new Uint8Array(16)); return argon2id({ password, salt, parallelism: 4, iterations: 3, memorySize: 65536, hashLength: 32, outputType: 'encoded' }) }
 async function session(request: Request, db: D1Database) { const value = request.headers.get('Cookie')?.match(new RegExp(`${cookie}=([^;]+)`))?.[1]; if (!value) return null; return await db.prepare('SELECT u.id,u.display_name,a.email_normalized,a.role,s.token_hash FROM sessions s JOIN users u ON u.id=s.user_id JOIN admins a ON a.user_id=u.id WHERE s.token_hash=? AND s.expires_at>?').bind(await digest(value), Date.now()).first() as Record<string, unknown> | null }
 function displayName(row: Record<string, unknown>) { const name = String(row.display_name ?? '').trim(); return name || String(row.email_normalized ?? '').split('@', 1)[0] }
 async function createProblem(request: Request, db: D1Database, user: Record<string, unknown>) {
@@ -66,6 +67,23 @@ async function updateProblem(request: Request, db: D1Database, user: Record<stri
     return json(request, { problem: { id: problemId, number: existing.number, wallId: existing.wall_id, name: body.name ?? null, description: body.description ?? null, angle, grade, footRule, createdBy: existing.created_by, updatedAt: now, holds: Object.fromEntries(roles.map((role) => [role, assignments.filter((item) => item.role === role).map((item) => item.id)])) } })
   } catch (caught) { console.error('problem_update_failed', caught instanceof Error ? caught.stack : String(caught)); return error(request, 'INVALID_INPUT', 'Unable to update route', 400) }
 }
+async function register(request: Request, db: D1Database) {
+  const body = await request.json() as { email?: string; password?: string; confirmPassword?: string }
+  const password = String(body.password ?? ''), confirm = String(body.confirmPassword ?? '')
+  if (password !== confirm) return error(request, 'INVALID_INPUT', 'Passwords do not match', 422)
+  if (password.length < 8) return error(request, 'INVALID_INPUT', 'Password must contain at least 8 characters', 422)
+  const email = String(body.email ?? '').trim().toLowerCase()
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return error(request, 'INVALID_INPUT', 'Invalid email', 422)
+  const existing = await db.prepare('SELECT user_id FROM admins WHERE email_normalized=?').bind(email).first()
+  if (existing) return error(request, 'CONFLICT', 'Email already registered', 409)
+  const id = `usr_web_${crypto.randomUUID()}`, now = Date.now(), passwordHash = await hashPassword(password), token = crypto.randomUUID() + crypto.randomUUID()
+  await db.batch([
+    db.prepare('INSERT INTO users (id,display_name,created_at,updated_at) VALUES (?,?,?,?)').bind(id, '', now, now),
+    db.prepare('INSERT INTO admins (user_id,role,created_at,updated_at,email_normalized,password_hash) VALUES (?,?,?,?,?,?)').bind(id, 'user', now, now, email, passwordHash),
+    db.prepare('INSERT INTO sessions (token_hash,user_id,expires_at,created_at) VALUES (?,?,?,?)').bind(await digest(token), id, now + 28800000, now),
+  ])
+  return json(request, { user: { id, email, displayName: email.split('@')[0], isAdmin: false } }, { status: 201, headers: { 'Set-Cookie': `${cookie}=${token}; Max-Age=28800; Path=/; Secure; HttpOnly; SameSite=Lax` } })
+}
 const worker: ExportedHandler<Env> = { async fetch(request, env) {
   const url = new URL(request.url), pathname = url.pathname
   if (pathname.startsWith('/api/v1/')) {
@@ -87,9 +105,12 @@ const worker: ExportedHandler<Env> = { async fetch(request, env) {
       return json(request, { ok: true })
     }
     if (pathname === '/api/v1/auth/me' && request.method === 'GET') { const u=await session(request,env.DB); return u ? json(request,{user:{id:u.id,email:u.email_normalized,displayName:displayName(u),isAdmin:u.role==='admin'}}) : apiError('AUTH_REQUIRED','Authentication required',401) }
+    if (pathname === '/api/v1/auth/register' && request.method === 'POST') return register(request, env.DB)
+    if (pathname === '/api/v1/auth/profile' && request.method === 'PATCH') { const u = await session(request, env.DB); if (!u) return error(request, 'AUTH_REQUIRED', 'Authentication required', 401); const body = await request.json() as { displayName?: string }; const name = String(body.displayName ?? '').trim(); if (name.length > 40) return error(request, 'INVALID_INPUT', 'User name is too long', 422); await env.DB.prepare('UPDATE users SET display_name=?,updated_at=? WHERE id=?').bind(name, Date.now(), u.id).run(); return json(request, { user: { id: u.id, email: u.email_normalized, displayName: name || String(u.email_normalized).split('@')[0], isAdmin: u.role === 'admin' } }) }
+    if (pathname === '/api/v1/auth/admin/users' && request.method === 'GET') { const u = await session(request, env.DB); if (!u || u.role !== 'admin') return error(request, 'FORBIDDEN', 'Administrator access required', 403); const result = await env.DB.prepare('SELECT u.id,u.display_name,a.email_normalized,a.role,u.created_at,a.created_at AS admin_created_at FROM admins a JOIN users u ON u.id=a.user_id ORDER BY COALESCE(u.created_at,a.created_at) DESC,a.email_normalized ASC').all(); return json(request, { users: (result.results ?? []).map((row) => ({ id: row.id, email: row.email_normalized, displayName: String(row.display_name ?? ''), role: row.role, createdAt: Number(row.created_at ?? row.admin_created_at ?? 0) })) }) }
     if (pathname === '/api/v1/auth/logout' && request.method === 'POST') { const u=await session(request,env.DB); if(u) await env.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(u.token_hash).run(); return json(request,{ok:true},{headers:{'Set-Cookie':`${cookie}=; Max-Age=0; Path=/; Secure; HttpOnly; SameSite=Lax`}}) }
     if (pathname === '/api/v1/auth/admin/login' && request.method === 'POST') { try { const body=await request.json() as {email?:string,password?:string}; const row=await env.DB.prepare('SELECT u.id,u.display_name,a.role,a.email_normalized,a.password_hash FROM admins a JOIN users u ON u.id=a.user_id WHERE a.email_normalized=?').bind(String(body.email??'').trim().toLowerCase()).first() as Record<string,unknown>|null; if(!row || !(await passwordOk(String(row.password_hash),String(body.password??'')))) return json(request,{error:{code:'AUTH_REQUIRED',message:'Authentication required'}},{status:401}); const token=crypto.randomUUID()+crypto.randomUUID(); await env.DB.prepare('INSERT INTO sessions VALUES (?,?,?,?)').bind(await digest(token),row.id,Date.now()+28800000,Date.now()).run(); return json(request,{user:{id:row.id,email:row.email_normalized,displayName:displayName(row),isAdmin:row.role==='admin'}},{headers:{'Set-Cookie':`${cookie}=${token}; Max-Age=28800; Path=/; Secure; HttpOnly; SameSite=Lax`}}) } catch (error) { console.error('admin_login_failed', error instanceof Error ? error.stack : String(error)); return json(request,{error:{code:'LOGIN_FAILED',message:'Login service failed'}},{status:500}) } }
-    if (pathname === '/api/v1/auth/register' || pathname === '/api/v1/auth/profile' || pathname === '/api/v1/auth/admin/users' || pathname === '/api/v1/media/images' || (pathname === '/api/v1/walls' && request.method !== 'GET')) return apiError('CAPABILITY_UNAVAILABLE','This cloud capability is unavailable',403)
+    if (pathname === '/api/v1/media/images' || (pathname === '/api/v1/walls' && request.method !== 'GET')) return apiError('CAPABILITY_UNAVAILABLE','This cloud capability is unavailable',403)
     return apiError('NOT_FOUND','API endpoint not found',404)
   }
   return env.ASSETS.fetch(request)
