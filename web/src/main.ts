@@ -96,6 +96,7 @@ const root = document.querySelector<HTMLElement>("#app")!,
   store = new PreviewStore(),
   api = new LocalApiClient();
 let authenticated = false,
+  edgeReadOnly = false,
   loginError = "",
   profileEmail = "",
   profileName = "",
@@ -641,7 +642,7 @@ const imageDimensions = (file: File) =>
     image.src = URL.createObjectURL(file);
   });
 const render = async () => {
-  if (!authenticated) {
+  if (!authenticated && !edgeReadOnly) {
     renderLogin();
     return;
   }
@@ -1093,6 +1094,7 @@ void api
     void api.loadBootstrap()
       .then(async () => {
         authenticated = false;
+        edgeReadOnly = true;
         await store.useApi(api);
         await render();
       })
