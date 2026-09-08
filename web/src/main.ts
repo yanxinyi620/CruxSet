@@ -1087,6 +1087,17 @@ void api
     await render();
   })
   .catch(() => {
-    loginError = "本地服务未启动，请先启动 FastAPI。";
-    renderLogin();
+    // The deployed edge site intentionally exposes only public read-only APIs.
+    // If bootstrap is available, keep the browse experience usable and defer
+    // the local-service requirement until a write or login action is used.
+    void api.loadBootstrap()
+      .then(async () => {
+        authenticated = false;
+        await store.useApi(api);
+        await render();
+      })
+      .catch(() => {
+        loginError = "本地服务未启动，请先启动 FastAPI。";
+        renderLogin();
+      });
   });
