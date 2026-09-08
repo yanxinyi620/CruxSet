@@ -23,3 +23,5 @@ server/data/
 .superpowers/
 .runtime/**/*.log
 .runtime/**/*.pid
+.runtime/edge/
+.runtime/edge-public/
