@@ -1,6 +1,7 @@
 import { apiError } from './errors.js'
 
 type Row = Record<string, unknown>
+const publicHeaders = { 'Cache-Control': 'public, max-age=30, s-maxage=120, stale-while-revalidate=300' }
 
 export function decodeCursor(value: string | null): { createdAt: number; id: string } | null {
   if (!value) return null
@@ -42,7 +43,7 @@ export async function listWalls(request: Request, db?: D1Database): Promise<Resp
     createdAt: row.created_at, updatedAt: row.updated_at,
   }))
   const last = items.at(-1)
-  return Response.json({ walls: items, nextCursor: hasMore && last ? encodeCursor(Number(last.createdAt), String(last.id)) : null })
+  return Response.json({ walls: items, nextCursor: hasMore && last ? encodeCursor(Number(last.createdAt), String(last.id)) : null }, { headers: publicHeaders })
 }
 
 export async function listProblems(request: Request, db?: D1Database): Promise<Response> {
@@ -72,5 +73,5 @@ export async function listProblems(request: Request, db?: D1Database): Promise<R
   }
   const items = rows.slice(0, limit).map((row) => ({ id: row.id, number: row.number, wallId: row.wall_id, name: row.name, description: row.description, angle: row.angle, grade: row.grade, footRule: row.foot_rule, createdBy: row.created_by, createdAt: row.created_at, updatedAt: row.updated_at, holds: row.holds }))
   const last = items.at(-1)
-  return Response.json({ problems: items, nextCursor: hasMore && last ? encodeCursor(Number(last.createdAt), String(last.id)) : null })
+  return Response.json({ problems: items, nextCursor: hasMore && last ? encodeCursor(Number(last.createdAt), String(last.id)) : null }, { headers: publicHeaders })
 }

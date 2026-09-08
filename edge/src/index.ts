@@ -20,7 +20,7 @@ const worker: ExportedHandler<Env> = {
         if (!walls.ok || !problems.ok) return apiError('SERVICE_UNAVAILABLE', 'Unable to load browse data', 503)
         const wallData = await walls.json() as { walls: unknown[] }
         const problemData = await problems.json() as { problems: unknown[] }
-        return Response.json({ user: null, walls: wallData.walls, problems: problemData.problems, capabilities: { readOnly: true, writes: false, authentication: false } })
+        return Response.json({ user: null, walls: wallData.walls, problems: problemData.problems, capabilities: { readOnly: true, writes: false, authentication: false } }, { headers: { 'Cache-Control': 'public, max-age=30, s-maxage=120, stale-while-revalidate=300' } })
       }
       if (pathname === '/api/v1/walls' && request.method === 'GET') return listWalls(request, env.DB)
       if (pathname === '/api/v1/problems' && request.method === 'GET') return listProblems(request, env.DB)
