@@ -50,6 +50,23 @@ ENV_FILE="$temp_dir/cruxset.env"
 printf 'SESSION_SECRET=present\n' > "$ENV_FILE"
 assert_status 0 "reads non-system environment file" env_has_value SESSION_SECRET
 
+PUBLISH_REPO="$temp_dir/cruxset-live-url"
+git init --quiet "$PUBLISH_REPO"
+git -C "$PUBLISH_REPO" config user.name "CruxSet test"
+git -C "$PUBLISH_REPO" config user.email "test@example.invalid"
+printf '{"url":"","updatedAt":null}\n' > "$PUBLISH_REPO/latest.json"
+git -C "$PUBLISH_REPO" add latest.json
+git -C "$PUBLISH_REPO" commit --quiet -m "initial state"
+LIVE_URL_REPO="$PUBLISH_REPO"
+assert_status 0 "publishes latest URL to separate repository" \
+  publish_tunnel_url "https://pink-sunset.trycloudflare.com"
+assert_eq 'https://pink-sunset.trycloudflare.com' \
+  "$(sed -n 's/.*\"url\": \"\([^\"]*\)\".*/\1/p' "$PUBLISH_REPO/latest.json")" \
+  "writes latest URL"
+LIVE_URL_REPO="$temp_dir/absent-live-url-repository"
+assert_status 0 "skips missing separate repository" \
+  publish_tunnel_url "https://pink-sunset.trycloudflare.com"
+
 if (( failures )); then
   exit 1
 fi
