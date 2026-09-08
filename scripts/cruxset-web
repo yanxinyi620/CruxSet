@@ -163,7 +163,7 @@ EOF
 wait_for_api() {
   local attempt
   for attempt in {1..15}; do
-    curl --fail --silent --show-error http://127.0.0.1:8000/healthz >/dev/null && return 0
+    curl --fail --silent --show-error http://127.0.0.1:8000/healthz >/dev/null 2>&1 && return 0
     sleep 1
   done
   sudo journalctl -u cruxset-api -n 40 --no-pager >&2

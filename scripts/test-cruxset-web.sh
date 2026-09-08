@@ -50,6 +50,19 @@ ENV_FILE="$temp_dir/cruxset.env"
 printf 'SESSION_SECRET=present\n' > "$ENV_FILE"
 assert_status 0 "reads non-system environment file" env_has_value SESSION_SECRET
 
+curl_attempts=0
+curl() {
+  curl_attempts=$((curl_attempts + 1))
+  if (( curl_attempts < 3 )); then
+    printf 'temporary connection failure\n' >&2
+    return 7
+  fi
+}
+sleep() { :; }
+wait_for_api 2>"$temp_dir/health-retry.err"
+assert_eq "3" "$curl_attempts" "retries API health check until it succeeds"
+assert_eq "" "$(<"$temp_dir/health-retry.err")" "keeps transient health-check failures quiet"
+
 PUBLISH_REPO="$temp_dir/cruxset-live-url"
 git init --quiet "$PUBLISH_REPO"
 git -C "$PUBLISH_REPO" config user.name "CruxSet test"
