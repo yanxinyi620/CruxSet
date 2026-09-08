@@ -24,7 +24,7 @@ async function createProblem(request: Request, db: D1Database, user: Record<stri
     const wall = await db.prepare('SELECT id, wall_number, angle_options_json, visibility, published FROM walls WHERE id=?').bind(wallId).first() as Record<string, unknown> | null
     if (!wall || wall.visibility !== 'public' || Number(wall.published) !== 1) return error(request, 'WALL_NOT_ROUTABLE', 'Wall is not published', 409)
     const angle = Number(body.angle ?? 20), grade = String(body.grade ?? 'V0'), footRule = String(body.footRule ?? 'feet_follow')
-    if (angle < 0 || angle > 70 || angle % 5 !== 0 || !/^V(?:[0-9]|1[0-2])$/.test(grade) || !['feet_follow', 'specified', 'all'].includes(footRule)) return error(request, 'INVALID_INPUT', 'Invalid route settings', 400)
+    if (angle < 0 || angle > 70 || angle % 5 !== 0 || !/^V(?:[0-9]|1[0-6])$/.test(grade) || !['feet_follow', 'specified', 'all'].includes(footRule)) return error(request, 'INVALID_INPUT', 'Invalid route settings', 400)
     const source = body.holds && typeof body.holds === 'object' ? body.holds : {}
     const roles = ['start', 'foot', 'hand', 'assist', 'finish']
     const assignments: Array<{ role: string; id: string }> = []
