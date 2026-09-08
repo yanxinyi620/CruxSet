@@ -2,7 +2,7 @@ import type { FootRule, Grade, HoldRole, Problem, ProblemHolds, Wall } from './t
 
 const roles: HoldRole[] = ['start', 'foot', 'hand', 'assist', 'finish']
 const footRules: FootRule[] = ['feet_follow', 'specified', 'all']
-const grades = new Set(Array.from({ length: 13 }, (_, i) => `V${i}`))
+const grades = new Set(Array.from({ length: 17 }, (_, i) => `V${i}`))
 
 export interface ProblemDraft { id:string; number:string; wallId:string; name?:string; description?:string; angle:number; grade:string; footRule?:string; holds:Partial<ProblemHolds>; createdBy:string; now?:number }
 export function createProblem(draft:ProblemDraft,wall:Wall):Problem {
