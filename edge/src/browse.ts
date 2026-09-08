@@ -41,7 +41,17 @@ export async function listWalls(request: Request, db?: D1Database): Promise<Resp
     imagePath: row.image_path, imageWidth: row.image_width, imageHeight: row.image_height,
     geometryType: row.geometry_type, angleOptions: JSON.parse(String(row.angle_options_json)),
     createdAt: row.created_at, updatedAt: row.updated_at,
+    holds: [] as Array<{ id: unknown; x: unknown; y: unknown; radius: unknown; kind: unknown }>,
   }))
+  if (items.length) {
+    const ids = items.map((item) => String(item.id))
+    const placeholders = ids.map(() => '?').join(', ')
+    const holdResult = await db.prepare(`SELECT wall_id, id, x, y, radius, kind FROM holds WHERE wall_id IN (${placeholders}) ORDER BY wall_id, id`).bind(...ids).all<Row>()
+    const byId = new Map(items.map((item) => [String(item.id), item]))
+    for (const hold of holdResult.results ?? []) {
+      byId.get(String(hold.wall_id))?.holds.push({ id: hold.id, x: hold.x, y: hold.y, radius: hold.radius, kind: hold.kind })
+    }
+  }
   const last = items.at(-1)
   return Response.json({ walls: items, nextCursor: hasMore && last ? encodeCursor(Number(last.createdAt), String(last.id)) : null }, { headers: publicHeaders })
 }
