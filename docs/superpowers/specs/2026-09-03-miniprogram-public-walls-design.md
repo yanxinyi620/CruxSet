@@ -70,7 +70,7 @@ CloudBase 是小程序线上数据源。小程序不得直接读写业务集合�
 - 编辑和删除仅限 `createdBy` 等于当前业务用户，管理员可按现有规则执行删除。
 - 编辑保留 Problem 的 `id` 和 `number`。
 - 可编辑名称、描述、角度、难度、脚点规则和 Hold 角色。
-- 角度必须属于 Wall 的 `angleOptions`；难度为 V0–V12；描述最多 500 字。
+- 角度必须属于 Wall 的 `angleOptions`；难度为 V0–V16；描述最多 500 字。
 - 至少一个 Start 和一个 Finish；Hold 必须属于对应 Wall，且不能重复分配多个角色。
 - 墙面必须仍为公开且可定线状态。
 

@@ -8,7 +8,7 @@ const rolesList = ['start', 'foot', 'hand', 'assist', 'finish'] as const
 const roles = (holds?: Partial<ProblemHolds>): ProblemHolds => ({ start: holds?.start || [], foot: holds?.foot || [], hand: holds?.hand || [], assist: holds?.assist || [], finish: holds?.finish || [] })
 const validateUpdate = (problem: Problem, wall: Wall, draft: Partial<Problem>) => {
   if (wall.visibility !== 'public' || wall.holds.length < 2) throw new Error('WALL_NOT_ROUTABLE')
-  if (!wall.angleOptions.includes(draft.angle as number) || !/^V(?:[0-9]|1[0-2])$/.test(draft.grade as string) || (draft.name !== undefined && (typeof draft.name !== 'string' || draft.name.length > 80)) || (draft.description !== undefined && (typeof draft.description !== 'string' || draft.description.length > 500))) throw new Error('INVALID_ROUTE_METADATA')
+  if (!wall.angleOptions.includes(draft.angle as number) || !/^V(?:[0-9]|1[0-6])$/.test(draft.grade as string) || (draft.name !== undefined && (typeof draft.name !== 'string' || draft.name.length > 80)) || (draft.description !== undefined && (typeof draft.description !== 'string' || draft.description.length > 500))) throw new Error('INVALID_ROUTE_METADATA')
   const footRule = draft.footRule || 'feet_follow'
   if (!['feet_follow', 'specified', 'all'].includes(footRule)) throw new Error('INVALID_FOOT_RULE')
   const draftHolds = draft.holds

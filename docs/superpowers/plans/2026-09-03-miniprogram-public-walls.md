@@ -39,7 +39,7 @@
 - Modify: `miniprogram/pages/problem/editor/index.wxml`
 - Test: `tests/cloudbase-problem-update.test.ts`
 
-- [ ] **Step 1: Write failing tests** for owner-only updates, preservation of `id`/`number`, public-wall requirement, angle-option validation, V0–V12 validation, Start/Finish requirements, duplicate/unknown Hold rejection, and 500-character descriptions.
+- [ ] **Step 1: Write failing tests** for owner-only updates, preservation of `id`/`number`, public-wall requirement, angle-option validation, V0–V16 validation, Start/Finish requirements, duplicate/unknown Hold rejection, and 500-character descriptions.
 - [ ] **Step 2: Run the focused test and confirm the update function is missing.**
 - [ ] **Step 3: Implement `updateProblem` using the same identity lookup and validation rules as `saveProblem`; read the stored Problem and Wall, reject non-owner edits, then update only editable fields while preserving identifiers and timestamps.**
 - [ ] **Step 4: Add `updateProblem` to the mini-program service and make the editor accept an optional `problemId`; load an existing Problem, initialize fields/Hold selections, and save through update instead of create.**
