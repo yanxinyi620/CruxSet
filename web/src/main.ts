@@ -275,7 +275,7 @@ const renderLoading = () => {
 
 const openProblemEditor = async (wallId: string, problemId?: string, selectedProblem?: Problem) => {
   const sourceWall = await store.session.getWall(wallId);
-  const wall = { ...sourceWall, angleOptions: routeAngles };
+  const wall = sourceWall;
   const existing = selectedProblem ?? (problemId ? (await store.session.listProblems()).find((item) => item.id === problemId) : undefined);
   const draftKey = `problem:${wallId}`;
   const saved = problemId ? undefined : loadDraft<{ editor: string; role: HoldRole; angle: number; grade: Grade; footRule: FootRule; name: string; description: string }>(draftKey);
@@ -283,7 +283,7 @@ const openProblemEditor = async (wallId: string, problemId?: string, selectedPro
     wall,
     editor: saved?.editor ? ProblemEditor.restore(saved.editor) : existing ? ProblemEditor.restore(JSON.stringify(existing.holds)) : new ProblemEditor(),
     role: saved?.role ?? "start",
-    angle: saved?.angle ?? existing?.angle ?? (routeAngles.includes(wall.angleOptions[0] ?? 0) ? wall.angleOptions[0] ?? 0 : 0),
+    angle: saved?.angle !== undefined && wall.angleOptions.includes(saved.angle) ? saved.angle : existing?.angle ?? wall.angleOptions[0] ?? 0,
     grade: saved?.grade ?? existing?.grade ?? "V4",
     footRule: saved?.footRule ?? existing?.footRule ?? "feet_follow",
     name: saved?.name ?? existing?.name ?? "",
