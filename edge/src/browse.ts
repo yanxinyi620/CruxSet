@@ -38,7 +38,7 @@ export async function listWalls(request: Request, db?: D1Database): Promise<Resp
   const hasMore = rows.length > limit
   const items = rows.slice(0, limit).map((row) => ({
     id: row.id, wallNumber: row.wall_number, name: row.name, description: row.description, ownerId: row.owner_id, visibility: row.visibility, published: Boolean(row.published),
-    imagePath: row.image_path, imageWidth: row.image_width, imageHeight: row.image_height,
+    imageFileId: row.image_path, displayImageFileId: row.image_path, imageWidth: row.image_width, imageHeight: row.image_height,
     geometryType: row.geometry_type, angleOptions: JSON.parse(String(row.angle_options_json)),
     createdAt: row.created_at, updatedAt: row.updated_at,
     holds: [] as Array<{ id: unknown; x: unknown; y: unknown; radius: unknown; kind: unknown; polygon?: unknown }>,
