@@ -33,7 +33,7 @@ describe('PreviewSession', () => {
 
   it.each([
     ['unsupported angle', { angle: 99, holds: { start: ['H001'], finish: ['H002'] } }],
-    ['invalid grade', { grade: 'V13', holds: { start: ['H001'], finish: ['H002'] } }],
+    ['invalid grade', { grade: 'V17', holds: { start: ['H001'], finish: ['H002'] } }],
     ['missing start', { holds: { finish: ['H002'] } }],
     ['missing finish', { holds: { start: ['H001'] } }],
     ['unknown hold', { holds: { start: ['H001'], finish: ['missing'] } }],

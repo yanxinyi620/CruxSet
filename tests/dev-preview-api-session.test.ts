@@ -8,6 +8,7 @@ const fixture = () => {
     currentUser: vi.fn().mockResolvedValue({ id: 'usr_admin', isAdmin: true }),
     loadBrowseData: vi.fn().mockResolvedValue({ walls: [wall()], problems: [] }),
     loadBootstrap: vi.fn().mockResolvedValue({ user: { id: 'usr_admin', isAdmin: true }, walls: [wall()], problems: [] }),
+    loadAdminWalls: vi.fn().mockResolvedValue([wall()]),
     createWall: vi.fn().mockResolvedValue(wall({ id: 'wall_2' })),
     saveWallHolds: vi.fn().mockResolvedValue({ wall: wall() }),
     publishWall: vi.fn().mockResolvedValue({ wall: wall({ visibility: 'public' }) }),
@@ -31,6 +32,7 @@ it('routes wall creation, hold saves, and publishing through the flat API', asyn
 it('lists only walls owned by the authenticated user', async () => {
   const { api, session } = fixture()
   api.loadBootstrap.mockResolvedValue({ user: { id: 'usr_admin', isAdmin: true }, walls: [wall(), wall({ id: 'wall_foreign', ownerId: 'usr_other', visibility: 'public' })], problems: [] })
+  api.loadAdminWalls.mockResolvedValue([wall(), wall({ id: 'wall_foreign', ownerId: 'usr_other', visibility: 'public' })])
   await session.refresh()
   await expect(session.listMyWalls()).resolves.toEqual([expect.objectContaining({ id: 'wall_1' })])
 
@@ -43,6 +45,7 @@ it('defensively clones API data on ingest and return', async () => {
   const { api, session } = fixture()
   const source = wall({ visibility: 'public', holds: [...holds] })
   api.loadBootstrap.mockResolvedValue({ user: { id: 'usr_admin', isAdmin: true }, walls: [source], problems: [{ id: 'problem_1', wallId: 'wall_1', angle: 20, grade: 'V0' }] })
+  api.loadAdminWalls.mockResolvedValue([source])
   await session.refresh()
   source.name = 'mutated source'
   const listed = await session.listWalls(); listed[0].name = 'mutated return'; listed[0].holds[0].x = .9
@@ -54,6 +57,7 @@ it('defensively clones API data on ingest and return', async () => {
 it('treats legacy walls without a holds field as walls with no holds', async () => {
   const { api, session } = fixture()
   api.loadBootstrap.mockResolvedValue({ user: { id: 'usr_admin', isAdmin: true }, walls: [{ ...wall({ visibility: 'public' }), holds: undefined }], problems: [] })
+  api.loadAdminWalls.mockResolvedValue([{ ...wall({ visibility: 'public' }), holds: undefined }])
 
   await session.refresh()
 
@@ -85,7 +89,8 @@ it('routes problem creation through the API without layout fields', async () => 
 
 it('keeps cached walls and problems when deleting an in-use wall fails', async () => {
   const { api, session } = fixture()
-  api.loadBootstrap.mockResolvedValue({ user: { id: 'usr_admin', isAdmin: true }, walls: [wall({ visibility: 'public' })], problems: [{ id: 'problem_1', wallId: 'wall_1' }] }); await session.refresh()
+  const publicWall = wall({ visibility: 'public' })
+  api.loadBootstrap.mockResolvedValue({ user: { id: 'usr_admin', isAdmin: true }, walls: [publicWall], problems: [{ id: 'problem_1', wallId: 'wall_1' }] }); api.loadAdminWalls.mockResolvedValue([publicWall]); await session.refresh()
   api.deleteWall.mockRejectedValue(new Error('WALL_IN_USE'))
   await expect(session.deleteWall('wall_1')).rejects.toThrow('WALL_IN_USE')
   await expect(session.getWall('wall_1')).resolves.toMatchObject({ id: 'wall_1' }); await expect(session.listProblems({ wallId: 'wall_1' })).resolves.toHaveLength(1)
@@ -100,7 +105,9 @@ it('returns a literal successful result when deleting a wall', async () => {
 
 it('updates cached walls and linked problems locally after deleting a wall', async () => {
   const { api, session } = fixture()
-  api.loadBootstrap.mockResolvedValue({ user: { id: 'usr_admin', isAdmin: true }, walls: [wall({ visibility: 'public' })], problems: [{ id: 'problem_1', wallId: 'wall_1' }] })
+  const publicWall = wall({ visibility: 'public' })
+  api.loadBootstrap.mockResolvedValue({ user: { id: 'usr_admin', isAdmin: true }, walls: [publicWall], problems: [{ id: 'problem_1', wallId: 'wall_1' }] })
+  api.loadAdminWalls.mockResolvedValue([publicWall])
   await session.refresh()
 
   await session.deleteWall('wall_1')

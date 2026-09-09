@@ -51,7 +51,7 @@ it.each([
   ['non-owner', { actor: 'other' }, 'FORBIDDEN'],
   ['private wall', { wall: { ...wall, visibility: 'private' } }, 'WALL_NOT_ROUTABLE'],
   ['bad angle', { draft: { ...valid, angle: 25 } }, 'INVALID_ROUTE_METADATA'],
-  ['bad grade', { draft: { ...valid, grade: 'V13' } }, 'INVALID_ROUTE_METADATA'],
+  ['bad grade', { draft: { ...valid, grade: 'V17' } }, 'INVALID_ROUTE_METADATA'],
   ['missing Start', { draft: { ...valid, holds: { ...valid.holds, start: [] } } }, 'INVALID_ROUTE_HOLDS'],
   ['missing Finish', { draft: { ...valid, holds: { ...valid.holds, finish: [] } } }, 'INVALID_ROUTE_HOLDS'],
   ['duplicate Hold', { draft: { ...valid, holds: { ...valid.holds, hand: ['S'] } } }, 'INVALID_HOLD_ID'],
