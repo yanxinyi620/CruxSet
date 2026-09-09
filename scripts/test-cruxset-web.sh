@@ -43,6 +43,8 @@ assert_eq "https://pink-sunset.trycloudflare.com" \
 assert_eq "" "$(printf '%s\n' 'tunnel is connecting' | extract_tunnel_url)" "does not invent URL"
 assert_eq $'SESSION_SECRET\nCRUXSET_SEGMENTATION_PUBLISH_KEY\nCRUXSET_SEGMENTATION_PUBLISH_OWNER_ID' \
   "$(required_env_keys)" "declares prompted environment keys"
+assert_status 0 "does not enable services during setup" \
+  grep -q 'systemctl disable caddy cruxset-api cruxset-quick-tunnel' "$PROJECT_ROOT/scripts/cruxset-web"
 
 temp_dir="$(mktemp -d)"
 trap 'rm -rf "$temp_dir"' EXIT

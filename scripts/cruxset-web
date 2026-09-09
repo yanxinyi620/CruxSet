@@ -157,7 +157,7 @@ RestartSec=3
 WantedBy=multi-user.target
 EOF
   sudo systemctl daemon-reload
-  sudo systemctl enable caddy cruxset-api cruxset-quick-tunnel
+  sudo systemctl disable caddy cruxset-api cruxset-quick-tunnel
 }
 
 wait_for_api() {
