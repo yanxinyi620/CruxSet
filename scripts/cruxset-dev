@@ -28,6 +28,10 @@ load_cloudbase_env() {
 }
 
 load_cloudbase_env
+if [[ -z "${CRUXSET_EDGE_SEGMENTATION_PUBLISH_KEY:-}" ]]; then
+  value="$(read_env_value CRUXSET_EDGE_SEGMENTATION_PUBLISH_KEY)"
+  [[ -n "$value" ]] && export CRUXSET_EDGE_SEGMENTATION_PUBLISH_KEY="$value"
+fi
 CLOUDBASE_STORAGE_URL="${CRUXSET_CLOUDBASE_STORAGE_URL:-https://cloud1-d0g8toggn7735e61e-1475845516.ap-shanghai.app.tcloudbase.com/api/storage-upload}"
 CLOUDBASE_FUNCTION_URL="${CRUXSET_CLOUDBASE_FUNCTION_URL:-https://cloud1-d0g8toggn7735e61e-1475845516.ap-shanghai.app.tcloudbase.com/api/segmentation-publish}"
 
