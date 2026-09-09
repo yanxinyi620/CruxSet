@@ -242,6 +242,8 @@ def create_app(settings: Settings, adapters: Mapping[str, SegmentationAdapter] |
             return {**(web_result or {}), "target": "web"}
         if target == "cloudbase":
             return {"target": "cloudbase", "targets": {"cloudbase": {"status": "succeeded", **(cloud_result or {})} if cloud_result is not None else cloud_error}}
+        if target == "cloudflare":
+            return {"target": "cloudflare", "targets": {"cloudflare": {"status": "succeeded", **(cloud_result or {})} if cloud_result is not None else cloud_error}}
         return {
             "target": "both",
             "targets": {
