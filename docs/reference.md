@@ -13,7 +13,7 @@ Cloudflare Web：web/dist         → Workers           → D1 + R2（MEDIA 配�
 
 小程序页面和组件通过 `wechat/miniprogram/services/` 访问数据；页面不得直接依赖 CloudBase。小程序的坐标、命中、手势、线路校验、筛选、随机与编辑状态位于 `wechat/miniprogram/domain/`，可由 Vitest 独立验证；Web 的对应页面、编辑器和业务实现位于 `web/src/`。两端独立实现相同的字段语义，不再使用根目录共享领域层。
 
-分割实验台使用 SAM 模型生成候选 polygon 并支持人工校准。可显式发布到本地 Web、CloudBase 或 Cloudflare Web；`both` 依次发布到本地 Web 和 CloudBase，并返回两路独立状态。选择 CloudBase 时，它先向 `storageUpload` 获取经过 HMAC 验证的短期上传凭证，原图和完整签名校准 JSON 均直传私有 Storage；随后仅将 JSON 的 `fileID` 交给 `segmentationPublish` 下载、验签并创建墙面。所有发布只新建目标中的公开 Wall，不读取、修改或删除该目标的既有数据。
+分割实验台使用 SAM 模型生成候选 polygon 并支持人工校准。可分别发布到本地 Web、CloudBase 或 Cloudflare Web。选择 CloudBase 时，它先向 `storageUpload` 获取经过 HMAC 验证的短期上传凭证，原图和完整签名校准 JSON 均直传私有 Storage；随后仅将 JSON 的 `fileID` 交给 `segmentationPublish` 下载、验签并创建墙面。所有发布只新建目标中的公开 Wall，不读取、修改或删除该目标的既有数据。
 
 ## 数据模型
 

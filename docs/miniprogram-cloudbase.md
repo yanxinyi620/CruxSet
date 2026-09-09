@@ -25,7 +25,7 @@ CRUXSET_CLOUDBASE_SIGNING_KEY='<与云函数相同的随机密钥>'
 CRUXSET_CLOUDBASE_OWNER_OPENID='<CloudBase 管理员 OpenID>'
 ```
 
-实验台的 `cloudbase` 目标只写入 CloudBase；`both` 会在本地 Web 发布完成后再发布到 CloudBase。所有发布都创建新的公开 Wall，不会同步或覆盖其他运行形态的数据。
+实验台的 `cloudbase` 目标只写入 CloudBase。发布目标需要分别选择；所有发布都创建新的公开 Wall，不会同步或覆盖其他运行形态的数据。
 
 ## 验收
 

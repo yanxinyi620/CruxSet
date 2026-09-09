@@ -44,4 +44,4 @@ PYTHONPATH=. uv run python scripts/create_local_admin.py admin@example.com
 
 ## 发布与验收
 
-实验台选择 `web` 时只创建本机公开 Wall；`both` 先创建本机 Wall，再独立发布到 CloudBase。完整流程见 [分割实验台](../tools/segmentation-lab/README.md)，验收见 [测试与验收](testing.md)。
+实验台选择 `web` 时只创建本机公开 Wall。CloudBase 和 Cloudflare 需要分别选择对应目标发布。完整流程见 [分割实验台](../tools/segmentation-lab/README.md)，验收见 [测试与验收](testing.md)。

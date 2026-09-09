@@ -55,7 +55,7 @@ uv run --extra test pytest -s -q
 
 - [ ] 在实验台选择已保存校准结果并点击“发布到 CruxSet”。
 - [ ] `web` 目标只在本机 Web 创建新的公开 Wall；`cloudbase` 目标只在 CloudBase 创建；`cloudflare` 目标只在 Cloudflare Web 创建新的公开 Wall。
-- [ ] `both` 先发布到 `web`，再发布到 `cloudbase`；两路结果独立呈现，任一路失败不撤销另一条已完成的结果。
+- [ ] 分别选择 `web`、`cloudbase`、`cloudflare` 发布，确认每个目标独立完成。
 - [ ] 选择 `cloudbase` 后，原图大于 6 MB 时仍能完成直传 Storage；完整签名校准 JSON 也会直传 Storage，`segmentationPublish` 仅接收小于 100 KB 的 `payloadFileId` 请求，随后出现新的公开 Wall，岩点数量与校准结果一致。
 - [ ] 在小程序 CloudBase 模式刷新公开墙面列表，能看到新 Wall、墙图和岩点，并可正常创建线路。
 - [ ] 管理员可在小程序查看并删除无关联线路的已发布墙面；有线路时删除被 `WALL_IN_USE` 阻止。

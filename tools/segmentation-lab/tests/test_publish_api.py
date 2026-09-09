@@ -148,31 +148,6 @@ def test_publish_cloudbase_only_requires_only_cloudbase_configuration_and_persis
     assert stored["sync"]["status"] == "succeeded"
 
 
-def test_publish_both_runs_independently_and_returns_per_target_status(tmp_path, monkeypatch):
-    class FailingPublisher:
-        def __init__(self, *_args, **_kwargs):
-            pass
-
-        async def publish(self, *_args, **_kwargs):
-            raise SegmentationLabError("cruxset_publish_failed", "web offline", True)
-
-    async def successful_sync(store, experiment_id, calibration_id, _synchronizer, **kwargs):
-        store.record_calibration_sync(experiment_id, calibration_id, {"target": "cloudbase", "status": "succeeded", "wallId": "cloud-wall"})
-        return {"wallId": "cloud-wall", "holdCount": 1, "browsePath": "/wall/cloud-wall", "created": True}
-
-    monkeypatch.setattr("segmentation_lab.api.CruxSetPublisher", FailingPublisher)
-    monkeypatch.setattr("segmentation_lab.api.sync_calibration", successful_sync)
-    app = create_app(Settings(data_dir=tmp_path, cruxset_publish_key="key", cloudbase_function_url="fn", cloudbase_storage_url="storage", cloudbase_signing_key="secret", cloudbase_owner_openid="owner"))
-    client = TestClient(app)
-    experiment_id, calibration_id = _publish_fixture(client)
-
-    response = client.post(f"/api/experiments/{experiment_id}/calibrations/{calibration_id}/publish", json={"target": "both", "wallName": "Both"})
-
-    assert response.status_code == 201
-    assert response.json()["targets"]["web"]["status"] == "failed"
-    assert response.json()["targets"]["cloudbase"]["status"] == "succeeded"
-
-
 def test_publish_rejects_unknown_target_and_requires_only_selected_target_config(tmp_path, monkeypatch):
     app = create_app(Settings(data_dir=tmp_path, cruxset_publish_key="key"))
     client = TestClient(app)
@@ -185,24 +160,3 @@ def test_publish_rejects_unknown_target_and_requires_only_selected_target_config
     assert invalid.json()["code"] == "invalid_publish_target"
     assert missing_cloud.status_code == 422
     assert missing_cloud.json()["code"] == "cloudbase_not_configured"
-
-
-def test_publish_both_keeps_web_success_when_cloudbase_is_not_configured(tmp_path, monkeypatch):
-    class FakePublisher:
-        def __init__(self, *_args, **_kwargs):
-            pass
-
-        async def publish(self, _image, _filename, metadata):
-            return {"wallId": "web-wall", "wallName": metadata["wallName"], "holdCount": 1, "browsePath": "/wall/web-wall", "created": True}
-
-    monkeypatch.setattr("segmentation_lab.api.CruxSetPublisher", FakePublisher)
-    app = create_app(Settings(data_dir=tmp_path, cruxset_publish_key="key"))
-    client = TestClient(app)
-    experiment_id, calibration_id = _publish_fixture(client)
-
-    response = client.post(f"/api/experiments/{experiment_id}/calibrations/{calibration_id}/publish", json={"target": "both"})
-
-    assert response.status_code == 201
-    assert response.json()["targets"]["web"]["status"] == "succeeded"
-    assert response.json()["targets"]["cloudbase"]["status"] == "failed"
-    assert response.json()["targets"]["cloudbase"]["code"] == "cloudbase_not_configured"
