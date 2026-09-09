@@ -134,9 +134,9 @@ const loadAdminManagement = async () => {
   adminLoading = true;
   managementError = "";
   try {
-    const [users, data] = await Promise.all([api.listAdminUsers(), api.loadBootstrap()]);
+    const [users, walls] = await Promise.all([api.listAdminUsers(), api.loadAdminWalls()]);
     adminUsers = users;
-    adminWalls = data.walls as Wall[];
+    adminWalls = walls;
     adminLoaded = true;
   } catch (error) {
     managementError = `加载管理数据失败：${(error as Error).message}`;
