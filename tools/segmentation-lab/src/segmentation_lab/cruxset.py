@@ -23,13 +23,14 @@ class CruxSetPublisher:
             display = BytesIO()
             source.convert("RGB").save(display, format="WEBP", quality=90, method=6)
         content_type = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp"}.get(Path(filename).suffix.lower(), "image/png")
+        payload = json.dumps(metadata, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         try:
             async with httpx.AsyncClient(transport=self.transport, timeout=60) as client:
                 response = await client.post(
                     f"{self.base_url}/api/v1/admin/segmentation-walls",
-                    headers={"X-CruxSet-Signature": hmac.new(self.publish_key.encode(), json.dumps(metadata, ensure_ascii=False).encode(), hashlib.sha256).hexdigest()},
+                    headers={"X-CruxSet-Signature": hmac.new(self.publish_key.encode(), payload.encode(), hashlib.sha256).hexdigest()},
                     files={"image": (Path(filename).name, image, content_type), "display_image": (f"{Path(filename).stem}-display.webp", display.getvalue(), "image/webp")},
-                    data={"metadata": json.dumps(metadata, ensure_ascii=False)},
+                    data={"metadata": payload},
                 )
         except httpx.HTTPError as error:
             raise SegmentationLabError("cruxset_unavailable", "CruxSet 本机服务不可连接，请确认服务已启动。", True) from error
