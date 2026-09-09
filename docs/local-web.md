@@ -36,17 +36,11 @@ PYTHONPATH=. uv run python scripts/create_local_admin.py admin@example.com
 ./scripts/cruxset-web status
 ```
 
-每次 `start` 与 `restart` 都会重新安装依赖、构建前端、更新 Caddy 与 systemd 配置后再启动 Quick Tunnel，但不会启用 WSL 启动自动运行。需要固定域名时，用 `cloudflared tunnel login`、`cloudflared tunnel create cruxset` 创建具名 Tunnel；其入口仍指向 `http://127.0.0.1:8080`。
+每次 `start` 与 `restart` 都会重新安装依赖、构建前端、更新 Caddy 与 systemd 配置后再启动 Quick Tunnel，但不会启用 WSL 启动自动运行。
 
 `cruxset-web` 只启动 Caddy、FastAPI 和 Quick Tunnel，不启动分割实验台；分割实验台由 `cruxset-dev` 单独管理。每次 `start` 或 `restart` 获取新的 Quick Tunnel 地址后，脚本会尝试更新并推送独立仓库 `/home/yanxi/code/project/cruxset-live-url` 的 `latest.json`（可用 `LIVE_URL_REPO` 指定其他路径）。目标目录必须是有效 Git 仓库且已有 `latest.json`；提交或推送失败不会阻止本地服务启动。
 
 该仓库的 `main` 分支通过 GitHub Pages 自动部署。访问 [cruxset-live-url](https://yanxinyi620.github.io/cruxset-live-url/) 时，页面读取最新的 `latest.json`，校验后自动跳转到当前随机的 `trycloudflare.com` 地址；GitHub Pages 的部署和缓存传播可能需要几十秒到几分钟。
-
-如已执行过旧版 `--setup`，执行以下命令关闭已有服务的 WSL 启动自动运行：
-
-```bash
-sudo systemctl disable caddy cruxset-api cruxset-quick-tunnel
-```
 
 ## 发布与验收
 
