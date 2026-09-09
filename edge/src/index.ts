@@ -1,11 +1,5 @@
 import { apiError } from './errors.js'
 import { listAllPublicWalls, listProblems, listWalls } from './browse.js'
-import { argon2id } from 'hash-wasm'
-import argon2Module from './argon2.wasm'
-import blake2bModule from './blake2b.wasm'
-
-const wasmRuntime = WebAssembly as unknown as { compile: (source: ArrayBuffer) => Promise<WebAssembly.Module> }
-wasmRuntime.compile = async (source) => source.byteLength > 7000 ? blake2bModule : argon2Module
 
 export interface Env { ASSETS: Fetcher; DB?: D1Database; MEDIA?: R2Bucket }
 const cookie = 'cruxset_session'
@@ -32,8 +26,11 @@ async function saveHolds(request: Request, db: D1Database, user: Record<string, 
 async function publishWall(request: Request, db: D1Database, user: Record<string, unknown>, wallId: string) { const wall=await db.prepare('SELECT published FROM walls WHERE id=? AND owner_id=?').bind(wallId,user.id).first() as Record<string,unknown>|null; if (!wall) return error(request,'NOT_FOUND','Wall not found',404); const count=await db.prepare('SELECT COUNT(*) AS n FROM holds WHERE wall_id=?').bind(wallId).first() as {n?:number}; if (Number(count?.n??0)<2) return error(request,'WALL_NOT_ROUTABLE','Published wall requires at least two holds',409); await db.prepare("UPDATE walls SET published=1,visibility='public',updated_at=? WHERE id=?").bind(Date.now(),wallId).run(); return json(request,{wall:await wallPayload(db,wallId)}) }
 async function deleteWall(request: Request, db: D1Database, env: Env, user: Record<string, unknown>, wallId: string) { const wall=await db.prepare('SELECT image_path FROM walls WHERE id=? AND owner_id=?').bind(wallId,user.id).first() as Record<string,unknown>|null; if (!wall) return error(request,'NOT_FOUND','Wall not found',404); await db.batch([db.prepare('DELETE FROM problem_holds WHERE wall_id=?').bind(wallId),db.prepare('DELETE FROM problems WHERE wall_id=?').bind(wallId),db.prepare('DELETE FROM holds WHERE wall_id=?').bind(wallId),db.prepare('DELETE FROM walls WHERE id=?').bind(wallId)]); if (env.MEDIA && wall.image_path) await env.MEDIA.delete(String(wall.image_path).split('/').pop()!); return json(request,{ok:true}) }
 async function digest(value: string) { const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)); return [...new Uint8Array(bytes)].map((b) => b.toString(16).padStart(2, '0')).join('') }
-async function passwordOk(encoded: string, password: string) { const p = encoded.split('$'); if (p.length < 6 || p[1] !== 'argon2id' || p[2] !== 'v=19') return false; const params = Object.fromEntries(p[3].split(',').map((x) => x.split('='))); const salt = Uint8Array.from(atob(p[4]), (c) => c.charCodeAt(0)); const actual = await argon2id({ password, salt, parallelism: Number(params.p), iterations: Number(params.t), memorySize: Number(params.m), hashLength: 32, outputType: 'encoded' }); return actual === encoded }
-async function hashPassword(password: string) { const salt = crypto.getRandomValues(new Uint8Array(16)); return argon2id({ password, salt, parallelism: 4, iterations: 3, memorySize: 65536, hashLength: 32, outputType: 'encoded' }) }
+const PBKDF2_ITERATIONS = 600000, PBKDF2_SALT_BYTES = 16, PBKDF2_KEY_BYTES = 32
+const b64 = (b: Uint8Array) => btoa(String.fromCharCode(...b))
+async function derive(password: string, salt: Uint8Array, iterations: number) { const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(password),'PBKDF2',false,['deriveBits']); const bits=await crypto.subtle.deriveBits({name:'PBKDF2',salt,iterations,hash:'SHA-256'},key,PBKDF2_KEY_BYTES*8); return new Uint8Array(bits) }
+async function hashPassword(password: string) { const salt=crypto.getRandomValues(new Uint8Array(PBKDF2_SALT_BYTES)); return `pbkdf2-sha256$v1$${PBKDF2_ITERATIONS}$${b64(salt)}$${b64(await derive(password,salt,PBKDF2_ITERATIONS))}` }
+async function passwordOk(encoded: string, password: string) { const p=encoded.split('$'); if(p.length!==5 || p[0]!=='pbkdf2-sha256' || p[1]!=='v1') return false; const iterations=Number(p[2]); if(!Number.isInteger(iterations)||iterations<100000) return false; const salt=Uint8Array.from(atob(p[3]),c=>c.charCodeAt(0)), expected=Uint8Array.from(atob(p[4]),c=>c.charCodeAt(0)), actual=await derive(password,salt,iterations); let diff=actual.length^expected.length; for(let i=0;i<actual.length;i++) diff|=actual[i]^(expected[i]??0); return diff===0 }
 async function session(request: Request, db: D1Database) { const value = request.headers.get('Cookie')?.match(new RegExp(`${cookie}=([^;]+)`))?.[1]; if (!value) return null; return await db.prepare('SELECT u.id,u.display_name,a.email_normalized,a.role,s.token_hash FROM sessions s JOIN users u ON u.id=s.user_id JOIN admins a ON a.user_id=u.id WHERE s.token_hash=? AND s.expires_at>?').bind(await digest(value), Date.now()).first() as Record<string, unknown> | null }
 function displayName(row: Record<string, unknown>) { const name = String(row.display_name ?? '').trim(); return name || String(row.email_normalized ?? '').split('@', 1)[0] }
 async function createProblem(request: Request, db: D1Database, user: Record<string, unknown>) {
