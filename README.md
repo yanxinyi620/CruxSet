@@ -16,7 +16,7 @@ Cloudflare Web：web/dist       → Workers           → D1 + R2（MEDIA 配置
 | 本地 Web | `web`（Vite）+ FastAPI；SQLite 与本地媒体 | 管理员完整墙面创作、岩点标注、发布、线路管理，以及本机分割实验台。 |
 | Cloudflare Web | 相同的 `web/dist` + Workers；D1 与配置为 `MEDIA` 的 R2 | 注册、登录、资料和线路写入；具备 `MEDIA` 的管理员可上传、创作、标注、发布，并删除自己的墙面。浏览器端不运行 AI 任务。 |
 
-三套存储系统各自独立，不会自动同步；它们只共享 Wall、Hold、Problem 的字段语义。分割实验台可显式选择 `web`、`cloudbase`、`cloudflare` 或 `both`：前三者只写入各自所选系统；`both` 按顺序先调用本地 Web、再调用 CloudBase；两路独立执行，并分别返回成功或失败状态。小程序的 `mock` 只是离线演示设置，Cloudflare Tunnel 只是把本地 Web 暴露到公网，二者都不是第四种运行形态。
+三套存储系统各自独立，不会自动同步；它们只共享 Wall、Hold、Problem 的字段语义。分割实验台可显式选择 `web`、`cloudbase`、`cloudflare` 或 `both`：前三者只写入各自所选系统；`both` 按顺序先调用本地 Web、再调用 CloudBase；两路独立执行，并分别返回成功或失败状态。Cloudflare Tunnel 只是把本地 Web 暴露到公网，不是第四种运行形态。
 
 ## 文档导航
 
@@ -73,13 +73,7 @@ Web 地址为 `http://localhost:5173`，实验台地址为 `http://127.0.0.1:876
 
 ## 3. 部署小程序与 CloudBase
 
-微信开发者工具导入 **`wechat/` 目录**，不要导入仓库根目录。运行模式位于 [runtime.ts](wechat/miniprogram/config/runtime.ts)：
-
-```ts
-export const runtimeMode: RuntimeMode = 'cloudbase'
-```
-
-当前环境为 `cloud1-d0g8toggn7735e61e`；离线演示可临时改为 `mock`。
+微信开发者工具导入 **`wechat/` 目录**，不要导入仓库根目录。小程序始终连接 CloudBase；当前环境为 `cloud1-d0g8toggn7735e61e`。
 
 1. 创建 `users`、`walls`、`problems`、`admins`、`counters`、`segmentationPublishes` 六个集合，导入 [集合声明](config/cloudbase.collections.json) 和 [权限规则](config/cloudbase.rules.json)。
 2. 部署 `login`、`adminWall`、`wallManager`、`saveProblem`、`updateProblem`、`deleteProblem`、`getWallImageUrl`、`storageUpload`、`segmentationPublish` 九个云函数；`storageUpload` 需安装 `@cloudbase/node-sdk`。

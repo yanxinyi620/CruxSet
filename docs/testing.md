@@ -27,10 +27,9 @@ uv run --extra test pytest -s -q
 - [ ] 发布后不能修改 Wall 的墙图、几何或岩点。
 - [ ] 已登录用户可创建、编辑和删除自己的线路；不能编辑或删除其他用户的线路。
 
-## 小程序：CloudBase 与 Mock 演示
+## 小程序：CloudBase
 
-- [ ] 使用 `runtimeMode = 'cloudbase'` 编译并连接已配置的 CloudBase 环境，完成以下 CloudBase 验收。
-- [ ] 临时改为 `mock` 时，未部署云函数也可编译并打开示例数据；Mock 只用于离线演示，不能作为 CloudBase 部署或权限验收的证据。
+- [ ] 编译并连接已配置的 CloudBase 环境，完成以下 CloudBase 验收。
 - [ ] 小程序只显示公开墙面浏览、线路查看/创建、我的线路和管理员墙面管理入口；不显示创建墙面、上传、岩点标注或发布入口。
 - [ ] 公开且至少两个岩点的 Wall 可用于新建线路。
 - [ ] 新建线路只提交 `wallId`，所选 Hold 必须属于该 Wall。

@@ -94,8 +94,8 @@ export const createAutoDetectController = (
 };
 
 const root = document.querySelector<HTMLElement>("#app")!,
-  store = new PreviewStore(),
-  api = new LocalApiClient();
+  api = new LocalApiClient(),
+  store = new PreviewStore(api);
 let authenticated = false,
   browseReady = false,
   loginError = "",
