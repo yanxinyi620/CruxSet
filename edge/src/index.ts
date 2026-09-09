@@ -108,6 +108,7 @@ async function register(request: Request, db: D1Database, env: Env) {
 const worker: ExportedHandler<Env> = { async fetch(request, env) {
   const url = new URL(request.url), pathname = url.pathname
   if (pathname.startsWith('/api/v1/')) {
+    if (request.headers.get('Origin') && !allowedOrigins.has(request.headers.get('Origin')!)) return apiError('FORBIDDEN','Origin not allowed',403)
     if (request.method === 'OPTIONS') return allowedOrigins.has(request.headers.get('Origin') ?? '') ? new Response(null, {status: 204, headers: cors(request)}) : apiError('FORBIDDEN', 'Origin not allowed', 403)
     if (!env.DB) return pathname === '/api/v1/bootstrap' ? apiError('SERVICE_UNAVAILABLE','Browse database is not configured',503) : apiError('NOT_FOUND','API endpoint not found',404)
     if (pathname === '/api/v1/healthz' && request.method === 'GET') return json(request, {status:'ok'})
