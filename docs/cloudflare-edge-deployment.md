@@ -34,3 +34,30 @@ wrangler deploy --config edge/wrangler.jsonc
 ```
 
 生产数据库 ID、域名路由和 `SEGMENTATION_PUBLISH_KEY` 是部署环境配置。不要把密钥写入仓库或前端构建产物。部署后应验证公开浏览、注册/登录、线路写入，以及具备管理员账户和 `MEDIA` 绑定时的图片上传与墙面发布；浏览器不承担 AI 推理，分割结果由实验台签名后提交给 Worker。
+
+## 注册并升级为管理员
+
+Cloudflare Edge 的注册入口只创建普通用户（`role='user'`），首个注册账户也不会自动成为管理员。管理员需要先在网站注册，再由具有目标 D1 数据库管理权限的维护者修改账户角色。
+
+1. 打开已部署的网站，在登录页点击「注册」，填写邮箱、至少 8 位的密码以及确认密码，完成普通账户注册。
+2. 在 Cloudflare 的 D1 控制台打开该 Worker 的 `DB` 绑定对应的数据库（当前配置为 `cruxset-db`）。将下面的 `admin@example.com` 替换为刚注册的邮箱，使用小写形式，然后执行：
+
+   ```sql
+   UPDATE admins
+   SET role = 'admin',
+       updated_at = CAST(strftime('%s', 'now') AS INTEGER) * 1000
+   WHERE email_normalized = 'admin@example.com';
+   ```
+
+3. 查询账户角色，确认返回的 `role` 为 `admin`：
+
+   ```sql
+   SELECT email_normalized, role
+   FROM admins
+   WHERE email_normalized = 'admin@example.com';
+   ```
+
+   如果没有返回记录，请确认账户已在该 Cloudflare 网站注册、邮箱填写正确，并且操作的是该部署使用的 D1 数据库。
+4. 刷新网站以重新获取权限，或退出后重新登录。管理员上传墙图、创作和发布墙面还需要配置 R2 的 `MEDIA` 绑定。
+
+Cloudflare D1 与本地 Web、CloudBase 的账户数据相互独立。在本地运行 `scripts/create_local_admin.py` 不会创建或升级 Cloudflare Edge 的管理员账户。
