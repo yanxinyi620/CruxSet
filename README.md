@@ -1,6 +1,6 @@
 # CruxSet
 
-CruxSet 将真实攀岩墙数字化，现以微信小程序 CloudBase、本地 Web 工作台和 Cloudflare Web 三种运行形态提供服务。分割实验台可将人工校准结果显式发布到相应目标。
+CruxSet 将真实攀岩墙数字化，提供三种独立运行形态。
 
 ```text
 微信小程序：wechat/miniprogram → CloudBase 云函数 → CloudBase DB + 私有 Storage
@@ -16,108 +16,10 @@ Cloudflare Web：web/dist       → Workers           → D1 + R2（MEDIA 配置
 | 本地 Web | `web`（Vite）+ FastAPI；SQLite 与本地媒体 | 管理员完整墙面创作、岩点标注、发布、线路管理，以及本机分割实验台。 |
 | Cloudflare Web | 相同的 `web/dist` + Workers；D1 与配置为 `MEDIA` 的 R2 | 注册、登录、资料和线路写入；具备 `MEDIA` 的管理员可上传、创作、标注、发布，并删除自己的墙面。浏览器端不运行 AI 任务。 |
 
-三套存储系统各自独立，不会自动同步；它们只共享 Wall、Hold、Problem 的字段语义。分割实验台可显式选择 `web`、`cloudbase`、`cloudflare` 或 `both`：前三者只写入各自所选系统；`both` 按顺序先调用本地 Web、再调用 CloudBase；两路独立执行，并分别返回成功或失败状态。Cloudflare Tunnel 只是把本地 Web 暴露到公网，不是第四种运行形态。
+三套存储系统各自独立，不会自动同步；只共享 Wall、Hold、Problem 的字段语义。
 
-## 文档导航
+- [微信小程序 CloudBase](docs/miniprogram-cloudbase.md)：部署、启动与真机验收。
+- [本地 Web 工作台](docs/local-web.md)：启动、创作、分割实验台与 Tunnel。
+- [Cloudflare Web](docs/cloudflare-edge-deployment.md)：Workers、D1、R2 与线上部署。
 
-- [设计参考](docs/reference.md)：架构、数据模型、业务规则与安全边界
-- [Cloudflare Edge 部署](docs/cloudflare-edge-deployment.md)：Workers、D1、R2 与线上 Web
-- [测试与验收](docs/testing.md)：自动化检查和人工验收清单
-- [本地 Web 的 Tunnel 部署](docs/wsl-cloudflare-tunnel.md)：Caddy、Cloudflare Tunnel 与 systemd
-- [分割实验台](tools/segmentation-lab/README.md)：AI 分割与人工校准
-
-## 1. 快速验证
-
-要求：Node.js 18+、npm、Python/uv，以及微信开发者工具。
-
-```bash
-npm install
-npm test
-npm run build
-npm run verify:phase1
-```
-
-`npm run build` 只做 TypeScript 检查；Web 静态构建使用 `npm run web:build`，产物位于 `web/dist`。
-
-## 2. 启动本地工作台
-
-推荐一次启动 API、Web 和分割实验台：
-
-```bash
-./scripts/cruxset-dev start
-./scripts/cruxset-dev status
-./scripts/cruxset-dev restart
-./scripts/cruxset-dev stop
-```
-
-脚本日志和 PID 位于 `.runtime/cruxset-dev`，并从 `/etc/cruxset.env` 读取 CloudBase 配置。首次创建本地管理员：
-
-```bash
-cd server
-PYTHONPATH=. uv run python scripts/create_local_admin.py admin@example.com
-```
-
-### 手动启动（排查用）
-
-终端一：`cd server && SESSION_COOKIE_SECURE=false CRUXSET_SEGMENTATION_PUBLISH_KEY='local-only-long-random-secret' CRUXSET_SEGMENTATION_PUBLISH_OWNER_ID='usr_web_lgjUPpx-3eu-s1_r' PYTHONPATH=. uv run uvicorn app.main:app --host 127.0.0.1 --port 8000`。
-
-终端二：`npm run web -- --host 0.0.0.0`。
-
-终端三：
-
-```bash
-cd tools/segmentation-lab
-SEG_LAB_DATA_DIR=./data CRUXSET_SEGMENTATION_PUBLISH_KEY='local-only-long-random-secret' CRUXSET_BASE_URL='http://127.0.0.1:8000' CRUXSET_WEB_URL='http://127.0.0.1:5173' uv run uvicorn segmentation_lab.api:app --host 127.0.0.1 --port 8765
-```
-
-Web 地址为 `http://localhost:5173`，实验台地址为 `http://127.0.0.1:8765/`。
-
-## 3. 部署小程序与 CloudBase
-
-微信开发者工具导入 **`wechat/` 目录**，不要导入仓库根目录。小程序始终连接 CloudBase；当前环境为 `cloud1-d0g8toggn7735e61e`。
-
-1. 创建 `users`、`walls`、`problems`、`admins`、`counters`、`segmentationPublishes` 六个集合，导入 [集合声明](config/cloudbase.collections.json) 和 [权限规则](config/cloudbase.rules.json)。
-2. 部署 `login`、`adminWall`、`wallManager`、`saveProblem`、`updateProblem`、`deleteProblem`、`getWallImageUrl`、`storageUpload`、`segmentationPublish` 九个云函数；`storageUpload` 需安装 `@cloudbase/node-sdk`。
-3. 将 Storage 设为私有；墙图由 `getWallImageUrl` 校验后提供短期地址。
-4. 两个 HTTP 路由均使用 `POST`、关闭网关身份认证，保持默认跨域和路径透传设置。
-
-在 `/etc/cruxset.env`（可用 `sudoedit /etc/cruxset.env`）配置以下四项；启动脚本不会为两个 CloudBase HTTP 地址提供默认值：
-
-```bash
-CRUXSET_CLOUDBASE_STORAGE_URL='https://<环境域名>/api/storage-upload'
-CRUXSET_CLOUDBASE_FUNCTION_URL='https://<环境域名>/api/segmentation-publish'
-CRUXSET_CLOUDBASE_SIGNING_KEY='与两个云函数相同的随机密钥'
-CRUXSET_CLOUDBASE_OWNER_OPENID='CloudBase 管理员的 OpenID'
-```
-
-## 4. 发布校准墙面并验收
-
-在实验台 **04 人工校准** 的已保存结果中点击“发布”：`web` 只创建本机 Wall，并同时保存原图与最长边不超过 3072px、质量 90 的 WebP 展示图；网页优先加载展示图，旧 Wall 则回退原图。`cloudbase` 将同规格 WebP 展示图和完整、已签名的校准 JSON 分别直传私有 Storage；`both` 两路独立执行。`segmentationPublish` 只接收小型 `payloadFileId`，下载并验签完整 JSON 后创建公开墙面，因此避开云函数文本请求体 100 KB 和二进制请求体 6 MB 限制。每次发布创建新的 Wall，不覆盖旧 Wall。
-
-小程序重新编译后刷新公开墙面，确认墙图、岩点、线路查看，以及创建、编辑、删除自己的线路。正式验收运行 `npm run verify:phase1 -- --release`，并按[测试与验收](docs/testing.md)完成真机检查。
-
-## 5. 参考
-
-### 核心规则
-
-- Problem 只引用 Hold ID，不保存屏幕坐标。
-- 业务数据引用 CruxSet `users.id`，OpenID 只用于微信身份映射。
-- Wall 是墙图、几何和岩点的唯一对象；公开后锁定。
-- 所有岩点坐标使用 0–1 normalized coordinate。
-- 线路编号由服务端原子生成；`Problem.id` 与用户可见的 `Problem.number` 不同。
-
-### 目录概览
-
-```text
-web/                    本地 Web 创作工作台
-web/src/                Web 端页面、编辑器和业务实现
-server/                 FastAPI、SQLite、本地图片与发布工具
-wechat/miniprogram/     微信原生小程序
-wechat/miniprogram/domain/ 小程序端领域规则与交互实现
-wechat/cloudfunctions/  CloudBase 云函数
-tests/                  自动测试
-docs/                   权威参考与部署文档
-tools/segmentation-lab/  AI 分割与人工校准实验台
-```
-
-不要把私有环境配置或密钥提交到仓库。
+通用规则见 [设计参考](docs/reference.md)，完整检查见 [测试与验收](docs/testing.md)。

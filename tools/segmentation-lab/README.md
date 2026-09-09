@@ -2,7 +2,7 @@
 
 本地运行的攀岩训练墙岩点分割实验台。它面向一面固定 Spraywall：上传并裁剪墙图，使用 SAM 2.1 自动产生岩点候选，再在浏览器中以 SVG polygon 进行人工校准并导出结果。
 
-它是 CruxSet 的独立研究工具：不读取任一运行形态的数据；但可以通过显式发布，将已校准结果创建为本机 FastAPI、CloudBase 或 Cloudflare Web 中的一面新公开 Wall。有关完整手动启动方式，请回到[根 README](../../README.md#手动启动并从实验台发布)。
+它是 CruxSet 的独立研究工具：不读取任一运行形态的数据；但可以通过显式发布，将已校准结果创建为本机 FastAPI、CloudBase 或 Cloudflare Web 中的一面新公开 Wall。有关本机启动方式，见[本地 Web 工作台](../../docs/local-web.md)。
 
 当前版本优先支持无 NVIDIA 显卡的 CPU 环境；推理可能需要数分钟。
 
@@ -26,7 +26,7 @@ SEG_LAB_DATA_DIR=./data uv run uvicorn segmentation_lab.api:app --host 127.0.0.1
 
 ## 发布到本机 CruxSet
 
-完整的三终端启动命令见[根 README](../../README.md#手动启动并从实验台发布)。CruxSet API 与实验台必须配置同一个本机密钥；密钥不会发送到浏览器，也不要提交到版本库：
+完整的本机启动方式见[本地 Web 工作台](../../docs/local-web.md)。CruxSet API 与实验台必须配置同一个本机密钥；密钥不会发送到浏览器，也不要提交到版本库：
 
 ```bash
 export CRUXSET_SEGMENTATION_PUBLISH_KEY='local-only-long-random-secret'
