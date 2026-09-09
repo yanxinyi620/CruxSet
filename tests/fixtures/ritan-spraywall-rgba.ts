@@ -1,7 +1,7 @@
 import { gunzipSync } from 'node:zlib'
 
 export const RITAN_SPRAYWALL_FIXTURE_METADATA = {
-  sourcePath: 'web/public/assets/mock/ritan-spraywall-0822.jpg',
+  sourcePath: 'tests/fixtures/ritan-spraywall-0822.jpg',
   sourceWidth: 4096,
   sourceHeight: 3072,
   sourceSha256: '206af758dd9584b010ba38b234a1e296dd07c22eda48bb126f2dd70be6f4798b',

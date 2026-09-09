@@ -2,7 +2,7 @@
 
 本地运行的攀岩训练墙岩点分割实验台。它面向一面固定 Spraywall：上传并裁剪墙图，使用 SAM 2.1 自动产生岩点候选，再在浏览器中以 SVG polygon 进行人工校准并导出结果。
 
-它是 CruxSet 的独立研究工具：不读取小程序或 CloudBase 数据；但可以通过显式发布，将已校准结果创建为本机 FastAPI 和/或 CloudBase 中的一面新公开 Wall。有关完整手动启动方式，请回到[根 README](../../README.md#手动启动并从实验台发布)。
+它是 CruxSet 的独立研究工具：不读取任一运行形态的数据；但可以通过显式发布，将已校准结果创建为本机 FastAPI、CloudBase 或 Cloudflare Web 中的一面新公开 Wall。有关本机启动方式，见[本地 Web 工作台](../../docs/local-web.md)。
 
 当前版本优先支持无 NVIDIA 显卡的 CPU 环境；推理可能需要数分钟。
 
@@ -26,7 +26,7 @@ SEG_LAB_DATA_DIR=./data uv run uvicorn segmentation_lab.api:app --host 127.0.0.1
 
 ## 发布到本机 CruxSet
 
-完整的三终端启动命令见[根 README](../../README.md#手动启动并从实验台发布)。CruxSet API 与实验台必须配置同一个本机密钥；密钥不会发送到浏览器，也不要提交到版本库：
+完整的本机启动方式见[本地 Web 工作台](../../docs/local-web.md)。CruxSet API 与实验台必须配置同一个本机密钥；密钥不会发送到浏览器，也不要提交到版本库：
 
 ```bash
 export CRUXSET_SEGMENTATION_PUBLISH_KEY='local-only-long-random-secret'
@@ -35,18 +35,27 @@ export CRUXSET_BASE_URL='http://127.0.0.1:8000'
 export CRUXSET_WEB_URL='http://127.0.0.1:5173'
 ```
 
-CruxSet 和实验台都使用 `CRUXSET_SEGMENTATION_PUBLISH_KEY`。在校准结果列表点击“发布”，选择目标并确认墙面名称。目标默认是 `web`：创建本机 CruxSet 的公开 Wall，并保留原图同时生成最长边不超过 3072px、质量 90 的 WebP 展示图；网页优先加载展示图。不会因为配置了 CloudBase 就自动同步。选择 `cloudbase` 才只同步到小程序 CloudBase，选择 `both` 才会显式执行两路发布；两路互相独立，任一路失败都会保留另一条结果。`web` 发布结果会保存在校准记录中，并可打开 CruxSet 浏览地址。
+CruxSet 和实验台都使用 `CRUXSET_SEGMENTATION_PUBLISH_KEY`。在校准结果列表点击“发布”，选择一个目标并确认墙面名称。`web`（默认）创建本机 FastAPI/SQLite 的公开 Wall，并保留原图同时生成最长边不超过 3072px、质量 90 的 WebP 展示图；网页优先加载展示图。`cloudbase` 只创建小程序 CloudBase 的公开 Wall。`cloudflare` 只创建 Cloudflare Workers/D1 与 `MEDIA` R2 中的公开 Wall。三个目标必须分别发布；`web` 发布结果会保存在校准记录中，并可打开 CruxSet 浏览地址；不要把 Cloudflare 的响应当作持久保存的实验台回执。
 
-如需将同一份校准结果同步到 CloudBase，可在 `/etc/cruxset.env` 配置签名密钥和管理员 OpenID，并在启动实验台前配置以下服务端环境变量（四项必须同时提供；不会暴露给浏览器）：
+如需将同一份校准结果同步到 CloudBase，在 `/etc/cruxset.env` 配置以下四项（启动脚本会读取并传给实验台；四项必须同时提供，且不会暴露给浏览器）：
 
 ```bash
-export CRUXSET_CLOUDBASE_FUNCTION_URL='https://<cloud-function-endpoint>'
-export CRUXSET_CLOUDBASE_STORAGE_URL='https://<storage-upload-endpoint>'
-export CRUXSET_CLOUDBASE_SIGNING_KEY='与 segmentationPublish 云函数相同的密钥'
-export CRUXSET_CLOUDBASE_OWNER_OPENID='用于解析 CruxSet 用户的 OpenID'
+CRUXSET_CLOUDBASE_FUNCTION_URL='https://<cloud-function-endpoint>'
+CRUXSET_CLOUDBASE_STORAGE_URL='https://<storage-upload-endpoint>'
+CRUXSET_CLOUDBASE_SIGNING_KEY='与 segmentationPublish 云函数相同的密钥'
+CRUXSET_CLOUDBASE_OWNER_OPENID='用于解析 CruxSet 用户的 OpenID'
 ```
 
-只有选择 `cloudbase` 或 `both` 时，实验台才会先使用签名元数据从 `storageUpload` 获取临时上传凭证，将最长边不超过 3072px、质量 90 的 WebP 墙图和完整签名校准 JSON 直传私有 CloudBase Storage，再由 `segmentationPublish` 下载 JSON 并创建墙面；`web` 目标不会调用 CloudBase。这样 HTTP 网关只接收很小的 `payloadFileId` 请求，本地校准、Web 与 CloudBase 的岩点几何保持一致。`both` 模式下本地 FastAPI 发布与 CloudBase 同步互相独立，CloudBase 失败不会撤销本地发布，校准记录会保留每个目标的状态。密钥只能放在本机服务端环境变量中，切勿提交到版本库。
+选择 `cloudbase` 时，实验台才会先使用签名元数据从 `storageUpload` 获取临时上传凭证，将最长边不超过 3072px、质量 90 的 WebP 墙图和完整签名校准 JSON 直传私有 CloudBase Storage，再由 `segmentationPublish` 下载 JSON 并创建墙面；`web` 与 `cloudflare` 目标不会调用 CloudBase。这样 HTTP 网关只接收很小的 `payloadFileId` 请求，本地校准、Web 与 CloudBase 的岩点几何保持一致。密钥只能放在本机服务端环境变量中，切勿提交到版本库。
+
+如需发布到 Cloudflare Web，在启动实验台前配置服务端环境变量：
+
+```bash
+export CRUXSET_EDGE_SEGMENTATION_URL='https://<Cloudflare Workers API 地址>'
+export CRUXSET_EDGE_SEGMENTATION_PUBLISH_KEY='与 Cloudflare 发布端相同的随机密钥'
+```
+
+`cloudflare` 直接调用该发布端，不经过 CloudBase；它只创建新的公开 Wall。所有目标的发布均不会读取、修改或删除目标中既有的墙面、线路或其他数据，也不会在三套独立数据集之间自动同步。
 
 首次运行 `sam2` / `sam2_tiled` 时，Transformers 会下载 `facebook/sam2.1-hiera-large` 权重；需要联网并预留足够的磁盘空间。模型状态会在页面的“02 选择模型”中显示。`sam3` 需要另行安装其依赖并提供本地 checkpoint；未满足条件时会保持不可用。
 
@@ -82,7 +91,7 @@ export CRUXSET_CLOUDBASE_OWNER_OPENID='用于解析 CruxSet 用户的 OpenID'
 
 ## 当前限制
 
-- 它只单向创建新的公开墙面，不会读取、更新或删除小程序中的墙面和线路。
+- 它只单向创建各目标中的新公开墙面，不会读取、更新或删除目标中的既有墙面、线路或其他数据。
 - 人工校准以 polygon 为核心，不支持通过正负点重新调用 SAM。
 - 运行同一张图、同一模型、不同参数会创建独立任务，不会覆盖旧结果。
 - 任务在本机后台运行；CPU 长任务期间请保持服务进程运行。

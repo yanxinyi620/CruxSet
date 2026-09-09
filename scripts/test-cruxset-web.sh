@@ -28,13 +28,11 @@ assert_status() {
   assert_eq "$expected" "$actual" "$label"
 }
 
-parse_args start --setup
+parse_args start
 assert_eq "start" "$ACTION" "parses start"
-assert_eq "1" "$WITH_SETUP" "enables setup"
 parse_args status
 assert_eq "status" "$ACTION" "parses status"
-assert_eq "0" "$WITH_SETUP" "leaves setup disabled"
-assert_status 2 "rejects setup for stop" parse_args stop --setup
+assert_status 2 "rejects deprecated setup flag" parse_args start --setup
 assert_status 2 "rejects unknown action" parse_args destroy
 
 assert_eq "https://pink-sunset.trycloudflare.com" \
@@ -43,6 +41,8 @@ assert_eq "https://pink-sunset.trycloudflare.com" \
 assert_eq "" "$(printf '%s\n' 'tunnel is connecting' | extract_tunnel_url)" "does not invent URL"
 assert_eq $'SESSION_SECRET\nCRUXSET_SEGMENTATION_PUBLISH_KEY\nCRUXSET_SEGMENTATION_PUBLISH_OWNER_ID' \
   "$(required_env_keys)" "declares prompted environment keys"
+assert_status 0 "does not enable services during setup" \
+  grep -q 'systemctl disable caddy cruxset-api cruxset-quick-tunnel' "$PROJECT_ROOT/scripts/cruxset-web"
 
 temp_dir="$(mktemp -d)"
 trap 'rm -rf "$temp_dir"' EXIT

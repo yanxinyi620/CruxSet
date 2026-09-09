@@ -2,7 +2,7 @@ const cloud = require('wx-server-sdk')
 const { validateRouteMetadata } = require('./validation.js')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
-const validGrades = new Set(Array.from({ length: 13 }, (_, i) => `V${i}`))
+const validGrades = new Set(Array.from({ length: 17 }, (_, i) => `V${i}`))
 const roles = ['start', 'foot', 'hand', 'assist', 'finish']
 
 exports.main = async event => {

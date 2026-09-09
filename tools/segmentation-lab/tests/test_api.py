@@ -207,7 +207,7 @@ def test_publish_dialog_exposes_explicit_targets_with_web_default(tmp_path):
     assert 'id="publishTarget"' in response.text
     assert '<option value="web" selected>本地 Web</option>' in response.text
     assert '<option value="cloudbase">小程序 CloudBase</option>' in response.text
-    assert '<option value="both">本地 Web + CloudBase</option>' in response.text
+    assert 'value="both"' not in response.text
     assert '"target": $("#publishTarget").value' in response.text
 
 

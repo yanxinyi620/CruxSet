@@ -5,9 +5,6 @@ vi.mock('../wechat/miniprogram/services/cloud.js', () => ({
   normalizeCloudError: (error: unknown) => error,
 }))
 
-vi.mock('../wechat/miniprogram/config/runtime.js', () => ({
-  isMockMode: () => false,
-}))
 
 import { call } from '../wechat/miniprogram/services/cloud.js'
 import { getWallImageUrl } from '../wechat/miniprogram/services/walls.js'

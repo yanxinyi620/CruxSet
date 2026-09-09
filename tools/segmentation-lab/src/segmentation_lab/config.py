@@ -10,6 +10,8 @@ class Settings:
     cruxset_base_url: str = "http://127.0.0.1:8000"
     cruxset_web_url: str = "http://127.0.0.1:5173"
     cruxset_publish_key: str = ""
+    edge_segmentation_publish_key: str = ""
+    edge_segmentation_url: str = "https://api.cruxset.xinyilab.top"
     cloudbase_function_url: str = ""
     cloudbase_storage_url: str = ""
     cloudbase_signing_key: str = ""
@@ -22,6 +24,9 @@ class Settings:
     @property
     def cloudbase_publish_configured(self) -> bool:
         return all((self.cloudbase_function_url, self.cloudbase_storage_url, self.cloudbase_signing_key, self.cloudbase_owner_openid))
+    @property
+    def edge_publish_configured(self) -> bool:
+        return bool(self.edge_segmentation_publish_key and self.edge_segmentation_url)
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -30,6 +35,8 @@ class Settings:
             cruxset_base_url=os.environ.get("CRUXSET_BASE_URL", "http://127.0.0.1:8000").rstrip("/"),
             cruxset_web_url=os.environ.get("CRUXSET_WEB_URL", "http://127.0.0.1:5173").rstrip("/"),
             cruxset_publish_key=os.environ.get("CRUXSET_SEGMENTATION_PUBLISH_KEY", ""),
+            edge_segmentation_publish_key=os.environ.get("CRUXSET_EDGE_SEGMENTATION_PUBLISH_KEY", ""),
+            edge_segmentation_url=os.environ.get("CRUXSET_EDGE_SEGMENTATION_URL", "https://api.cruxset.xinyilab.top").rstrip("/"),
             cloudbase_function_url=os.environ.get("CRUXSET_CLOUDBASE_FUNCTION_URL", os.environ.get("CRUXSET_CLOUDBASE_PUBLISH_URL", "")).rstrip("/"),
             cloudbase_storage_url=os.environ.get("CRUXSET_CLOUDBASE_STORAGE_URL", "").rstrip("/"),
             cloudbase_signing_key=os.environ.get("CRUXSET_CLOUDBASE_SIGNING_KEY", os.environ.get("CRUXSET_CLOUDBASE_SEGMENTATION_SIGNING_KEY", "")),

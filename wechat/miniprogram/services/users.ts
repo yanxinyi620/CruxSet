@@ -1,20 +1,11 @@
 // @ts-nocheck
 import { call } from './cloud.js'
-import { isMockMode } from '../config/runtime.js'
-import { mockCurrentUserId, mockRepository } from './mock-repository.js'
-export const login = () => isMockMode()?Promise.resolve({userId:mockCurrentUserId}):call<{ userId: string }>('login')
-export const currentUserId = () => isMockMode() ? mockCurrentUserId : wx.getStorageSync('cruxset:userId') as string | undefined
-let mockAdmin = false
-export const setMockAdmin = (value: boolean) => { mockAdmin = value; mockRepository.setAdmin(value) }
+export const login = () => call<{ userId: string }>('login')
+export const currentUserId = () => wx.getStorageSync('cruxset:userId') as string | undefined
 export const currentUserIsAdmin = async (): Promise<boolean> => {
-  if (isMockMode()) return mockAdmin
   const result = await call<{ isAdmin?: boolean }>('wallManager', { action: 'getSession' })
   return result.isAdmin === true
 }
-export const getProfile = () => isMockMode()
-  ? Promise.resolve({ userId: mockCurrentUserId, isAdmin: mockAdmin, displayName: '' })
-  : call<{ userId: string; isAdmin: boolean; displayName: string }>('wallManager', { action: 'getSession' })
-export const updateProfile = (displayName: string) => isMockMode()
-  ? Promise.resolve({ userId: mockCurrentUserId, isAdmin: mockAdmin, displayName: displayName.trim() })
-  : call<{ userId: string; isAdmin: boolean; displayName: string }>('wallManager', { action: 'updateProfile', data: { displayName } })
+export const getProfile = () => call<{ userId: string; isAdmin: boolean; displayName: string }>('wallManager', { action: 'getSession' })
+export const updateProfile = (displayName: string) => call<{ userId: string; isAdmin: boolean; displayName: string }>('wallManager', { action: 'updateProfile', data: { displayName } })
 export async function ensureUser(): Promise<string> { const cached = currentUserId(); if (cached) return cached; const result = await login(); wx.setStorageSync('cruxset:userId', result.userId); return result.userId }

@@ -18,3 +18,11 @@ header { padding-top: calc(20px + env(safe-area-inset-top)); }
 .login-card { width:min(100%,420px); display:grid; gap:12px; padding:24px; border:1px solid var(--line); border-radius:24px; background:#fff; box-shadow:0 16px 36px #27224418; }
 .login-card .field { margin:4px 0; }
 .login-card h1 { margin:0 0 8px; font-size:27px; letter-spacing:0; }.login-card h1 span { margin-left:3px; }.login-card label { display:grid; gap:6px; color:#6f7187; font-size:12px; font-weight:800; }.login-card input { width:100%; padding:12px; border:1px solid var(--line); border-radius:12px; color:var(--ink); background:#fff; }.login-actions { display:grid; grid-template-columns:1fr 1fr; gap:9px; }.login-submit,.register-submit { padding:13px; border-radius:13px; font-weight:900; }.login-submit { border:0; background:var(--accent); color:#fff; }.register-submit { border:1px solid var(--line); background:#fff; color:var(--accent); }.login-error { min-height:18px; margin:0; color:#c75b49; font-size:12px; }
+.guest-browse { display:grid; gap:7px; margin-top:4px; padding-top:15px; border-top:1px solid var(--line); text-align:center; }
+.guest-browse-button { display:flex; align-items:center; justify-content:center; gap:9px; width:100%; min-height:46px; padding:12px 16px; border:1px solid color-mix(in srgb, var(--accent) 28%, var(--line)); border-radius:13px; background:color-mix(in srgb, var(--accent) 6%, #fff); color:var(--accent); font-weight:900; cursor:pointer; transition:background .18s ease, border-color .18s ease, transform .18s ease, box-shadow .18s ease; }
+.guest-browse-button:hover { border-color:var(--accent); background:color-mix(in srgb, var(--accent) 11%, #fff); box-shadow:0 8px 18px color-mix(in srgb, var(--accent) 13%, transparent); }
+.guest-browse-button:active { transform:translateY(1px); }
+.guest-browse-button:focus-visible { outline:3px solid color-mix(in srgb, var(--accent) 28%, transparent); outline-offset:2px; }
+.guest-browse-arrow { font-size:18px; line-height:1; transition:transform .18s ease; }
+.guest-browse-button:hover .guest-browse-arrow { transform:translateX(3px); }
+.guest-browse p { margin:0; color:#8b8da0; font-size:12px; }

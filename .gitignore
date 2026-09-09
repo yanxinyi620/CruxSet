@@ -1,4 +1,5 @@
 node_modules/
+edge/.wrangler/
 dist/
 coverage/
 .DS_Store
@@ -23,3 +24,5 @@ server/data/
 .superpowers/
 .runtime/**/*.log
 .runtime/**/*.pid
+.runtime/edge/
+.runtime/edge-public/

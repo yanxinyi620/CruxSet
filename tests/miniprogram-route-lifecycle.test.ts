@@ -28,20 +28,6 @@ it('imports the default ProblemEditor constructor in the route editor page', () 
   expect(editor).toContain("import ProblemEditor from '../../../domain/editor.js'")
 })
 
-it('includes a public polygon wall fixture in the browse repository', () => {
-  const data = read('wechat/miniprogram/data/demo.ts')
-  const repository = read('wechat/miniprogram/services/mock-repository.ts')
-  expect(data).toContain('demoPolygonWall')
-  expect(data).toContain("geometryType: 'polygon'")
-  expect(data).toContain('polygon:')
-  expect(data).toContain("imageFileId: 'cloud://")
-  expect(data).toContain('source:')
-  expect(data).toContain('experimentId:')
-  expect(data).toContain('calibrationId:')
-  expect(data).toContain('publishRequestId:')
-  expect(repository).toContain('demoPolygonWall')
-})
-
 it('keeps My Routes navigable without duplicating owner actions in the detail template', () => {
   const list = read('wechat/miniprogram/pages/me/problems/index.ts') + read('wechat/miniprogram/pages/me/problems/index.wxml')
   const detail = read('wechat/miniprogram/pages/problem/detail/index.wxml')

@@ -1,4 +1,4 @@
-const validGrades = new Set(Array.from({ length: 13 }, (_, i) => `V${i}`))
+const validGrades = new Set(Array.from({ length: 17 }, (_, i) => `V${i}`))
 const roles = ['start', 'foot', 'hand', 'assist', 'finish']
 
 function fail (code) { throw new Error(code) }

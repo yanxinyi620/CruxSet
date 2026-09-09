@@ -23,7 +23,7 @@ from .service import BenchmarkService
 
 
 PostSuccessHook = Callable[[ExperimentStore, str, str, dict[str, object], str], Awaitable[object] | object]
-PUBLISH_TARGETS = {"web", "cloudbase", "both"}
+PUBLISH_TARGETS = {"web", "cloudbase", "cloudflare"}
 
 
 async def _run_post_success_hook(hook: PostSuccessHook, store: ExperimentStore, experiment_id: str, calibration_id: str, result: dict[str, object], wall_name: str) -> None:
@@ -157,11 +157,13 @@ def create_app(settings: Settings, adapters: Mapping[str, SegmentationAdapter] |
             raise SegmentationLabError("calibration_not_found", "Calibration was not found")
         target = payload.get("target", "web")
         if not isinstance(target, str) or target not in PUBLISH_TARGETS:
-            raise SegmentationLabError("invalid_publish_target", "发布目标必须是 web、cloudbase 或 both。")
+            raise SegmentationLabError("invalid_publish_target", "发布目标必须是 web、cloudbase 或 cloudflare。")
         if target == "web" and not settings.web_publish_configured:
             raise SegmentationLabError("publish_not_configured", "CruxSet 发布密钥未配置。")
         if target == "cloudbase" and not settings.cloudbase_publish_configured:
             raise SegmentationLabError("cloudbase_not_configured", "CloudBase 发布配置未完整设置。")
+        if target == "cloudflare" and not settings.edge_publish_configured:
+            raise SegmentationLabError("cloudflare_not_configured", "Cloudflare 发布密钥未配置。")
         image_path = next((store.root / experiment_id / "input").glob("original.*"), None)
         if image_path is None:
             raise SegmentationLabError("experiment_not_found", "Experiment image was not found")
@@ -188,7 +190,7 @@ def create_app(settings: Settings, adapters: Mapping[str, SegmentationAdapter] |
 
         web_result: dict[str, object] | None = None
         web_error: dict[str, object] | None = None
-        if target in {"web", "both"}:
+        if target == "web":
             if not settings.web_publish_configured:
                 web_error = {"status": "failed", "code": "publish_not_configured", "message": "CruxSet 发布密钥未配置。", "retryable": False}
                 store.record_calibration_publish(experiment_id, calibration_id, {**web_error, "target": "web", "publishRequestId": metadata["publishRequestId"], "wallName": wall_name, "publishedAt": time.time()})
@@ -207,7 +209,12 @@ def create_app(settings: Settings, adapters: Mapping[str, SegmentationAdapter] |
 
         cloud_result: dict[str, object] | None = None
         cloud_error: dict[str, object] | None = None
-        if target in {"cloudbase", "both"}:
+        if target == "cloudflare":
+            try:
+                cloud_result = await CruxSetPublisher(settings.edge_segmentation_url, settings.edge_segmentation_publish_key).publish(image, str(experiment["imageName"]), metadata)
+            except Exception as error:
+                raise SegmentationLabError("cloudflare_publish_failed", str(error), True) from error
+        if target == "cloudbase":
             if not settings.cloudbase_publish_configured:
                 cloud_error = {"status": "failed", "code": "cloudbase_not_configured", "message": "CloudBase 发布配置未完整设置。", "retryable": False}
                 store.record_calibration_sync(experiment_id, calibration_id, {**cloud_error, "target": "cloudbase", "publishRequestId": metadata["publishRequestId"], "updatedAt": time.time()})
@@ -235,13 +242,9 @@ def create_app(settings: Settings, adapters: Mapping[str, SegmentationAdapter] |
             return {**(web_result or {}), "target": "web"}
         if target == "cloudbase":
             return {"target": "cloudbase", "targets": {"cloudbase": {"status": "succeeded", **(cloud_result or {})} if cloud_result is not None else cloud_error}}
-        return {
-            "target": "both",
-            "targets": {
-                "web": {"status": "succeeded", **web_result} if web_result is not None else web_error,
-                "cloudbase": {"status": "succeeded", **cloud_result} if cloud_result is not None else cloud_error,
-            },
-        }
+        if target == "cloudflare":
+            return {"target": "cloudflare", "targets": {"cloudflare": {"status": "succeeded", **(cloud_result or {})} if cloud_result is not None else cloud_error}}
+        raise AssertionError(f"unhandled publish target: {target}")
 
     @app.get("/api/experiments/{experiment_id}/calibrations/{calibration_id}/export.svg")
     def export_calibration_svg(experiment_id: str, calibration_id: str) -> Response:
