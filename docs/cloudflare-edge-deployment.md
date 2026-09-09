@@ -1,21 +1,36 @@
-# Cloudflare 静态边缘部署
+# Cloudflare Edge 部署
 
-本文描述尚在开发中的免费边缘部署。它不要求开通 R2，也不替代小程序 CloudBase。
+Cloudflare Web 是 CruxSet 的第三种 Web 运行形态：它由 Workers 提供 API，并以同一份 `web/dist` 提供前端资源。它使用独立的 D1 和 R2 数据；这些数据不会与本地 Web 的 SQLite/本地媒体，或小程序的 CloudBase 数据库与 Storage 自动同步。Cloudflare Tunnel 只把本地 Web 暴露到公网，并不是此部署方式的一部分，也不把本地 FastAPI 或 SQLite 迁移到 Workers。
 
-| 能力 | 本机工作台 | 边缘站点 |
-| --- | --- | --- |
-| 公开墙与展示图浏览 | 是 | 是 |
-| 线路浏览与编辑 | 是 | 认证迁移完成后启用 |
-| 新建墙、图片上传、岩点标注 | 是 | 否 |
-| SAM/YOLO、图像处理 | 是 | 否 |
-| 私有草稿与原图 | 是 | 否 |
+| 能力 | Cloudflare Web |
+| --- | --- |
+| 公开墙面、岩点与线路浏览 | 是 |
+| 注册、登录、查看及更新个人资料 | 是 |
+| 创建、编辑与删除自己的线路 | 是 |
+| 管理员上传图片、创建私有墙面、保存岩点、发布墙面 | 是；需要 R2 `MEDIA` 绑定 |
+| 管理员删除自己创建的墙面 | 是；同时删除其关联线路与 R2 图片 |
+| 分割实验台发布 | 是；请求须使用 `SEGMENTATION_PUBLISH_KEY` 的签名，且需要 D1 与 R2 |
+| 浏览器内运行 SAM、YOLO 或其他 AI 任务 | 否 |
 
-公开图片由 `server/scripts/export_edge_snapshot.py` 从受控本地媒体目录导出。它只处理已发布的公开墙，将展示图复制为内容哈希文件，并写入 `.runtime/edge-public/manifest.json`；该目录不提交版本库。导出不会读取或输出账户密码、管理员记录、私有墙和私有问题。
+`DB` 是 Worker 的必需 D1 绑定。未绑定时，`/api/v1/bootstrap` 会返回 `503 SERVICE_UNAVAILABLE`，应用不能作为可用的 Cloudflare Web 站点运行。`edge/wrangler.jsonc` 同时将 R2 桶 `cruxset-media` 绑定为 `MEDIA`；没有该绑定时，管理员图片上传不可用，受签名的分割发布也不能完成。
 
-部署时先构建静态资源和图片，再验证静态图片可用，最后登记墙元数据到 D1。静态资源与 D1 不是同一个事务：静态部署失败时不得写入墙元数据；D1 失败时可留下未引用图片，但不能发布缺图墙。后续发布必须保留线上仍被引用的哈希图片。
+## 配置与部署
 
-上线写入前必须完成认证可行性验证。当前本地 Argon2 登录不能直接假定适用于免费 Worker；在此之前，边缘站点只提供公开只读能力。
+在仓库根目录完成 Cloudflare 登录，并确认 `edge/wrangler.jsonc` 中的 D1 `DB`、R2 `MEDIA`、域名路由和 `web/dist` 静态资源配置适用于目标账户与环境。首次部署需要创建 D1 数据库和 R2 桶，将创建得到的 D1 数据库 ID 写入该配置，并为分割发布设置密钥：
 
-当前 Worker 已实现 `GET /api/v1/walls`、`GET /api/v1/problems` 和只读 `GET /api/v1/bootstrap`。墙面和线路接口都支持 `limit`（默认 20，最大 50）和 `cursor` 游标；线路接口还支持 `wallId` 筛选。Bootstrap 会返回公开数据和 `readOnly` 能力标记。没有绑定 D1 时接口会返回 `503 SERVICE_UNAVAILABLE`，不会回退到静态页面。
+```bash
+wrangler login
+wrangler d1 create cruxset-db
+wrangler r2 bucket create cruxset-media
+wrangler secret put SEGMENTATION_PUBLISH_KEY --config edge/wrangler.jsonc
+```
 
-连接真实 Cloudflare 环境前，需要在本机完成 `wrangler login`，复制 `edge/wrangler.example.jsonc` 为本地部署配置，再创建 D1 数据库并将数据库绑定命名为 `DB`。数据库 ID 和生产域名属于部署环境配置，不写入仓库；完成绑定后先执行 `wrangler d1 migrations apply <database> --remote`，再进行 Worker 部署。当前开发阶段不执行登录、创建数据库或远端迁移。
+构建前端、应用 D1 迁移并部署 Worker：
+
+```bash
+npm run web:build
+wrangler d1 migrations apply cruxset-db --remote --config edge/wrangler.jsonc
+wrangler deploy --config edge/wrangler.jsonc
+```
+
+生产数据库 ID、域名路由和 `SEGMENTATION_PUBLISH_KEY` 是部署环境配置。不要把密钥写入仓库或前端构建产物。部署后应验证公开浏览、注册/登录、线路写入，以及具备管理员账户和 `MEDIA` 绑定时的图片上传与墙面发布；浏览器不承担 AI 推理，分割结果由实验台签名后提交给 Worker。
