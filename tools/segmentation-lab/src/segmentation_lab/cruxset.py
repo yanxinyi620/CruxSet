@@ -1,4 +1,6 @@
 import json
+import hmac
+import hashlib
 from io import BytesIO
 from pathlib import Path
 from typing import Any
@@ -25,7 +27,7 @@ class CruxSetPublisher:
             async with httpx.AsyncClient(transport=self.transport, timeout=60) as client:
                 response = await client.post(
                     f"{self.base_url}/api/v1/admin/segmentation-walls",
-                    headers={"Authorization": f"Bearer {self.publish_key}"},
+                    headers={"X-CruxSet-Signature": hmac.new(self.publish_key.encode(), json.dumps(metadata, ensure_ascii=False).encode(), hashlib.sha256).hexdigest()},
                     files={"image": (Path(filename).name, image, content_type), "display_image": (f"{Path(filename).stem}-display.webp", display.getvalue(), "image/webp")},
                     data={"metadata": json.dumps(metadata, ensure_ascii=False)},
                 )
