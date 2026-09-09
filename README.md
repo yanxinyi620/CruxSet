@@ -21,8 +21,9 @@ Cloudflare Web：web/dist       → Workers           → D1 + R2（MEDIA 配置
 ## 文档导航
 
 - [设计参考](docs/reference.md)：架构、数据模型、业务规则与安全边界
+- [Cloudflare Edge 部署](docs/cloudflare-edge-deployment.md)：Workers、D1、R2 与线上 Web
 - [测试与验收](docs/testing.md)：自动化检查和人工验收清单
-- [WSL 长期运行部署](docs/wsl-cloudflare-tunnel.md)：Caddy、Cloudflare Tunnel 与 systemd
+- [本地 Web 的 Tunnel 部署](docs/wsl-cloudflare-tunnel.md)：Caddy、Cloudflare Tunnel 与 systemd
 - [分割实验台](tools/segmentation-lab/README.md)：AI 分割与人工校准
 
 ## 1. 快速验证

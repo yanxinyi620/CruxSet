@@ -1,6 +1,6 @@
-# WSL 上长期运行 Web 工作台
+# WSL 上长期运行本地 Web 工作台（Cloudflare Tunnel）
 
-本手册将本机 WSL 配置为持续运行的 CruxSet Web 服务。前端使用构建产物，Caddy 提供静态文件并将 `/api` 转发给仅监听本机的 FastAPI；Cloudflare Tunnel 再将公网 HTTPS 请求转发到 Caddy。
+本手册将本机 WSL 配置为持续运行的 CruxSet Web 服务。前端使用构建产物，Caddy 提供静态文件并将 `/api` 转发给仅监听本机的 FastAPI；Cloudflare Tunnel 再将公网 HTTPS 请求转发到 Caddy。它不是 Cloudflare Workers Edge 部署；该部署见 [Cloudflare Edge 部署](cloudflare-edge-deployment.md)。
 
 ```text
 浏览器 HTTPS → Cloudflare Tunnel → Caddy :8080
