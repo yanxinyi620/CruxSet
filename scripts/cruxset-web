@@ -2,7 +2,6 @@
 set -euo pipefail
 
 ACTION=''
-WITH_SETUP=0
 ENV_FILE="${ENV_FILE:-/etc/cruxset.env}"
 CADDYFILE="${CADDYFILE:-/etc/caddy/Caddyfile}"
 API_UNIT="${API_UNIT:-/etc/systemd/system/cruxset-api.service}"
@@ -10,22 +9,17 @@ TUNNEL_UNIT="${TUNNEL_UNIT:-/etc/systemd/system/cruxset-quick-tunnel.service}"
 LIVE_URL_REPO="${LIVE_URL_REPO:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/cruxset-live-url}"
 
 usage() {
-  printf 'Usage: %s {start|restart|stop|status} [--setup]\n' "${0##*/}" >&2
+  printf 'Usage: %s {start|restart|stop|status}\n' "${0##*/}" >&2
 }
 
 parse_args() {
   ACTION="${1:-}"
-  WITH_SETUP=0
   case "$ACTION" in
     start|restart|stop|status) ;;
     *) usage; return 2 ;;
   esac
   shift || true
-  if (( $# == 1 )) && [[ "$1" == '--setup' ]]; then
-    WITH_SETUP=1
-    shift
-  fi
-  if (( $# != 0 )) || { (( WITH_SETUP )) && [[ "$ACTION" != start && "$ACTION" != restart ]]; }; then
+  if (( $# != 0 )); then
     usage
     return 2
   fi
@@ -215,7 +209,7 @@ main() {
     return 2
   fi
   parse_args "$@"
-  if (( WITH_SETUP )); then setup_workspace; fi
+  if [[ "$ACTION" == start || "$ACTION" == restart ]]; then setup_workspace; fi
   case "$ACTION" in
     start)
       start_services

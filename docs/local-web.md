@@ -32,11 +32,11 @@ PYTHONPATH=. uv run python scripts/create_local_admin.py admin@example.com
 在 WSL 启用 systemd 后，执行：
 
 ```bash
-./scripts/cruxset-web start --setup
+./scripts/cruxset-web start
 ./scripts/cruxset-web status
 ```
 
-该脚本构建前端、配置 Caddy 与 systemd，并启动 Quick Tunnel，但不会启用 WSL 启动自动运行。需要固定域名时，用 `cloudflared tunnel login`、`cloudflared tunnel create cruxset` 创建具名 Tunnel；其入口仍指向 `http://127.0.0.1:8080`。
+每次 `start` 与 `restart` 都会重新安装依赖、构建前端、更新 Caddy 与 systemd 配置后再启动 Quick Tunnel，但不会启用 WSL 启动自动运行。需要固定域名时，用 `cloudflared tunnel login`、`cloudflared tunnel create cruxset` 创建具名 Tunnel；其入口仍指向 `http://127.0.0.1:8080`。
 
 如已执行过旧版 `--setup`，执行以下命令关闭已有服务的 WSL 启动自动运行：
 

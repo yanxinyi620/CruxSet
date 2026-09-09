@@ -28,13 +28,11 @@ assert_status() {
   assert_eq "$expected" "$actual" "$label"
 }
 
-parse_args start --setup
+parse_args start
 assert_eq "start" "$ACTION" "parses start"
-assert_eq "1" "$WITH_SETUP" "enables setup"
 parse_args status
 assert_eq "status" "$ACTION" "parses status"
-assert_eq "0" "$WITH_SETUP" "leaves setup disabled"
-assert_status 2 "rejects setup for stop" parse_args stop --setup
+assert_status 2 "rejects deprecated setup flag" parse_args start --setup
 assert_status 2 "rejects unknown action" parse_args destroy
 
 assert_eq "https://pink-sunset.trycloudflare.com" \
