@@ -37,13 +37,13 @@ export CRUXSET_WEB_URL='http://127.0.0.1:5173'
 
 CruxSet 和实验台都使用 `CRUXSET_SEGMENTATION_PUBLISH_KEY`。在校准结果列表点击“发布”，选择目标并确认墙面名称。`web`（默认）创建本机 FastAPI/SQLite 的公开 Wall，并保留原图同时生成最长边不超过 3072px、质量 90 的 WebP 展示图；网页优先加载展示图。`cloudbase` 只创建小程序 CloudBase 的公开 Wall。`cloudflare` 是单目标，只创建 Cloudflare Workers/D1 与 `MEDIA` R2 中的公开 Wall。`both` 按顺序先发布到 `web`，再发布到 `cloudbase`；两路独立执行并返回各自成功或失败状态，任一路失败不会撤销另一条结果。`web` 发布结果会保存在校准记录中，并可打开 CruxSet 浏览地址；不要把 Cloudflare 的响应当作持久保存的实验台回执。
 
-如需将同一份校准结果同步到 CloudBase，可在 `/etc/cruxset.env` 配置签名密钥和管理员 OpenID，并在启动实验台前配置以下服务端环境变量（四项必须同时提供；不会暴露给浏览器）：
+如需将同一份校准结果同步到 CloudBase，在 `/etc/cruxset.env` 配置以下四项（启动脚本会读取并传给实验台；四项必须同时提供，且不会暴露给浏览器）：
 
 ```bash
-export CRUXSET_CLOUDBASE_FUNCTION_URL='https://<cloud-function-endpoint>'
-export CRUXSET_CLOUDBASE_STORAGE_URL='https://<storage-upload-endpoint>'
-export CRUXSET_CLOUDBASE_SIGNING_KEY='与 segmentationPublish 云函数相同的密钥'
-export CRUXSET_CLOUDBASE_OWNER_OPENID='用于解析 CruxSet 用户的 OpenID'
+CRUXSET_CLOUDBASE_FUNCTION_URL='https://<cloud-function-endpoint>'
+CRUXSET_CLOUDBASE_STORAGE_URL='https://<storage-upload-endpoint>'
+CRUXSET_CLOUDBASE_SIGNING_KEY='与 segmentationPublish 云函数相同的密钥'
+CRUXSET_CLOUDBASE_OWNER_OPENID='用于解析 CruxSet 用户的 OpenID'
 ```
 
 只有选择 `cloudbase` 或 `both` 时，实验台才会先使用签名元数据从 `storageUpload` 获取临时上传凭证，将最长边不超过 3072px、质量 90 的 WebP 墙图和完整签名校准 JSON 直传私有 CloudBase Storage，再由 `segmentationPublish` 下载 JSON 并创建墙面；`web` 目标不会调用 CloudBase。这样 HTTP 网关只接收很小的 `payloadFileId` 请求，本地校准、Web 与 CloudBase 的岩点几何保持一致。`both` 模式下本地 FastAPI 发布与 CloudBase 同步互相独立，CloudBase 失败不会撤销本地发布，校准记录会保留每个目标的状态。密钥只能放在本机服务端环境变量中，切勿提交到版本库。

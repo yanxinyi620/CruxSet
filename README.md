@@ -80,7 +80,7 @@ Web 地址为 `http://localhost:5173`，实验台地址为 `http://127.0.0.1:876
 3. 将 Storage 设为私有；墙图由 `getWallImageUrl` 校验后提供短期地址。
 4. 两个 HTTP 路由均使用 `POST`、关闭网关身份认证，保持默认跨域和路径透传设置。
 
-在 `/etc/cruxset.env`（可用 `sudoedit /etc/cruxset.env`）配置：
+在 `/etc/cruxset.env`（可用 `sudoedit /etc/cruxset.env`）配置以下四项；启动脚本不会为两个 CloudBase HTTP 地址提供默认值：
 
 ```bash
 CRUXSET_CLOUDBASE_STORAGE_URL='https://<环境域名>/api/storage-upload'

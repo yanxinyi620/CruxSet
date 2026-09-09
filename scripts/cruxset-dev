@@ -32,8 +32,17 @@ if [[ -z "${CRUXSET_EDGE_SEGMENTATION_PUBLISH_KEY:-}" ]]; then
   value="$(read_env_value CRUXSET_EDGE_SEGMENTATION_PUBLISH_KEY)"
   [[ -n "$value" ]] && export CRUXSET_EDGE_SEGMENTATION_PUBLISH_KEY="$value"
 fi
-CLOUDBASE_STORAGE_URL="${CRUXSET_CLOUDBASE_STORAGE_URL:-https://cloud1-d0g8toggn7735e61e-1475845516.ap-shanghai.app.tcloudbase.com/api/storage-upload}"
-CLOUDBASE_FUNCTION_URL="${CRUXSET_CLOUDBASE_FUNCTION_URL:-https://cloud1-d0g8toggn7735e61e-1475845516.ap-shanghai.app.tcloudbase.com/api/segmentation-publish}"
+CLOUDBASE_STORAGE_URL="${CRUXSET_CLOUDBASE_STORAGE_URL:-}"
+CLOUDBASE_FUNCTION_URL="${CRUXSET_CLOUDBASE_FUNCTION_URL:-}"
+
+require_cloudbase_urls() {
+  CLOUDBASE_STORAGE_URL="${CRUXSET_CLOUDBASE_STORAGE_URL:-}"
+  CLOUDBASE_FUNCTION_URL="${CRUXSET_CLOUDBASE_FUNCTION_URL:-}"
+  [[ -n "$CLOUDBASE_STORAGE_URL" && -n "$CLOUDBASE_FUNCTION_URL" ]] || {
+    echo "请先在 $ENV_FILE 配置 CRUXSET_CLOUDBASE_STORAGE_URL 和 CRUXSET_CLOUDBASE_FUNCTION_URL。" >&2
+    return 1
+  }
+}
 
 usage() { echo "Usage: ${0##*/} {start|stop|restart|status}" >&2; }
 parse_args() { ACTION="${1:-}"; [[ $# == 1 && "$ACTION" =~ ^(start|stop|restart|status)$ ]] || { usage; return 2; }; }
@@ -65,6 +74,7 @@ start_one() {
 
 wait_port() { local port="$1" i; for i in {1..15}; do port_busy "$port" && return 0; sleep 1; done; return 1; }
 start_services() {
+  require_cloudbase_urls
   start_one api 8000 "$ROOT/server" env SESSION_COOKIE_SECURE=false CRUXSET_SEGMENTATION_PUBLISH_KEY="$PUBLISH_KEY" CRUXSET_SEGMENTATION_PUBLISH_OWNER_ID="$PUBLISH_OWNER_ID" PYTHONPATH=. uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
   wait_port 8000 || { stop_services; return 1; }
   start_one web 5173 "$ROOT" npm run web -- --host 0.0.0.0
