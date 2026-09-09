@@ -16,5 +16,6 @@
       "database_id": "REPLACE_AFTER_WRANGLER_D1_CREATE",
       "migrations_dir": "migrations"
     }
-  ]
+  ],
+  "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "cruxset-media" }]
 }

@@ -28,5 +28,6 @@
       "database_id": "f536b4b2-0b2f-4811-8351-3aeb9c3183d3",
       "migrations_dir": "migrations"
     }
-  ]
+  ],
+  "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "cruxset-media" }]
 }
