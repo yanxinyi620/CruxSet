@@ -68,6 +68,13 @@ export async function listAllPublicWalls(db: D1Database): Promise<unknown[]> {
   return items
 }
 
+export async function listAllWallsForAdmin(db: D1Database): Promise<unknown[]> {
+  const result = await db.prepare(`SELECT id, wall_number, name, description, image_path, image_width, image_height, geometry_type, angle_options_json, owner_id, visibility, published, created_at, updated_at FROM walls ORDER BY created_at DESC, id DESC`).all<Row>()
+  const items = (result.results ?? []).map((row) => ({ id: row.id, wallNumber: row.wall_number, name: row.name, description: row.description, imageFileId: row.image_path, displayImageFileId: row.image_path, imageWidth: row.image_width, imageHeight: row.image_height, geometryType: row.geometry_type, angleOptions: JSON.parse(String(row.angle_options_json)), ownerId: row.owner_id, visibility: row.visibility, published: Boolean(row.published), createdAt: row.created_at, updatedAt: row.updated_at, holds: [] as Array<Record<string, unknown>> }))
+  if (items.length) { const ids=items.map((x)=>String(x.id)); const qs=ids.map(()=>'?').join(','); const holds=await db.prepare(`SELECT wall_id,id,x,y,radius,kind,polygon_json FROM holds WHERE wall_id IN (${qs}) ORDER BY wall_id,id`).bind(...ids).all<Row>(); const byId=new Map(items.map((x)=>[String(x.id),x])); for(const h of holds.results??[]) byId.get(String(h.wall_id))?.holds.push({id:h.id,x:h.x,y:h.y,radius:h.radius,kind:h.kind,polygon:h.polygon_json?JSON.parse(String(h.polygon_json)):undefined}) }
+  return items
+}
+
 export async function listProblems(request: Request, db?: D1Database): Promise<Response> {
   if (!db) return apiError('SERVICE_UNAVAILABLE', 'Browse database is not configured', 503)
   const url = new URL(request.url)

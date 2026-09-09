@@ -1,5 +1,5 @@
 import { apiError } from './errors.js'
-import { listAllPublicWalls, listProblems, listWalls } from './browse.js'
+import { listAllPublicWalls, listAllWallsForAdmin, listProblems, listWalls } from './browse.js'
 
 export interface Env { ASSETS: Fetcher; DB?: D1Database; MEDIA?: R2Bucket }
 const cookie = 'cruxset_session'
@@ -106,7 +106,7 @@ const worker: ExportedHandler<Env> = { async fetch(request, env) {
     if (!env.DB) return apiError('NOT_FOUND','API endpoint not found',404)
     if (pathname === '/api/v1/healthz' && request.method === 'GET') return json(request, {status:'ok'})
     if (pathname === '/api/v1/bootstrap' && request.method === 'GET') { const walls = await listAllPublicWalls(env.DB); const problems = await listProblems(new Request(url.origin + '/api/v1/problems?limit=50'), env.DB); const p = problems.ok ? (await problems.json() as {problems: unknown[]}).problems : []; const user = await session(request, env.DB); return json(request, {user: user ? {id:user.id,email:user.email_normalized,displayName:displayName(user),isAdmin:user.role === 'admin'} : null, walls, problems:p, capabilities:{readOnly:false,writes:true,authentication:true,wallAuthoring:Boolean(user?.role==='admin'),imageUpload:Boolean(user?.role==='admin' && env.MEDIA),aiJobs:false}}) }
-    if (pathname === '/api/v1/walls' && request.method === 'GET') return listWalls(request, env.DB)
+    if (pathname === '/api/v1/walls' && request.method === 'GET') { const u=await session(request,env.DB); return u?.role==='admin' ? json(request,{walls:await listAllWallsForAdmin(env.DB)}) : listWalls(request, env.DB) }
     if (pathname === '/api/v1/problems' && request.method === 'GET') return listProblems(request, env.DB)
     if (pathname === '/api/v1/problems' && request.method === 'POST') { const u = await session(request, env.DB); return u ? createProblem(request, env.DB, u) : error(request, 'AUTH_REQUIRED', 'Authentication required', 401) }
     const problemMatch = pathname.match(/^\/api\/v1\/problems\/([^/]+)$/)
