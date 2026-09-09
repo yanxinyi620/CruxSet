@@ -87,7 +87,7 @@ export async function listProblems(request: Request, db?: D1Database): Promise<R
   if (wallId) { where += ' AND p.wall_id = ?'; values.push(wallId) }
   if (cursor) { where += ' AND (p.created_at < ? OR (p.created_at = ? AND p.id < ?))'; values.push(cursor.createdAt, cursor.createdAt, cursor.id) }
   values.push(limit + 1)
-  const result = await db.prepare(`SELECT p.id, p.number, p.wall_id, p.name, p.description, p.angle, p.grade, p.foot_rule, p.created_by, p.created_at, p.updated_at FROM problems p JOIN walls w ON w.id = p.wall_id AND w.visibility = 'public' AND w.published = 1 WHERE ${where} ORDER BY p.created_at DESC, p.id DESC LIMIT ?`).bind(...values).all<Row>()
+  const result = await db.prepare(`SELECT p.id, p.number, p.wall_id, p.name, p.description, p.angle, p.grade, p.foot_rule, p.created_by, p.created_at, p.updated_at, COALESCE(NULLIF(TRIM(u.display_name), ''), substr(a.email_normalized, 1, instr(a.email_normalized, '@') - 1)) AS setter_name FROM problems p JOIN walls w ON w.id = p.wall_id AND w.visibility = 'public' AND w.published = 1 JOIN users u ON u.id = p.created_by JOIN admins a ON a.user_id = p.created_by WHERE ${where} ORDER BY p.created_at DESC, p.id DESC LIMIT ?`).bind(...values).all<Row>()
   const rows: Array<Row & { holds: Record<string, string[]> }> = (result.results ?? []).map((row) => ({ ...row, holds: {} as Record<string, string[]> }))
   const hasMore = rows.length > limit
   const ids = rows.slice(0, limit).map((row) => String(row.id))
@@ -100,7 +100,7 @@ export async function listProblems(request: Request, db?: D1Database): Promise<R
       if (item && hold.role != null && hold.hold_id != null) (item.holds[String(hold.role)] ??= []).push(String(hold.hold_id))
     }
   }
-  const items = rows.slice(0, limit).map((row) => ({ id: row.id, number: row.number, wallId: row.wall_id, name: row.name, description: row.description, angle: row.angle, grade: row.grade, footRule: row.foot_rule, createdBy: row.created_by, createdAt: row.created_at, updatedAt: row.updated_at, holds: row.holds }))
+  const items = rows.slice(0, limit).map((row) => ({ id: row.id, number: row.number, wallId: row.wall_id, name: row.name, description: row.description, angle: row.angle, grade: row.grade, footRule: row.foot_rule, createdBy: row.created_by, setterName: row.setter_name, createdAt: row.created_at, updatedAt: row.updated_at, holds: row.holds }))
   const last = items.at(-1)
   return Response.json({ problems: items, nextCursor: hasMore && last ? encodeCursor(Number(last.createdAt), String(last.id)) : null }, { headers: publicHeaders })
 }
