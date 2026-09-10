@@ -1,4 +1,4 @@
-# Cloudflare Edge 部署
+# c
 
 Cloudflare Web 是 CruxSet 的第三种 Web 运行形态：它由 Workers 提供 API，并以同一份 `web/dist` 提供前端资源。它使用独立的 D1 和 R2 数据；这些数据不会与本地 Web 的 SQLite/本地媒体，或小程序的 CloudBase 数据库与 Storage 自动同步。Cloudflare Tunnel 只把本地 Web 暴露到公网，并不是此部署方式的一部分，也不把本地 FastAPI 或 SQLite 迁移到 Workers。
 
