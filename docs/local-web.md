@@ -38,6 +38,8 @@ PYTHONPATH=. uv run python scripts/create_local_admin.py admin@example.com
 
 每次 `start` 与 `restart` 都会重新安装依赖、构建前端、更新 Caddy 与 systemd 配置后再启动 Quick Tunnel，但不会启用 WSL 启动自动运行。
 
+会话 Cookie 的 Secure 属性由启动方式固定：`cruxset-dev` 使用 `SESSION_COOKIE_SECURE=false`，适用于本地 HTTP 开发；`cruxset-web` 使用 `SESSION_COOKIE_SECURE=true`，适用于 Tunnel 的 HTTPS 入口。`/etc/cruxset.env` 无需配置此参数。
+
 `cruxset-web` 只启动 Caddy、FastAPI 和 Quick Tunnel，不启动分割实验台；分割实验台由 `cruxset-dev` 单独管理。每次 `start` 或 `restart` 获取新的 Quick Tunnel 地址后，脚本会尝试更新并推送独立仓库 `/home/yanxi/code/project/cruxset-live-url` 的 `latest.json`（可用 `LIVE_URL_REPO` 指定其他路径）。目标目录必须是有效 Git 仓库且已有 `latest.json`；提交或推送失败不会阻止本地服务启动。
 
 该仓库的 `main` 分支通过 GitHub Pages 自动部署。访问 [cruxset-live-url](https://yanxinyi620.github.io/cruxset-live-url/) 时，页面读取最新的 `latest.json`，校验后自动跳转到当前随机的 `trycloudflare.com` 地址；GitHub Pages 的部署和缓存传播可能需要几十秒到几分钟。
