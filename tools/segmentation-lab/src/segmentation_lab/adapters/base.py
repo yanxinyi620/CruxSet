@@ -1,5 +1,10 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import Callable, Literal, Protocol
+from typing import TYPE_CHECKING, Callable, Literal, Protocol
+
+if TYPE_CHECKING:
+    from ..candidates import CompactCandidate
 
 import numpy as np
 
@@ -30,8 +35,8 @@ class AdapterMask:
 
 
 class SegmentationAdapter(Protocol):
-    name: Literal["sam2", "sam3"]
+    name: Literal["sam2", "sam2_tiled", "sam3"]
 
     def available(self) -> ModelAvailability: ...
 
-    def generate(self, request: GenerateRequest, progress: ProgressCallback) -> list[AdapterMask]: ...
+    def generate(self, request: GenerateRequest, progress: ProgressCallback) -> list[AdapterMask] | list[CompactCandidate]: ...

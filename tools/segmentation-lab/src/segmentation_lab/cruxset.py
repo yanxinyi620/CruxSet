@@ -3,7 +3,7 @@ import hmac
 import hashlib
 from io import BytesIO
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 from PIL import Image
@@ -12,10 +12,13 @@ from .errors import SegmentationLabError
 
 
 class CruxSetPublisher:
-    def __init__(self, base_url: str, publish_key: str, transport: httpx.AsyncBaseTransport | None = None) -> None:
+    def __init__(self, base_url: str, publish_key: str, transport: httpx.AsyncBaseTransport | None = None, *, auth_mode: Literal["bearer", "hmac"] = "bearer") -> None:
         self.base_url = base_url.rstrip("/")
         self.publish_key = publish_key
         self.transport = transport
+        if auth_mode not in {"bearer", "hmac"}:
+            raise ValueError("Unsupported publishing authentication mode")
+        self.auth_mode = auth_mode
 
     async def publish(self, image: bytes, filename: str, metadata: dict[str, Any]) -> dict[str, Any]:
         with Image.open(BytesIO(image)) as source:
@@ -24,11 +27,15 @@ class CruxSetPublisher:
             source.convert("RGB").save(display, format="WEBP", quality=90, method=6)
         content_type = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp"}.get(Path(filename).suffix.lower(), "image/png")
         payload = json.dumps(metadata, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        headers = (
+            {"X-CruxSet-Signature": hmac.new(self.publish_key.encode(), payload.encode(), hashlib.sha256).hexdigest()}
+            if self.auth_mode == "hmac" else {"Authorization": f"Bearer {self.publish_key}"}
+        )
         try:
             async with httpx.AsyncClient(transport=self.transport, timeout=60) as client:
                 response = await client.post(
                     f"{self.base_url}/api/v1/admin/segmentation-walls",
-                    headers={"X-CruxSet-Signature": hmac.new(self.publish_key.encode(), payload.encode(), hashlib.sha256).hexdigest()},
+                    headers=headers,
                     files={"image": (Path(filename).name, image, content_type), "display_image": (f"{Path(filename).stem}-display.webp", display.getvalue(), "image/webp")},
                     data={"metadata": payload},
                 )

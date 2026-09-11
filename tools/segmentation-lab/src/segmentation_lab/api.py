@@ -211,7 +211,7 @@ def create_app(settings: Settings, adapters: Mapping[str, SegmentationAdapter] |
         cloud_error: dict[str, object] | None = None
         if target == "cloudflare":
             try:
-                cloud_result = await CruxSetPublisher(settings.edge_segmentation_url, settings.edge_segmentation_publish_key).publish(image, str(experiment["imageName"]), metadata)
+                cloud_result = await CruxSetPublisher(settings.edge_segmentation_url, settings.edge_segmentation_publish_key, auth_mode="hmac").publish(image, str(experiment["imageName"]), metadata)
             except Exception as error:
                 raise SegmentationLabError("cloudflare_publish_failed", str(error), True) from error
         if target == "cloudbase":
