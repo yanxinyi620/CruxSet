@@ -8,7 +8,13 @@ export async function publishCalibration(
   owner: string,
   wallName: string,
 ) {
-  if (c.publish) return json(JSON.parse(c.publish))
+  if (c.publish) {
+    const receipt = JSON.parse(c.publish)
+    const wall = await env.DB.prepare("UPDATE walls SET published=1,visibility='public',updated_at=? WHERE id=? AND owner_id=? RETURNING id")
+      .bind(Date.now(),receipt.wallId,owner).first()
+    if (!wall) fail('NOT_FOUND','已发布墙面已删除，请保存新的校准后发布。',404)
+    return json(receipt)
+  }
   const name = wallName.trim()
   if (!name || name.length > 120)
     fail('INVALID_INPUT', '墙面名称须为 1–120 字。')
@@ -65,6 +71,7 @@ export async function publishCalibration(
       id,
     )
   })
+  try {
   await env.DB.batch([
     env.DB.prepare(
       `INSERT OR IGNORE INTO walls (id,wall_number,name,description,image_path,image_width,image_height,geometry_type,angle_options_json,owner_id,visibility,published,created_at,updated_at)
@@ -87,6 +94,12 @@ export async function publishCalibration(
       'UPDATE lab_calibrations SET publish=? WHERE id=? AND publish IS NULL AND deleted_at IS NULL AND EXISTS (SELECT 1 FROM walls WHERE id=?)',
     ).bind(JSON.stringify(result), c.id, id),
   ])
+  } catch (error) {
+    // A failed transaction cannot have published this new wall. Preserve a concurrent successful publication.
+    const existing = await env.DB.prepare('SELECT id FROM walls WHERE id=?').bind(id).first()
+    if (!existing) await env.MEDIA.delete(media)
+    throw error
+  }
   const saved = await env.DB.prepare(
     'SELECT publish FROM lab_calibrations WHERE id=?',
   )

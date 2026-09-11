@@ -43,3 +43,13 @@ it('requires explicit backend capabilities in local mode too', () => {
   expect(webAccess({...admin,isAdmin:false}, {...cloud,segmentationLab:true}, true).segmentationLab).toBe(true)
   expect(webAccess(admin, {...cloud,segmentationLab:false}, true).segmentationLab).toBe(false)
 })
+
+it('allows own-wall management independently of lab access and wall authoring', () => {
+  const user={id:'creator',email:'creator@example.com',isAdmin:false}
+  const access=webAccess(user,{...cloud,manageOwnWalls:true,segmentationLab:false})
+  expect(access.manageOwnWalls).toBe(true)
+  expect(access.wallAuthoring).toBe(false)
+  expect(access.segmentationLab).toBe(false)
+  expect(webAccess(null,{...cloud,manageOwnWalls:true}).manageOwnWalls).toBe(false)
+  expect(webAccess(user,cloud).manageOwnWalls).toBe(false)
+})

@@ -1,3 +1,4 @@
+import { labUsage, quotaError } from './quotas.js'
 import { canUseLab } from '../lab-access.js'
 import {
   BASE,
@@ -152,6 +153,7 @@ export async function handleLab(
           .bind(user.id)
           .all<Row>()
       return json({
+        usage: await labUsage(ready, user),
         items: es.results.map((e) => ({
           id: e.id,
           image: { name: e.name, width: e.width, height: e.height },
@@ -364,6 +366,8 @@ export async function handleLab(
     }
     return fail('NOT_FOUND', '接口不存在。', 404)
   } catch (error) {
+    const quota = quotaError(error)
+    if (quota) return json({ error: quota, ...quota, retryable: false }, 429)
     if (error instanceof LabError)
       return json(
         {

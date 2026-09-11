@@ -37,7 +37,8 @@ describe('online business API', () => {
   })
   it('returns complete public bootstrap with capabilities and hides private walls', async () => {
     const {sqlite,call} = setup()
-    sqlite.exec("INSERT INTO users VALUES ('u','Setter',1,1)")
+    // Administrator fixtures can exceed creator quotas to exercise full-list pagination.
+    sqlite.exec("INSERT INTO users VALUES ('u','Setter',1,1); INSERT INTO admins(user_id,role,created_at,updated_at) VALUES ('u','admin',1,1)")
     for(let i=0;i<55;i++) sqlite.prepare('INSERT INTO walls VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)').run('w'+i,i+1,'Wall','','wall-images/a.webp',100,100,'circle','[20]','u',i===54?'private':'public',i===54?0:1,i,i)
     const body = await (await call('/bootstrap')).json() as any
     expect(body.walls).toHaveLength(54)

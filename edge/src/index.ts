@@ -1,3 +1,4 @@
+import { quotaError } from './lab/quotas.js'
 import { canUseLab, adminUserView, updateLabAccess } from './lab-access.js'
 import { apiError } from './errors.js'
 import { handleLab, sweep } from './lab/index.js'
@@ -27,7 +28,27 @@ async function createWall(request: Request, db: D1Database, user: Record<string,
 async function wallPayload(db: D1Database, wallId: string) { const row=await db.prepare('SELECT id,wall_number,name,description,image_path,image_width,image_height,geometry_type,angle_options_json,owner_id,visibility,published,created_at,updated_at FROM walls WHERE id=?').bind(wallId).first() as Record<string,unknown>; const hs=await db.prepare('SELECT id,x,y,radius,kind,polygon_json FROM holds WHERE wall_id=? ORDER BY id').bind(wallId).all(); return { id:row.id, wallNumber:row.wall_number, name:row.name, description:row.description, imageFileId:row.image_path, imageWidth:row.image_width, imageHeight:row.image_height, geometryType:row.geometry_type, angleOptions:JSON.parse(String(row.angle_options_json)), ownerId:row.owner_id, visibility:row.visibility, published:Boolean(row.published), createdAt:row.created_at, updatedAt:row.updated_at, holds:(hs.results??[]).map((h:any)=>({id:h.id,x:h.x,y:h.y,radius:h.radius,kind:h.kind,polygon:h.polygon_json?JSON.parse(String(h.polygon_json)):undefined})) } }
 async function saveHolds(request: Request, db: D1Database, user: Record<string, unknown>, wallId: string) { const wall=await db.prepare('SELECT published FROM walls WHERE id=? AND owner_id=?').bind(wallId,user.id).first() as Record<string,unknown>|null; if (!wall) return error(request,'NOT_FOUND','Wall not found',404); if (Number(wall.published)) return error(request,'WALL_LOCKED','Published wall geometry is locked',409); const body=await request.json() as {holds?:Array<Record<string,unknown>>}; const holds=body.holds??[]; await db.batch([db.prepare('DELETE FROM holds WHERE wall_id=?').bind(wallId), ...holds.map((h,i)=>db.prepare('INSERT INTO holds (wall_id,id,x,y,radius,kind,polygon_json) VALUES (?,?,?,?,?,?,?)').bind(wallId,String(h.id??`hold_${i+1}`),Number(h.x),Number(h.y),Number(h.radius),String(h.kind??'hold'),h.polygon?JSON.stringify(h.polygon):null))]); return json(request,{wall:await wallPayload(db,wallId)}) }
 async function publishWall(request: Request, db: D1Database, user: Record<string, unknown>, wallId: string) { const wall=await db.prepare('SELECT published FROM walls WHERE id=? AND owner_id=?').bind(wallId,user.id).first() as Record<string,unknown>|null; if (!wall) return error(request,'NOT_FOUND','Wall not found',404); const count=await db.prepare('SELECT COUNT(*) AS n FROM holds WHERE wall_id=?').bind(wallId).first() as {n?:number}; if (Number(count?.n??0)<2) return error(request,'WALL_NOT_ROUTABLE','Published wall requires at least two holds',409); await db.prepare("UPDATE walls SET published=1,visibility='public',updated_at=? WHERE id=?").bind(Date.now(),wallId).run(); return json(request,{wall:await wallPayload(db,wallId)}) }
-async function deleteWall(request: Request, db: D1Database, env: Env, user: Record<string, unknown>, wallId: string) { const wall=await db.prepare('SELECT image_path FROM walls WHERE id=? AND owner_id=?').bind(wallId,user.id).first() as Record<string,unknown>|null; if (!wall) return error(request,'NOT_FOUND','Wall not found',404); await db.batch([db.prepare('DELETE FROM problem_holds WHERE wall_id=?').bind(wallId),db.prepare('DELETE FROM problems WHERE wall_id=?').bind(wallId),db.prepare('DELETE FROM holds WHERE wall_id=?').bind(wallId),db.prepare('DELETE FROM walls WHERE id=?').bind(wallId)]); if (env.MEDIA && wall.image_path) await env.MEDIA.delete(String(wall.image_path).split('/').pop()!); return json(request,{ok:true}) }
+async function deleteWall(request: Request, db: D1Database, env: Env, user: Record<string, unknown>, wallId: string) {
+  const wall = await db.prepare('SELECT image_path FROM walls WHERE id=? AND owner_id=?').bind(wallId,user.id).first() as Record<string,unknown>|null
+  if (!wall) return error(request,'NOT_FOUND','Wall not found',404)
+  const media = String(wall.image_path ?? '').split('/').pop()!
+  const cleanup = media.startsWith('media_') ? [db.prepare(
+    "INSERT OR IGNORE INTO lab_gc(prefix,created_at) SELECT ?,? WHERE NOT EXISTS(SELECT 1 FROM walls WHERE image_path IN (?,?))",
+  ).bind(media,Date.now(),media,`/api/v1/media/${media}`)] : []
+  await db.batch([
+    db.prepare('DELETE FROM problem_holds WHERE wall_id=?').bind(wallId),
+    db.prepare('DELETE FROM problems WHERE wall_id=?').bind(wallId),
+    db.prepare('DELETE FROM holds WHERE wall_id=?').bind(wallId),
+    db.prepare('DELETE FROM segmentation_publishes WHERE wall_id=?').bind(wallId),
+    db.prepare('DELETE FROM walls WHERE id=?').bind(wallId),
+    ...cleanup,
+  ])
+  if (env.MEDIA && cleanup.length && await db.prepare('SELECT prefix FROM lab_gc WHERE prefix=?').bind(media).first()) {
+    try { await env.MEDIA.delete(media) }
+    catch { /* The scheduled sweep retries this durable cleanup entry. */ }
+  }
+  return json(request,{ok:true})
+}
 const hex = (bytes: ArrayBuffer) => [...new Uint8Array(bytes)].map(x=>x.toString(16).padStart(2,'0')).join('')
 async function segmentationPublish(request: Request, env: Env) { if(!env.DB||!env.MEDIA||!env.SEGMENTATION_PUBLISH_KEY) return error(request,'FORBIDDEN','Invalid publish credentials',403); const form=await request.formData(), image=form.get('display_image'), metadata=form.get('metadata'); if(!(image instanceof File)||image.type!=='image/webp'||typeof metadata!=='string') return error(request,'INVALID_INPUT','WebP image and metadata required',422); const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(env.SEGMENTATION_PUBLISH_KEY),{name:'HMAC',hash:'SHA-256'},false,['sign']); if(request.headers.get('X-CruxSet-Signature')!==hex(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(metadata)))) return error(request,'FORBIDDEN','Invalid publish signature',403); const m=JSON.parse(metadata) as any, prior=await env.DB.prepare('SELECT wall_id FROM segmentation_publishes WHERE request_id=?').bind(String(m.publishRequestId)).first() as any; if(prior) return json(request,{wallId:prior.wall_id,status:'succeeded'}); const admin=await env.DB.prepare("SELECT user_id FROM admins WHERE role='admin' LIMIT 1").first() as any; if(!admin) return error(request,'SERVICE_UNAVAILABLE','No administrator configured',503); const media=`media_${crypto.randomUUID()}.webp`, wall=`wall_${crypto.randomUUID()}`, now=Date.now(); await env.MEDIA.put(media,image.stream(),{httpMetadata:{contentType:'image/webp',cacheControl:'public,max-age=31536000,immutable'}}); try { const number=await env.DB.prepare('SELECT COALESCE(MAX(wall_number),0)+1 n FROM walls').first() as any, holds=(m.holds??[]).map((h:any,i:number)=>{const p=h.polygon.map((q:number[])=>[q[0]/m.imageWidth,q[1]/m.imageHeight]), xs=p.map((q:number[])=>q[0]),ys=p.map((q:number[])=>q[1]); return env.DB!.prepare('INSERT INTO holds (wall_id,id,x,y,radius,kind,polygon_json) VALUES (?,?,?,?,?,?,?)').bind(wall,`H${String(i+1).padStart(3,'0')}`,(Math.min(...xs)+Math.max(...xs))/2,(Math.min(...ys)+Math.max(...ys))/2,Math.max(Math.max(...xs)-Math.min(...xs),Math.max(...ys)-Math.min(...ys))/2,h.kind??'hold',JSON.stringify(p))}); await env.DB.batch([env.DB.prepare('INSERT INTO walls VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(wall,number.n,String(m.wallName),'',`/api/v1/media/${media}`,m.imageWidth,m.imageHeight,'polygon',JSON.stringify([20,25,30,35,40,45]),admin.user_id,'public',1,now,now),...holds,env.DB.prepare('INSERT INTO segmentation_publishes VALUES (?,?,?)').bind(m.publishRequestId,wall,now)]); return json(request,{wallId:wall,status:'succeeded'},{status:201}) } catch(e){await env.MEDIA.delete(media); throw e} }
 async function digest(value: string) { const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)); return [...new Uint8Array(bytes)].map((b) => b.toString(16).padStart(2, '0')).join('') }
@@ -109,6 +130,7 @@ async function register(request: Request, db: D1Database, env: Env) {
   return json(request, { user: { id, email, displayName: email.split('@')[0], isAdmin: false, labEnabled: false } }, { status: 200, headers: { 'Set-Cookie': `${cookie}=${token}; Max-Age=28800; Path=/; Secure; HttpOnly; SameSite=Lax` } })
 }
 const worker: ExportedHandler<Env> = { async fetch(request, env) {
+  try {
   const url = new URL(request.url), pathname = url.pathname
   if (pathname.startsWith('/api/v1/')) {
     if (request.headers.get('Origin') && request.headers.get('Origin') !== url.origin && !allowedOrigins.has(request.headers.get('Origin')!)) return apiError('FORBIDDEN','Origin not allowed',403)
@@ -116,7 +138,7 @@ const worker: ExportedHandler<Env> = { async fetch(request, env) {
     if (!env.DB) return pathname === '/api/v1/bootstrap' ? apiError('SERVICE_UNAVAILABLE','Browse database is not configured',503) : apiError('NOT_FOUND','API endpoint not found',404)
     if (pathname.startsWith('/api/v1/segmentation-lab/')) return handleLab(request,env,pathname.includes('/segmentation-lab/runner/') ? null : await session(request,env.DB))
     if (pathname === '/api/v1/healthz' && request.method === 'GET') return json(request, {status:'ok'})
-    if (pathname === '/api/v1/bootstrap' && request.method === 'GET') { const walls = await listAllPublicWalls(env.DB); const problems = await listProblems(new Request(url.origin + '/api/v1/problems?limit=50'), env.DB); const p = problems.ok ? (await problems.json() as {problems: unknown[]}).problems : []; const user = await session(request, env.DB); return json(request, {user: user ? {id:user.id,email:user.email_normalized,displayName:displayName(user),isAdmin:user.role === 'admin',labEnabled:user.lab_enabled===1} : null, walls, problems:p, capabilities:{readOnly:false,writes:true,authentication:true,wallAuthoring:Boolean(user?.role==='admin'),imageUpload:Boolean(user?.role==='admin' && env.MEDIA),aiJobs:false,segmentationLab:Boolean(canUseLab(user) && env.MEDIA),manageLabAccess:user?.role==='admin'}},{headers:{'Cache-Control':'no-store'}}) }
+    if (pathname === '/api/v1/bootstrap' && request.method === 'GET') { const walls = await listAllPublicWalls(env.DB); const problems = await listProblems(new Request(url.origin + '/api/v1/problems?limit=50'), env.DB); const p = problems.ok ? (await problems.json() as {problems: unknown[]}).problems : []; const user = await session(request, env.DB); return json(request, {user: user ? {id:user.id,email:user.email_normalized,displayName:displayName(user),isAdmin:user.role === 'admin',labEnabled:user.lab_enabled===1} : null, walls, problems:p, capabilities:{readOnly:false,writes:true,authentication:true,wallAuthoring:Boolean(user?.role==='admin'),imageUpload:Boolean(user?.role==='admin' && env.MEDIA),aiJobs:false,segmentationLab:Boolean(canUseLab(user) && env.MEDIA),manageLabAccess:user?.role==='admin',manageOwnWalls:Boolean(user)}},{headers:{'Cache-Control':'no-store'}}) }
     if (pathname === '/api/v1/walls' && request.method === 'GET') { const u=await session(request,env.DB); return u?.role==='admin' ? json(request,{walls:await listAllWallsForAdmin(env.DB)},{headers:{'Cache-Control':'no-store'}}) : listWalls(request, env.DB) }
     if (pathname === '/api/v1/problems' && request.method === 'GET') return listProblems(request, env.DB)
     if (pathname === '/api/v1/problems' && request.method === 'POST') { const u = await session(request, env.DB); return u ? createProblem(request, env.DB, u) : error(request, 'AUTH_REQUIRED', 'Authentication required', 401) }
@@ -147,9 +169,9 @@ const worker: ExportedHandler<Env> = { async fetch(request, env) {
     const holdsMatch = pathname.match(/^\/api\/v1\/walls\/([^/]+)\/holds$/)
     if (holdsMatch && request.method === 'PUT') { const u=await session(request,env.DB); return u?.role==='admin' ? saveHolds(request,env.DB,u,decodeURIComponent(holdsMatch[1])) : error(request,'FORBIDDEN','Administrator access required',403) }
     const publishMatch = pathname.match(/^\/api\/v1\/walls\/([^/]+)\/publish$/)
-    if (publishMatch && request.method === 'POST') { const u=await session(request,env.DB); return u?.role==='admin' ? publishWall(request,env.DB,u,decodeURIComponent(publishMatch[1])) : error(request,'FORBIDDEN','Administrator access required',403) }
+    if (publishMatch && request.method === 'POST') { const u=await session(request,env.DB); return u?.role==='admin' ? await publishWall(request,env.DB,u,decodeURIComponent(publishMatch[1])) : error(request,'FORBIDDEN','Administrator access required',403) }
     const deleteWallMatch = pathname.match(/^\/api\/v1\/walls\/([^/]+)$/)
-    if (deleteWallMatch && request.method === 'DELETE') { const u=await session(request,env.DB); return u?.role==='admin' ? deleteWall(request,env.DB,env,u,decodeURIComponent(deleteWallMatch[1])) : error(request,'FORBIDDEN','Administrator access required',403) }
+    if (deleteWallMatch && request.method === 'DELETE') { const u=await session(request,env.DB); return u ? await deleteWall(request,env.DB,env,u,decodeURIComponent(deleteWallMatch[1])) : error(request,'AUTH_REQUIRED','Authentication required',401) }
     return apiError('NOT_FOUND','API endpoint not found',404)
   }
   if (pathname === '/segmentation-lab') return Response.redirect(url.origin+'/segmentation-lab/',302)
@@ -158,5 +180,10 @@ const worker: ExportedHandler<Env> = { async fetch(request, env) {
     return env.ASSETS.fetch(new Request(assetUrl,request))
   }
   return env.ASSETS.fetch(request)
+  } catch (cause) {
+    const quota = quotaError(cause)
+    if (quota) return error(request,quota.code,quota.message,429)
+    throw cause
+  }
 }, async scheduled(_event,env,ctx) { if(env.DB&&env.MEDIA)ctx.waitUntil(sweep({...env,DB:env.DB,MEDIA:env.MEDIA})) } }
 export default worker

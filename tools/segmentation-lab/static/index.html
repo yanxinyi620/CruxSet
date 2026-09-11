@@ -103,6 +103,7 @@
       outline: 2px solid #23877f;
       outline-offset: 3px;
     }
+    .wall-management-action { padding: 9px 12px; border: 1px solid var(--i); background: var(--c); color: var(--i); font: 14px var(--font-sans); text-decoration: none; }
     .calibrate-action { background: #c8dfd9; border-color: #98beb5; color: #2f5d55; font-weight: 700; }
     .table {
       width: 100%;
@@ -231,6 +232,7 @@
           <button id="resetCrop" style="display:none">重选边框</button>
           <button id="upload" class="upload-action" disabled>导入墙图</button>
         </div>
+        <p id="quotaUsage" class="sub" hidden></p>
         <p id="previewHint" role="status" aria-live="polite">选择 JPG 或 PNG 后，在这里确认预览。</p>
         <p id="cropHint" style="display:none">点击图片添加角点，拖动圆点微调；选择多个角点勾勒墙面轮廓（至少3个）。</p>
         <img id="preview" alt="墙图预览" />
@@ -282,10 +284,11 @@
           <h2>人工校准</h2>
         </div>
         <p>选择分割结果后在独立工作台进行删除、补点和保存。</p>
-        <p>
+        <p class="row">
           <a id="calibrationLink" href="/calibrations"
             ><button class="calibrate-action">选择分割结果并开始校准</button></a
           >
+          <a id="myWallsLink" class="wall-management-action" href="/me?panel=my-walls" target="_blank" rel="noopener" hidden>管理我的墙面 ↗</a>
         </p>
         <table class="table">
           <thead>
@@ -406,6 +409,12 @@
         let d = await (await Lab.request("/experiments")).json(),
           all = d.items;
         $("#count").textContent = `已导入 ${all.length} 张`;
+        if (isCloud && d.usage?.limits) {
+          const u=d.usage.used, q=d.usage.limits;
+          $("#quotaUsage").hidden=false;
+          $("#quotaUsage").textContent=`图片 ${u.images}/${q.images} · 保留任务 ${u.tasks}/${q.tasks} · 今日任务 ${u.dailyTasks}/${q.dailyTasks} · 公开墙面 ${u.publicWalls}/${q.publicWalls}。最多同时排队或运行 2 个任务；每日次数按北京时间零点重置，删除不退回当天次数。`;
+        }
+        $("#myWallsLink").hidden = !isCloud;
         $("#images").innerHTML =
           all
             .map(

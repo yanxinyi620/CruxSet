@@ -778,16 +778,14 @@ const render = async () => {
         }).join("") || '<p class="admin-empty">暂无用户。</p>';
         return `${back}<div class="editor-head"><h1>管理中心</h1><p class="lead">查看全站墙面和用户。</p></div>${managementError ? `<p class="editor-toast">${h(managementError)}</p>` : ""}<div class="admin-tabs" role="tablist"><button role="tab" aria-selected="${adminTab === "walls"}" class="${adminTab === "walls" ? "active" : ""}" data-admin-tab="walls">墙面 ${adminWalls.length}</button><button role="tab" aria-selected="${adminTab === "users"}" class="${adminTab === "users" ? "active" : ""}" data-admin-tab="users">用户 ${adminUsers.length}</button></div>${adminLoading ? '<p class="admin-empty">正在加载…</p>' : adminTab === "walls" ? `<div class="admin-list">${wallCards}</div>` : `<div class="admin-list">${userCards}</div>`}`;
       })();
-  // Wall management is temporarily administrator-only while wall uploads are restricted.
-  // Keep the guarded panel branch so stale links fall back to the personal home view.
-  const myWallManagementEntry = isAdmin ? `<button class="hub-card walls" data-panel="my-walls"><i>▧</i><span><b>我的墙面</b><em>已创建 ${mine.length} 面墙</em></span><strong>›</strong></button>` : "";
+  const myWallManagementEntry = access().manageOwnWalls ? `<button class="hub-card walls" data-panel="my-walls"><i>▧</i><span><b>我的墙面</b><em>已创建 ${mine.length} 面墙</em></span><strong>›</strong></button>` : "";
   const me =
     panel === "admin-management"
       ? adminManagement
       : panel === "profile"
       ? `${back}<div class="profile-card"><small>个人资料</small><div class="profile-name-row"><h1>${h(profileName || profileEmail.split("@", 1)[0] || "用户")}</h1><button data-save-profile>修改</button></div><p>${h(profileEmail)}</p></div><button class="profile-logout" data-logout>退出登录</button>`
-      : panel === "my-walls" && isAdmin
-      ? `${back}<h1>我的墙面</h1>${managementError ? `<p class="editor-toast">${h(managementError)}</p>` : ""}${cards}`
+      : panel === "my-walls" && access().manageOwnWalls
+      ? `${back}<h1>我的墙面</h1>${managementError ? `<p class="editor-toast">${h(managementError)}</p>` : ""}${cards || '<p class="lead">暂无自己创建的墙面。</p>'}`
       : panel === "my-problems"
         ? `${back}<h1>我的线路</h1>${managementError ? `<p class="editor-toast">${h(managementError)}</p>` : ""}${groups}`
         : `<div class="editor-head"><h1>我的</h1><p class="lead">管理你的资料、墙面与线路。</p></div><button class="hub-card profile" data-panel="profile"><i>◎</i><span><b>个人资料</b><em>${h(profileEmail)}</em></span><strong>›</strong></button>${myWallManagementEntry}<button class="hub-card problems" data-panel="my-problems"><i>◇</i><span><b>我的线路</b><em>共 ${myProblems.length} 条线路</em></span><strong>›</strong></button>${isAdmin ? `<button class="hub-card admin-management" data-panel="admin-management"><i>▦</i><span><b>管理中心</b><em>墙面与用户管理</em></span><strong>›</strong></button>` : ""}`;

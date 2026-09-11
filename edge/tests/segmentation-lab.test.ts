@@ -584,3 +584,127 @@ describe('cloud segmentation lab', () => {
     ])
   })
 })
+
+describe('creator quotas', () => {
+  async function creator() {
+    const f = await fixture()
+    f.sqlite.exec("UPDATE admins SET role='user',lab_enabled=1 WHERE user_id='admin'")
+    return f
+  }
+  it('limits retained images and releases capacity after deletion', async () => {
+    const f = await creator()
+    const images = []
+    for (let i=0;i<10;i++) images.push(await f.upload())
+    const count = f.objects.size
+    const form = new FormData()
+    form.set('image',new File([f.objects.values().next().value!.bytes],'extra.png',{type:'image/png'}))
+    const rejected = await f.call('/experiments',{method:'POST',body:form})
+    expect(rejected.status).toBe(429)
+    expect(f.objects.size).toBe(count)
+    await f.call(`/experiments/${images[0].id}`,{method:'DELETE'})
+    await f.upload()
+  })
+  it('keeps daily usage when tasks are deleted and resets at Beijing midnight', async () => {
+    const f = await creator(), e = await f.upload()
+    f.sqlite.exec('UPDATE sessions SET expires_at=9999999999999')
+    const now = Date.UTC(2026,8,11,15,59)
+    const clock = vi.spyOn(Date,'now').mockReturnValue(now)
+    try {
+      for(let i=0;i<20;i++) {
+        const response = await f.post(`/experiments/${e.id}/runs`,{})
+        expect(response.status).toBe(202)
+        const task:any = await response.json()
+        await f.call(`/experiments/${e.id}/runs/${task.taskId}`,{method:'DELETE'})
+      }
+      expect((await f.post(`/experiments/${e.id}/runs`,{})).status).toBe(429)
+      clock.mockReturnValue(Date.UTC(2026,8,11,16,0))
+      expect((await f.post(`/experiments/${e.id}/runs`,{})).status).toBe(202)
+    } finally {clock.mockRestore()}
+  })
+  it('limits retained tasks independently of daily usage and preserves two active slots', async () => {
+    const f = await creator(), e = await f.upload()
+    for(let i=0;i<20;i++) {
+      const response = await f.post(`/experiments/${e.id}/runs`,{})
+      expect(response.status).toBe(202)
+      f.sqlite.exec("UPDATE lab_tasks SET status='succeeded'")
+    }
+    // Move the day ledger away to isolate the retained-task quota.
+    f.sqlite.exec("UPDATE lab_daily_usage SET day='2000-01-01'")
+    const rejected = await f.post(`/experiments/${e.id}/runs`,{})
+    expect(rejected.status).toBe(429)
+    expect(await rejected.json()).toMatchObject({code:'LAB_TASK_QUOTA'})
+    const task = f.sqlite.prepare('SELECT id FROM lab_tasks LIMIT 1').get() as any
+    await f.call(`/experiments/${e.id}/runs/${task.id}`,{method:'DELETE'})
+    expect((await f.post(`/experiments/${e.id}/runs`,{})).status).toBe(202)
+    await f.call(`/experiments/${e.id}`,{method:'DELETE'})
+    const fresh = await f.upload()
+    const results = await Promise.all([1,2,3].map(()=>f.post(`/experiments/${fresh.id}/runs`,{})))
+    expect(results.map(r=>r.status).sort()).toEqual([202,202,429])
+  })
+
+  it('limits public walls and lets the owner delete walls with their routes and media', async () => {
+    const f = await creator(), e = await f.upload()
+    const items = [{id:'h1',kind:'hold',polygon:[[0,0],[1,0],[1,1]],score:1,area:0.5,bbox:{x1:0,y1:0,x2:1,y2:1}}]
+    for(let i=0;i<11;i++) {
+      f.sqlite.prepare("INSERT INTO lab_calibrations(id,experiment_id,candidates_key,display_key,candidate_count,changes,created_at) VALUES(?,?,?,?,1,'{}',1)").run('c'+i,e.id,'candidates'+i,'display'+i)
+      f.objects.set('candidates'+i,{bytes:new TextEncoder().encode(JSON.stringify({items})),type:'application/json'})
+      f.objects.set('display'+i,{bytes:new Uint8Array([1]),type:'image/webp'})
+    }
+    const responses = await Promise.all(Array.from({length:11},(_,i)=>f.post(`/experiments/${e.id}/calibrations/c${i}/publish`,{})))
+    expect(responses.filter(r=>r.status===201)).toHaveLength(10)
+    expect(responses.filter(r=>r.status===429)).toHaveLength(1)
+    expect([...f.objects.keys()].filter(k=>k.startsWith('media_lab_'))).toHaveLength(10)
+    const wall:any = f.sqlite.prepare('SELECT id FROM walls LIMIT 1').get()
+    const usage:any = await (await f.call('/experiments')).json()
+    expect(usage.usage.used.publicWalls).toBe(10)
+    await f.addAccount('other')
+    f.sqlite.exec("UPDATE admins SET lab_enabled=1 WHERE user_id='other'")
+    expect((await f.apiCall(`/walls/${wall.id}`,'DELETE',undefined,'other')).status).toBe(404)
+    expect((await f.apiCall(`/walls/${wall.id}`,'DELETE',undefined,'')).status).toBe(401)
+    expect((await f.apiCall(`/walls/${wall.id}`,'DELETE',undefined,'session','https://evil.example')).status).toBe(403)
+    f.sqlite.prepare("INSERT INTO problems(id,number,wall_id,angle,grade,foot_rule,created_by,created_at,updated_at) VALUES('route','1',?,20,'V0','feet_follow','other',1,1)").run(wall.id)
+    f.sqlite.prepare("INSERT INTO problem_holds VALUES('route',?,'H001','start')").run(wall.id)
+    expect((await f.apiCall(`/walls/${wall.id}`,'DELETE')).status).toBe(200)
+    expect(f.sqlite.prepare('SELECT COUNT(*) n FROM problems').get().n).toBe(0)
+    expect(f.sqlite.prepare('SELECT COUNT(*) n FROM problem_holds').get().n).toBe(0)
+    expect(f.sqlite.prepare('SELECT COUNT(*) n FROM holds WHERE wall_id=?').get(wall.id).n).toBe(0)
+    expect(f.objects.has(`media_lab_${wall.id.replace('wall_lab_','')}.webp`)).toBe(false)
+    expect(f.objects.has('candidates0')).toBe(true)
+    const missing:any = f.sqlite.prepare('SELECT id FROM lab_calibrations WHERE publish IS NULL').get()
+    expect((await f.post(`/experiments/${e.id}/calibrations/${missing.id}/publish`,{})).status).toBe(201)
+    const oldCalibration = wall.id.replace('wall_lab_','')
+    expect((await f.post(`/experiments/${e.id}/calibrations/${oldCalibration}/publish`,{})).status).toBe(404)
+    // Revoking lab access must not prevent the owner from cleaning up published walls.
+    f.sqlite.exec("UPDATE admins SET lab_enabled=0 WHERE user_id='admin'")
+    const another:any = f.sqlite.prepare('SELECT id FROM walls LIMIT 1').get()
+    expect((await f.apiCall(`/walls/${another.id}`,'DELETE')).status).toBe(200)
+    f.sqlite.exec("UPDATE admins SET lab_enabled=1 WHERE user_id='admin'")
+    await f.call(`/experiments/${e.id}`,{method:'DELETE'})
+    expect((await (await f.call('/experiments')).json() as any).usage.used).toMatchObject({images:0,tasks:0,publicWalls:9})
+
+  })
+
+  it('keeps a durable cleanup entry if wall media deletion temporarily fails', async () => {
+    const f=await creator()
+    f.sqlite.exec("INSERT INTO walls VALUES('wall_lab_cleanup',1,'Cleanup','','/api/v1/media/media_lab_cleanup.webp',1,1,'polygon','[20]','admin','public',1,1,1)")
+    f.objects.set('media_lab_cleanup.webp',{bytes:new Uint8Array([1]),type:'image/webp'})
+    const deletion=vi.spyOn(f.env.MEDIA,'delete').mockRejectedValueOnce(new Error('temporary storage failure'))
+    expect((await f.apiCall('/walls/wall_lab_cleanup','DELETE')).status).toBe(200)
+    expect(f.sqlite.prepare('SELECT prefix FROM lab_gc').get()).toMatchObject({prefix:'media_lab_cleanup.webp'})
+    deletion.mockRestore()
+    const {sweep}=await import('../src/lab/tasks.js')
+    await sweep(f.env)
+    expect(f.objects.has('media_lab_cleanup.webp')).toBe(false)
+  })
+
+  it('atomically admits only the last daily slot and leaves rejected attempts uncounted', async () => {
+    const f=await creator(), e=await f.upload()
+    const day=new Date(Date.now()+8*3600000).toISOString().slice(0,10)
+    f.sqlite.prepare('INSERT INTO lab_daily_usage VALUES(?,?,19)').run('admin',day)
+    const responses=await Promise.all([1,2].map(()=>f.post(`/experiments/${e.id}/runs`,{})))
+    expect(responses.map(r=>r.status).sort()).toEqual([202,429])
+    expect(f.sqlite.prepare('SELECT task_count FROM lab_daily_usage').get().task_count).toBe(20)
+    expect(f.sqlite.prepare('SELECT COUNT(*) n FROM lab_tasks').get().n).toBe(1)
+  })
+
+})

@@ -94,3 +94,5 @@ uv run --extra test pytest -s -q
 cd server
 uv run pytest tests/test_lab_http_integration.py -q
 ```
+
+云端创作者额度测试：`edge/tests/segmentation-lab.test.ts` 覆盖图片、保留任务、每日任务、公开墙面上限，删除释放与每日计数保留、北京时间换日、并发提交、墙面所有权、关联线路与媒体清理及清理失败重试。`edge/tests/lab-quota-migration.test.ts` 验证旧任务用量回填和已有超额数据保留。`tests/web-cloud-access.test.ts` 验证自有墙面管理独立于实验台授权和管理员墙面创建权限。
