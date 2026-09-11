@@ -160,3 +160,31 @@ def test_publish_rejects_unknown_target_and_requires_only_selected_target_config
     assert invalid.json()["code"] == "invalid_publish_target"
     assert missing_cloud.status_code == 422
     assert missing_cloud.json()["code"] == "cloudbase_not_configured"
+
+
+def test_web_and_cloudflare_routes_use_their_respective_auth_protocols(tmp_path, monkeypatch):
+    import httpx
+    from segmentation_lab.cruxset import CruxSetPublisher
+    seen = []
+
+    async def handler(request):
+        if request.url.host == 'local.example':
+            assert request.headers['authorization'] == 'Bearer local-key'
+            assert 'x-cruxset-signature' not in request.headers
+        else:
+            assert request.url.host == 'edge.example'
+            assert request.headers['x-cruxset-signature']
+            assert 'authorization' not in request.headers
+        seen.append(request.url.host)
+        return httpx.Response(201, json={'wallId': 'wall-1', 'browsePath': '/wall/wall-1'})
+
+    def publisher(*args, **kwargs):
+        return CruxSetPublisher(*args, **kwargs, transport=httpx.MockTransport(handler))
+
+    monkeypatch.setattr('segmentation_lab.api.CruxSetPublisher', publisher)
+    client = TestClient(create_app(Settings(data_dir=tmp_path, cruxset_base_url='http://local.example', cruxset_publish_key='local-key', edge_segmentation_url='https://edge.example', edge_segmentation_publish_key='edge-key')))
+    experiment_id, calibration_id = _publish_fixture(client)
+    for target in ['web', 'cloudflare']:
+        response = client.post(f'/api/experiments/{experiment_id}/calibrations/{calibration_id}/publish', json={'target': target, 'wallName': 'Wall'})
+        assert response.status_code == 201, response.text
+    assert seen == ['local.example', 'edge.example']

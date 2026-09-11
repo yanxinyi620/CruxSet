@@ -773,6 +773,13 @@ const render = async () => {
         : `<div class="editor-head"><h1>我的</h1><p class="lead">管理你的资料、墙面与线路。</p></div><button class="hub-card profile" data-panel="profile"><i>◎</i><span><b>个人资料</b><em>${h(profileEmail)}</em></span><strong>›</strong></button>${myWallManagementEntry}<button class="hub-card problems" data-panel="my-problems"><i>◇</i><span><b>我的线路</b><em>共 ${myProblems.length} 条线路</em></span><strong>›</strong></button>${isAdmin ? `<button class="hub-card admin-management" data-panel="admin-management"><i>▦</i><span><b>管理中心</b><em>墙面与用户管理</em></span><strong>›</strong></button>` : ""}`;
   const isPrimaryPage = (tab === "browse" && !selected) || (tab === "create" && panel === "home") || (tab === "me" && panel === "home");
   root.innerHTML = `<div class="device ${isPrimaryPage ? "" : "secondary-page"}">${isPrimaryPage ? "<header><small>CRUXSET</small></header>" : ""}<main>${tab === "browse" ? browse : tab === "create" ? create : me}</main><nav>${(["browse", "create", "me"] as const).map((x) => `<button class="${tab === x ? "active" : ""}" data-tab="${x}">${x === "browse" ? "线路" : x === "create" ? "创建" : "我的"}</button>`).join("")}</nav></div>`;
+  if (isAdmin && capabilities?.segmentationLab && tab === "me" && panel === "home") {
+    const labEntry = document.createElement("a");
+    labEntry.href = "/segmentation-lab/";
+    labEntry.className = "hub-card admin-management";
+    labEntry.innerHTML = "<i>◌</i><span><b>分割实验台</b><em>云端图像分割与人工校准</em></span><strong>›</strong>";
+    root.querySelector("main")?.append(labEntry);
+  }
   if (selectedRoute && route.name === "route-browser") {
     const note = root.querySelector<HTMLElement>(".route-note");
     if (note) { const setter = (selectedRoute as Problem & { setterName?: string }).setterName || (selectedRoute.createdBy === profileUserId ? profileName || profileEmail.split("@", 1)[0] : "用户"); note.innerHTML = `<b>setter by ${h(setter)}</b>${selectedRoute.description ? `<br>${h(selectedRoute.description)}` : ""}`; }

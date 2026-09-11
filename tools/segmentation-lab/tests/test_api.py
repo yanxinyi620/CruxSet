@@ -76,7 +76,7 @@ def test_upload_workbench_describes_polygon_crop_controls(tmp_path):
     response = TestClient(create_app(Settings(data_dir=tmp_path))).get("/")
 
     assert "点击图片添加角点，拖动圆点微调" in response.text
-    assert "至少选择 3 个角点" in response.text
+    assert "选择多个角点勾勒墙面轮廓（至少3个）" in response.text
 
 
 def test_upload_workbench_uses_extension_free_image_labels(tmp_path):
@@ -214,7 +214,7 @@ def test_publish_dialog_exposes_explicit_targets_with_web_default(tmp_path):
 def test_continue_calibration_link_includes_the_saved_result_identity(tmp_path):
     response = TestClient(create_app(Settings(data_dir=tmp_path))).get("/")
 
-    assert '/calibrations?experiment=${x.experimentId}&calibration=${x.id}' in response.text
+    assert 'Lab.calibration(`experiment=${encodeURIComponent(x.experimentId)}&calibration=${encodeURIComponent(x.id)}`)' in response.text
 
 
 def test_calibration_workbench_loads_a_calibration_from_url_parameters(tmp_path):

@@ -110,6 +110,14 @@ def create_app(settings: Settings, adapters: Mapping[str, SegmentationAdapter] |
     def calibration_workbench() -> FileResponse:
         return FileResponse(Path(__file__).parents[2] / "static" / "calibration.html")
 
+    @app.get("/runtime-config.js")
+    def runtime_config() -> FileResponse:
+        return FileResponse(Path(__file__).parents[2] / "static" / "runtime-config.js", media_type="application/javascript")
+
+    @app.get("/runtime.js")
+    def runtime() -> FileResponse:
+        return FileResponse(Path(__file__).parents[2] / "static" / "runtime.js", media_type="application/javascript")
+
     @app.get("/api/experiments/{experiment_id}/candidates")
     def candidates(experiment_id: str, source: str = "sam2") -> dict[str, list[dict[str, object]]]:
         return {"items": store.list_candidates(experiment_id, source=source)}
@@ -211,7 +219,7 @@ def create_app(settings: Settings, adapters: Mapping[str, SegmentationAdapter] |
         cloud_error: dict[str, object] | None = None
         if target == "cloudflare":
             try:
-                cloud_result = await CruxSetPublisher(settings.edge_segmentation_url, settings.edge_segmentation_publish_key).publish(image, str(experiment["imageName"]), metadata)
+                cloud_result = await CruxSetPublisher(settings.edge_segmentation_url, settings.edge_segmentation_publish_key, auth_mode="hmac").publish(image, str(experiment["imageName"]), metadata)
             except Exception as error:
                 raise SegmentationLabError("cloudflare_publish_failed", str(error), True) from error
         if target == "cloudbase":

@@ -88,6 +88,21 @@
       font-weight: bold;
     }
     .upload-action { background: #d5e8e2; border-color: #a9cbc1; color: #35645c; font-weight: 700; }
+    .upload-action:disabled {
+      background: #f0f1ed;
+      border-color: #d4d8d4;
+      color: #8b918d;
+      cursor: not-allowed;
+    }
+    .upload-action:hover:not(:disabled) {
+      background: #23877f;
+      border-color: #23877f;
+      color: #fff;
+    }
+    .upload-action:focus-visible {
+      outline: 2px solid #23877f;
+      outline-offset: 3px;
+    }
     .calibrate-action { background: #c8dfd9; border-color: #98beb5; color: #2f5d55; font-weight: 700; }
     .table {
       width: 100%;
@@ -212,16 +227,12 @@
           <span id="count" class="sub"></span>
         </div>
         <div class="row" style="margin-top: 14px">
-          <input id="file" type="file" accept="image/png,image/jpeg" /><button
-            id="upload"
-            class="upload-action"
-          >
-            校正并导入
-          </button>
-          <button id="resetCrop" style="display:none">重选角点</button>
+          <input id="file" type="file" accept="image/png,image/jpeg" />
+          <button id="resetCrop" style="display:none">重选边框</button>
+          <button id="upload" class="upload-action" disabled>导入墙图</button>
         </div>
-        <p id="previewHint">选择 JPG 或 PNG 后，在这里确认预览。</p>
-        <p id="cropHint" style="display:none">点击图片添加角点，拖动圆点微调；至少选择 3 个角点后，校正并导入会保留闭合区域。</p>
+        <p id="previewHint" role="status" aria-live="polite">选择 JPG 或 PNG 后，在这里确认预览。</p>
+        <p id="cropHint" style="display:none">点击图片添加角点，拖动圆点微调；选择多个角点勾勒墙面轮廓（至少3个）。</p>
         <img id="preview" alt="墙图预览" />
         <canvas id="crop"></canvas>
         <table class="table">
@@ -242,6 +253,7 @@
           <h2>选择模型</h2>
           <span id="modelsCount" class="sub"></span>
         </div>
+        <p class="sub">推荐采用SAM 2.1搭配基线参数，效果不好时再尝试其他选项。</p>
         <div id="models" class="row" style="margin-top: 12px"></div>
       </section>
       <section class="step">
@@ -252,6 +264,7 @@
         <table class="table">
           <thead>
             <tr>
+              <th>任务</th>
               <th>原图</th>
               <th>模型</th>
               <th>时间</th>
@@ -270,7 +283,7 @@
         </div>
         <p>选择分割结果后在独立工作台进行删除、补点和保存。</p>
         <p>
-          <a href="/calibrations"
+          <a id="calibrationLink" href="/calibrations"
             ><button class="calibrate-action">选择分割结果并开始校准</button></a
           >
         </p>
@@ -308,16 +321,21 @@
       </div>
     </div>
     <div id="runModal" class="run-modal" role="dialog" aria-modal="true"><div class="run-card"><h2 id="runTitle">配置分割任务</h2><label>墙图<select id="runImage"></select></label><div class="row"><button onclick="preset('base')">基线</button><button onclick="preset('recall')">少漏检</button><button onclick="preset('dense')">密集墙</button></div><div id="runFields"><label>点密度<input id="runPoints" value="48" type="number"></label><label>批量<input id="runBatch" value="8" type="number"></label><label>IoU<input id="runIou" value="0.85" step=".01" type="number"></label><label>稳定度<input id="runStable" value="0.90" step=".01" type="number"></label><label>裁剪层<input id="runCrop" value="0" type="number"></label></div><p id="runCropNote" class="note"></p><div class="confirm-actions"><button onclick="closeRun()">取消</button><button id="runConfirm" class="primary">确认并运行</button></div></div></div>
+    <script src="/runtime-config.js"></script>
+    <script src="/runtime.js"></script>
     <script>
       const $ = (s) => document.querySelector(s);
+      const isCloud = Lab.config.mode === "cloud";
+      const defaultPublishTarget = Lab.config.publishTargets?.[0] || "web";
       let pendingDelete;
       let selectedModel;
+      let loading = false;
       const presets={base:[48,8,.85,.90,1],recall:[64,4,.78,.85,1],dense:[64,4,.78,.82,2]};
       function time(v) {
         return v ? new Date(v * 1000).toLocaleString() : "—";
       }
       function displayName(name) {
-        return name.replace(/\.(?:png|jpe?g)$/i, "");
+        return escapeText(String(name || "").replace(/\.(?:png|jpe?g)$/i, ""));
       }
       function escapeText(value) {
         return String(value || "").replace(/[&<>"']/g, character => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[character]));
@@ -328,20 +346,20 @@
           return `<span class="status running" title="${detail}">运行中 · ${progress}%</span>`;
         }
         if (run.status === "succeeded") return '<span class="status succeeded" title="分割已完成">已完成</span>';
-        if (run.status === "failed") {
+        if (run.status === "failed" || run.status === "timed_out") {
           let detail=escapeText(run.error?.message || "任务失败");
-          return `<span class="status failed" title="${detail}">失败</span>`;
+          return `<span class="status failed" title="${detail}">${run.status === "timed_out" ? "超时" : "失败"}</span>`;
         }
         return '<span class="status pending" title="等待任务开始">等待中</span>';
       }
       function del(url) { pendingDelete = url; $("#confirm").classList.add("open"); }
       function closeConfirm() { pendingDelete = undefined; $("#confirm").classList.remove("open"); }
       let pendingPublish;
-      function closePublish() { pendingPublish = undefined; $("#publishConfirm").classList.remove("open"); $("#publishMessage").className = "publish-message"; $("#publishMessage").textContent = ""; $("#publishTarget").value = "web"; $("#publishSubmit").disabled = false; $("#publishSubmit").textContent = "确认发布"; }
+      function closePublish() { pendingPublish = undefined; $("#publishConfirm").classList.remove("open"); $("#publishMessage").className = "publish-message"; $("#publishMessage").textContent = ""; $("#publishTarget").value = defaultPublishTarget; $("#publishSubmit").disabled = false; $("#publishSubmit").textContent = "确认发布"; }
       function publishCalibration(experimentId, calibrationId, button) {
         pendingPublish = { experimentId, calibrationId, button }
         $("#publishName").value = ""
-        $("#publishTarget").value = "web"
+        $("#publishTarget").value = defaultPublishTarget
         $("#publishConfirm").classList.add("open")
         $("#publishName").focus()
         $("#publishSubmit").onclick = submitPublish
@@ -356,7 +374,7 @@
         $("#publishSubmit").textContent = "发布中…"
         button.disabled = true
         try {
-          const response = await fetch(`/api/experiments/${experimentId}/calibrations/${calibrationId}/publish`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ wallName, "target": $("#publishTarget").value }) })
+          const response = await Lab.request(`/experiments/${experimentId}/calibrations/${calibrationId}/publish`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ wallName, "target": $("#publishTarget").value }) })
           const result = await response.json()
           if (!response.ok) throw new Error(result.message || result.detail || "发布失败")
           $("#publishMessage").className = "publish-message"
@@ -370,7 +388,7 @@
           $("#publishSubmit").onclick = closePublish
         } catch (error) {
           $("#publishMessage").className = "publish-message error"
-          $("#publishMessage").textContent = error.message || "发布失败"
+          Lab.report(error, $("#publishMessage"))
           $("#publishSubmit").disabled = false
           $("#publishSubmit").textContent = "重试"
           button.disabled = false
@@ -378,19 +396,21 @@
       }
       $("#confirmDelete").onclick = async () => {
         if (!pendingDelete) return;
-        await fetch(pendingDelete, { method: "DELETE" });
-        closeConfirm();
-        load();
+        try { await Lab.request(pendingDelete, { method: "DELETE" }); closeConfirm(); load(); }
+        catch (error) { closeConfirm(); Lab.report(error, $("#previewHint")); }
       };
       async function load() {
-        let d = await (await fetch("/api/experiments")).json(),
+        if (loading) return;
+        loading = true;
+        try {
+        let d = await (await Lab.request("/experiments")).json(),
           all = d.items;
         $("#count").textContent = `已导入 ${all.length} 张`;
         $("#images").innerHTML =
           all
             .map(
               (e) =>
-                `<tr><td><a href="/results/${e.id}?mode=original">${displayName(e.image.name)}</a></td><td>${time(e.createdAt)}</td><td>${e.image.width} × ${e.image.height}</td><td><button class="danger" onclick="del('/api/experiments/${e.id}')">删除</button></td></tr>`,
+                `<tr><td><a href="${Lab.result(e.id)}?mode=original">${displayName(e.image.name)}</a></td><td>${time(e.createdAt)}</td><td>${e.image.width} × ${e.image.height}</td><td><button class="danger" onclick="del('/experiments/${e.id}')">删除</button></td></tr>`,
             )
             .join("") || '<tr><td colspan="4">尚无原图</td></tr>';
         let runs = all.flatMap((e) =>
@@ -400,60 +420,143 @@
           runs
             .map(
               ({ e, id, r }) =>
-                `<tr><td><a href="/results/${e.id}?mode=original">${displayName(e.image.name)}</a></td><td>${r.model || id}</td><td>${time(r.updatedAt)}</td><td>${runStatus(r)}</td><td>${r.status === "succeeded" ? `<a href="/results/${e.id}?source=${id}">查看</a>` : "—"}</td><td><button class="danger" onclick="del('/api/experiments/${e.id}/runs/${id}')">删除</button></td></tr>`,
+                `<tr><td title="${escapeText(id)}">${escapeText(id.slice(0, 8))}</td><td><a href="${Lab.result(e.id)}?mode=original">${displayName(e.image.name)}</a></td><td>${escapeText(modelLabel(r.model || id))}</td><td>${time(r.updatedAt)}</td><td>${runStatus(r)}</td><td>${r.status === "succeeded" ? `<a href="${Lab.result(e.id)}?source=${id}">查看</a>` : (isCloud && (r.status === "failed" || r.status === "timed_out") ? `<button class="publish" onclick='retryRun(${JSON.stringify(e.id)},${JSON.stringify(r.model)},${JSON.stringify(r.parameters || {})})'>重试</button>` : "—")}</td><td><button class="danger" onclick="del('/experiments/${e.id}/runs/${id}')">删除</button></td></tr>`,
             )
-            .join("") || '<tr><td colspan="6">尚无任务</td></tr>';
-        let c = await (await fetch("/api/calibrations")).json();
+            .join("") || '<tr><td colspan="7">尚无任务</td></tr>';
+        let c = await (await Lab.request("/calibrations")).json();
+        if (pendingPublish || pendingDelete) return;
         let calibrations = c.items.sort((first, second) => (second.updatedAt || 0) - (first.updatedAt || 0));
         $("#calibrations").innerHTML =
           calibrations
-            .map(
-              (x) =>
-                `<tr><td>${x.sourceTaskId.slice(0, 8)}</td><td>${time(x.updatedAt)}</td><td>${x.candidateCount}</td><td><a href="/calibrations?experiment=${x.experimentId}&calibration=${x.id}">校准</a></td><td><a href="/api/experiments/${x.experimentId}/calibrations/${x.id}/export.svg">SVG</a></td><td><button class="publish" onclick="publishCalibration('${x.experimentId}','${x.id}',this)">发布</button></td><td><button class="danger" onclick="del('/api/experiments/${x.experimentId}/calibrations/${x.id}')">删除</button></td></tr>`,
-            )
+            .map((x) => {
+              const source = x.sourceTaskId ? escapeText(x.sourceTaskId.slice(0, 8)) : "已删除任务";
+              const receipt = x.publish;
+              const published = receipt?.targets?.cloudflare?.status === "succeeded" ? `已发布${receipt.browseUrl ? ` · <a href="${escapeText(receipt.browseUrl)}" target="_blank">查看</a>` : ""}` : "";
+              return `<tr><td>${source}</td><td>${time(x.updatedAt)}</td><td>${x.candidateCount}</td><td><a href="${Lab.calibration(`experiment=${encodeURIComponent(x.experimentId)}&calibration=${encodeURIComponent(x.id)}`)}">校准</a></td><td><a href="${Lab.api(`/experiments/${x.experimentId}/calibrations/${x.id}/export.svg`)}">SVG</a></td><td>${published || `<button class="publish" onclick="publishCalibration('${x.experimentId}','${x.id}',this)">发布</button>`}</td><td><button class="danger" onclick="del('/experiments/${x.experimentId}/calibrations/${x.id}')">删除</button></td></tr>`;
+            })
             .join("") || '<tr><td colspan="6">尚无校准结果</td></tr>';
+        } catch (error) { Lab.report(error, $("#previewHint")); } finally { loading = false; }
       }
+      function modelLabel(name) { return ({sam2: "SAM 2.1", sam2_tiled: "SAM 2.1（分块）", sam3: "SAM 3"})[name] || name; }
       async function models() {
-        let d = await (await fetch("/api/models")).json();
+        try { let d = await (await Lab.request("/models")).json();
+        if (isCloud) d.items = d.items.filter((x) => ["sam2", "sam2_tiled"].includes(x.name));
         $("#modelsCount").textContent =
           `可用 ${d.items.filter((x) => x.available).length} 个模型`;
         $("#models").innerHTML = d.items
           .map(
             (x) =>
-              `<button class="model-button" ${x.available ? `onclick="openRun('${x.name}')"` : "disabled"}>${x.name}${x.available ? "" : "（不可用）"}</button>`,
+              `<button class="model-button" ${x.available ? `onclick="openRun('${x.name}')"` : "disabled"}>${modelLabel(x.name)}${x.available ? "" : "（不可用）"}</button>`,
           )
-          .join("");
+          .join(""); } catch (error) { Lab.report(error, $("#previewHint")); }
       }
-      function applyModelRules(){let runCrop=$("#runCrop"),restricted=selectedModel==="sam2"||selectedModel==="sam2_tiled";runCrop.disabled=restricted;if(restricted)runCrop.value=0;$("#runCropNote").textContent=selectedModel==="sam2_tiled"?"已启用 2×2 重叠分块；不使用模型内部裁剪层。":selectedModel==="sam2"?"当前 SAM2 自动裁剪层固定为 0，以确保任务稳定运行。":""}
+      function applyModelRules(){let runCrop=$("#runCrop"),restricted=selectedModel==="sam2"||selectedModel==="sam2_tiled";runCrop.disabled=restricted;if(restricted)runCrop.value=0;$("#runCropNote").textContent=selectedModel==="sam2_tiled"?"已启用 2×2 重叠分块；不使用模型内部裁剪层。":selectedModel==="sam2"?"当前 SAM 2.1 自动裁剪层固定为 0，以确保任务稳定运行。":""}
       function preset(name){[$("#runPoints").value,$("#runBatch").value,$("#runIou").value,$("#runStable").value,$("#runCrop").value]=presets[name];applyModelRules()}
-      function openRun(model) { selectedModel=model; preset("base"); $("#runTitle").textContent=`配置 ${model}`; fetch("/api/experiments").then(r=>r.json()).then(d=>{$("#runImage").innerHTML=d.items.map(e=>`<option value="${e.id}">${displayName(e.image.name)}</option>`).join("")}); $("#runModal").classList.add("open"); }
+      function openRun(model) { selectedModel=model; preset("base"); $("#runTitle").textContent=`配置 ${modelLabel(model)}`; Lab.request("/experiments").then(r=>r.json()).then(d=>{$("#runImage").innerHTML=d.items.map(e=>`<option value="${e.id}">${displayName(e.image.name)}</option>`).join("")}).catch(error=>Lab.report(error,$("#previewHint"))); $("#runModal").classList.add("open"); }
       function closeRun() { $("#runModal").classList.remove("open"); }
-      $("#runConfirm").onclick=async()=>{ let id=$("#runImage").value; if(!id)return; let cropLayers=selectedModel==="sam2"||selectedModel==="sam2_tiled"?0:+$("#runCrop").value; await fetch(`/api/experiments/${id}/runs`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:selectedModel,parameters:{points_per_side:+$("#runPoints").value,points_per_batch:+$("#runBatch").value,pred_iou_thresh:+$("#runIou").value,stability_score_thresh:+$("#runStable").value,crop_n_layers:cropLayers}})}); closeRun(); load(); };
-      let cropImage, cropPoints=[], dragCropPoint;
+      $("#runConfirm").onclick=async()=>{ let id=$("#runImage").value; if(!id)return; let cropLayers=selectedModel==="sam2"||selectedModel==="sam2_tiled"?0:+$("#runCrop").value; try { await Lab.request(`/experiments/${id}/runs`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:selectedModel,parameters:{points_per_side:+$("#runPoints").value,points_per_batch:+$("#runBatch").value,pred_iou_thresh:+$("#runIou").value,stability_score_thresh:+$("#runStable").value,crop_n_layers:cropLayers}})}); closeRun(); load(); } catch(error) { Lab.report(error,$("#runCropNote")); } };
+      async function retryRun(experimentId, model, parameters) { try { await Lab.request(`/experiments/${experimentId}/runs`, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ model, parameters }) }); load(); } catch(error) { Lab.report(error, $("#previewHint")); } }
+      let cropImage, cropPoints=[], dragCropPoint, importing=false;
       const cropCanvas=$("#crop"), cropCtx=cropCanvas.getContext("2d");
       function cropCanvasPoint(event){let r=cropCanvas.getBoundingClientRect();return [Math.max(0,Math.min(cropImage.naturalWidth,(event.clientX-r.left)*cropImage.naturalWidth/r.width)),Math.max(0,Math.min(cropImage.naturalHeight,(event.clientY-r.top)*cropImage.naturalHeight/r.height))]}
-      function drawCrop(){if(!cropImage)return;cropCtx.clearRect(0,0,cropCanvas.width,cropCanvas.height);cropCtx.drawImage(cropImage,0,0,cropCanvas.width,cropCanvas.height);let scaleX=cropCanvas.width/cropImage.naturalWidth,scaleY=cropCanvas.height/cropImage.naturalHeight;cropCtx.strokeStyle="#b8c99b";cropCtx.fillStyle="#17211d";cropCtx.lineWidth=3;if(cropPoints.length){cropCtx.beginPath();cropPoints.forEach((p,i)=>{let x=p[0]*scaleX,y=p[1]*scaleY;i?cropCtx.lineTo(x,y):cropCtx.moveTo(x,y)});if(cropPoints.length>=3)cropCtx.closePath();cropCtx.stroke()}cropPoints.forEach((p,i)=>{let x=p[0]*scaleX,y=p[1]*scaleY;cropCtx.beginPath();cropCtx.arc(x,y,7,0,Math.PI*2);cropCtx.fill();cropCtx.strokeStyle="#fffdf7";cropCtx.lineWidth=2;cropCtx.stroke();cropCtx.strokeStyle="#b8c99b";cropCtx.lineWidth=3});$("#upload").disabled=cropPoints.length<3;$("#cropHint").textContent=cropPoints.length<3?`点击图片添加角点，拖动圆点微调；还需 ${3-cropPoints.length} 个角点才能导入。`:`已选择 ${cropPoints.length} 个角点；校正并导入会保留闭合区域。`}
+      function drawCrop(){if(!cropImage)return;cropCtx.clearRect(0,0,cropCanvas.width,cropCanvas.height);cropCtx.drawImage(cropImage,0,0,cropCanvas.width,cropCanvas.height);let scaleX=cropCanvas.width/cropImage.naturalWidth,scaleY=cropCanvas.height/cropImage.naturalHeight;cropCtx.strokeStyle="#b8c99b";cropCtx.fillStyle="#17211d";cropCtx.lineWidth=3;if(cropPoints.length){cropCtx.beginPath();cropPoints.forEach((p,i)=>{let x=p[0]*scaleX,y=p[1]*scaleY;i?cropCtx.lineTo(x,y):cropCtx.moveTo(x,y)});if(cropPoints.length>=3)cropCtx.closePath();cropCtx.stroke()}cropPoints.forEach((p,i)=>{let x=p[0]*scaleX,y=p[1]*scaleY;cropCtx.beginPath();cropCtx.arc(x,y,7,0,Math.PI*2);cropCtx.fill();cropCtx.strokeStyle="#fffdf7";cropCtx.lineWidth=2;cropCtx.stroke();cropCtx.strokeStyle="#b8c99b";cropCtx.lineWidth=3});$("#upload").disabled=cropPoints.length<3;$("#cropHint").textContent=cropPoints.length<3?`点击图片添加角点，拖动圆点微调；选择多个角点勾勒墙面轮廓（至少3个）。`:`已选择 ${cropPoints.length} 个角点；导入墙图会保留闭合区域。`}
       $("#upload").onclick = async () => {
-        let f = $("#file").files[0];
-        if (!f || cropPoints.length<3) return;
-        let xs=cropPoints.map(p=>p[0]),ys=cropPoints.map(p=>p[1]),left=Math.floor(Math.min(...xs)),top=Math.floor(Math.min(...ys)),out=document.createElement("canvas");out.width=Math.max(1,Math.ceil(Math.max(...xs))-left);out.height=Math.max(1,Math.ceil(Math.max(...ys))-top);let outCtx=out.getContext("2d");outCtx.beginPath();cropPoints.forEach((p,i)=>{i?outCtx.lineTo(p[0]-left,p[1]-top):outCtx.moveTo(p[0]-left,p[1]-top)});outCtx.closePath();outCtx.clip();outCtx.drawImage(cropImage,-left,-top);let blob=await new Promise(r=>out.toBlob(r,"image/png"));
-        let form = new FormData();
-        form.append("image", blob, f.name.replace(/\.[^.]+$/,"")+"-wall.png");
-        await fetch("/api/experiments", { method: "POST", body: form });
-        load();
+        const file = $("#file").files[0];
+        if (importing || !file || !cropImage || cropPoints.length < 3) return;
+        importing = true;
+        $("#upload").disabled = true;
+        $("#upload").textContent = "导入中…";
+        $("#file").disabled = true;
+        $("#resetCrop").disabled = true;
+        cropCanvas.style.pointerEvents = "none";
+        $("#previewHint").style.display = "none";
+        try {
+          const xs = cropPoints.map(p => p[0]), ys = cropPoints.map(p => p[1]);
+          const left = Math.floor(Math.min(...xs)), top = Math.floor(Math.min(...ys));
+          const out = document.createElement("canvas");
+          out.width = Math.max(1, Math.ceil(Math.max(...xs)) - left);
+          out.height = Math.max(1, Math.ceil(Math.max(...ys)) - top);
+          const outCtx = out.getContext("2d");
+          outCtx.beginPath();
+          cropPoints.forEach((p, i) => i ? outCtx.lineTo(p[0] - left, p[1] - top) : outCtx.moveTo(p[0] - left, p[1] - top));
+          outCtx.closePath();
+          outCtx.clip();
+          outCtx.drawImage(cropImage, -left, -top);
+          const blob = await new Promise(resolve => out.toBlob(resolve, "image/png"));
+          if (!blob) throw new Error("Image conversion failed");
+          const form = new FormData();
+          form.append("image", blob, file.name.replace(/\.[^.]+$/, "") + "-wall.png");
+          const response = await Lab.request("/experiments", { method: "POST", body: form });
+          if (!response.ok) throw new Error("Image import failed");
+          cropImage = null;
+          cropPoints = [];
+          dragCropPoint = undefined;
+          cropCanvas.width = cropCanvas.height = 0;
+          cropCanvas.style.display = "none";
+          $("#preview").style.display = "none";
+          $("#preview").removeAttribute("src");
+          $("#cropHint").style.display = "none";
+          $("#resetCrop").style.display = "none";
+          $("#file").value = "";
+          $("#previewHint").textContent = "导入成功";
+          $("#previewHint").style.display = "block";
+          load().catch(() => { $("#previewHint").textContent = "导入成功，列表刷新失败，请刷新页面。"; });
+        } catch (error) {
+          Lab.report(error, $("#previewHint"));
+          $("#previewHint").style.display = "block";
+        } finally {
+          importing = false;
+          $("#upload").textContent = "导入墙图";
+          $("#upload").disabled = cropPoints.length < 3;
+          $("#file").disabled = false;
+          $("#resetCrop").disabled = false;
+          cropCanvas.style.pointerEvents = "";
+        }
       };
       $("#file").onchange = () => {
         const file = $("#file").files[0];
         if (!file) return;
-        cropImage=new Image();cropImage.onload=()=>{let s=Math.min(900/cropImage.naturalWidth,600/cropImage.naturalHeight,1);cropCanvas.width=cropImage.naturalWidth*s;cropCanvas.height=cropImage.naturalHeight*s;cropCanvas.style.display="block";cropPoints=[];drawCrop();$("#resetCrop").style.display="inline-block";$("#cropHint").style.display="block"};cropImage.src=URL.createObjectURL(file);
+        cropPoints = [];
+        dragCropPoint = undefined;
+        cropCanvas.style.display = "none";
+        $("#cropHint").style.display = "none";
+        $("#resetCrop").style.display = "none";
+        $("#upload").disabled = true;
         $("#previewHint").style.display = "none";
+        const image = new Image(), imageUrl = URL.createObjectURL(file);
+        cropImage = image;
+        image.onload = () => {
+          URL.revokeObjectURL(imageUrl);
+          if (cropImage !== image) return;
+          const scale = Math.min(900 / image.naturalWidth, 600 / image.naturalHeight, 1);
+          cropCanvas.width = image.naturalWidth * scale;
+          cropCanvas.height = image.naturalHeight * scale;
+          cropCanvas.style.display = "block";
+          drawCrop();
+          $("#resetCrop").style.display = "inline-block";
+          $("#cropHint").style.display = "block";
+        };
+        image.onerror = () => {
+          URL.revokeObjectURL(imageUrl);
+          if (cropImage !== image) return;
+          cropImage = null;
+          cropCanvas.style.display = "none";
+          $("#cropHint").style.display = "none";
+          $("#resetCrop").style.display = "none";
+          $("#previewHint").textContent = "图片无法读取，请重新选择 JPG 或 PNG。";
+          $("#previewHint").style.display = "block";
+        };
+        image.src = imageUrl;
       };
       cropCanvas.onpointerdown=e=>{if(!cropImage)return;let point=cropCanvasPoint(e),scale=cropCanvas.width/cropImage.naturalWidth,nearest=cropPoints.findIndex(p=>Math.hypot((p[0]-point[0])*scale,(p[1]-point[1])*scale)<13);if(nearest>=0){dragCropPoint=nearest;cropCanvas.setPointerCapture(e.pointerId);return}cropPoints.push(point);drawCrop()};
       cropCanvas.onpointermove=e=>{if(dragCropPoint===undefined)return;cropPoints[dragCropPoint]=cropCanvasPoint(e);drawCrop()};
       cropCanvas.onpointerup=e=>{if(dragCropPoint!==undefined&&cropCanvas.hasPointerCapture(e.pointerId))cropCanvas.releasePointerCapture(e.pointerId);dragCropPoint=undefined};
       $("#resetCrop").onclick=()=>{cropPoints=[];drawCrop()};
+      $("#calibrationLink").href = Lab.calibration();
+      if (isCloud) { $("#publishTarget").innerHTML = '<option value="cloudflare">Cloudflare 云端 Web</option>'; }
       load();
       models();
+      setInterval(() => { if (isCloud && !pendingPublish && !pendingDelete && !$("#runModal").classList.contains("open")) load(); }, 5000);
     </script>
   </body>
 </html>

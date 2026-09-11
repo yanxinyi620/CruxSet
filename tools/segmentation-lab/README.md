@@ -1,5 +1,7 @@
 # Spraywall Segmentation Lab
 
+云端管理员工作台、GitHub Actions runner 配置和任务限制见[云端分割实验台](../../docs/segmentation-cloud.md)。云端链路是附加功能；下面的本地命令与数据目录保持不变。
+
 本地运行的攀岩训练墙岩点分割实验台。它面向一面固定 Spraywall：上传并裁剪墙图，使用 SAM 2.1 自动产生岩点候选，再在浏览器中以 SVG polygon 进行人工校准并导出结果。
 
 它是 CruxSet 的独立研究工具：不读取任一运行形态的数据；但可以通过显式发布，将已校准结果创建为本机 FastAPI、CloudBase 或 Cloudflare Web 中的一面新公开 Wall。有关本机启动方式，见[本地 Web 工作台](../../docs/local-web.md)。
@@ -101,3 +103,38 @@ export CRUXSET_EDGE_SEGMENTATION_PUBLISH_KEY='与 Cloudflare 发布端相同的�
 ```bash
 uv run --extra test pytest -s -q
 ```
+
+## 内存结构与复现基准
+
+SAM2 / SAM2 tiled 在每块推理完成后，尽早提取全图坐标的 polygon、bbox 和像素面积；为保持原有像素 IoU 去重与 PNG 精确导出，仅附带按位压缩的 bbox 局部 mask。候选集合不再保存逐候选全图数组。去重只解码 bbox 重叠区域，保留原来的 tiled `IoU > 0.85` 和服务层 `IoU >= 0.90` 规则。
+
+逐候选 PNG 仍与输入尺寸相同，但写出时逐张恢复并释放。Transformers 在当前 tile 内的推理与输出数组仍然占用内存；这次改动消除的是跨 tile 累积的全图 mask，并不保证任意图片和参数都能在固定内存内运行。SAM3 仍可通过原有 AdapterMask 接口接入。
+
+在仓库根目录运行（使用已安装模型依赖的实验台环境）：
+
+```bash
+PYTHONPATH=tools/segmentation-lab/src HF_HUB_OFFLINE=1 \
+  tools/segmentation-lab/.venv/bin/python \
+  tools/segmentation-lab/scripts/benchmark_memory.py \
+  tests/fixtures/ritan-spraywall-0822.jpg \
+  --max-side 1536 --output /tmp/segmentation-1536.json
+```
+
+去掉 `--max-side 1536` 可测试原始 4096×3072 图片。默认使用 `sam2_tiled`、点密度 48、批量 8、4 个 CPU 线程；`--model sam2` 可测整图模式。`HF_HUB_OFFLINE=1` 要求本机已有权重缓存。每次启动新进程，避免上一次任务的峰值 RSS 干扰本次记录。`--synthetic` 使用固定的模拟 tile 输出，仅测后处理，不运行模型。
+
+报告包含输入哈希、实际尺寸、参数、依赖版本、耗时、峰值 RSS（MiB）、adapter 去重后的候选数量与二值数据字节数、最终 polygon 数量、候选 JSON 及逐 PNG 文件哈希。二值数据字节数不含 Python 对象、polygon 或模型本身。Linux 下峰值 RSS 使用 `getrusage`；该脚本的 RSS 单位换算针对 Linux。
+
+前后报告可直接校验；输入、候选几何或 PNG 不一致时命令返回失败：
+
+```bash
+python3 tools/segmentation-lab/scripts/compare_memory.py /tmp/before.json /tmp/after.json
+```
+
+本次验证结果与旧版本复现方式见 [内存基准记录](../../docs/benchmarks/2026-09-11-segmentation-memory.md)。
+
+### SAM 2.1 自动采样坐标
+
+SAM 2.1 将输入缩放到正方形；自动采样点必须覆盖这个完整的模型输入坐标系。
+适配器在每个 pipeline 实例上重建均匀采样网格，避免依赖中的最长边缩放坐标使横图只采样顶部、竖图只采样左侧。
+此修正同时作用于 `sam2` 和 `sam2_tiled` 的每个 tile，不改变原图或输出坐标，内部裁剪层继续固定为 0。
+旧任务不会自动重算；重启实验台后创建的新任务才使用修正后的采样。此前内存基准比较证明的是旧采样方式下的存储优化；修正后候选数量可能变化，不能直接沿用旧耗时和峰值内存作为新结果。

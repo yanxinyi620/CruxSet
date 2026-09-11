@@ -84,11 +84,6 @@ ensure_env_file() {
       append_env "$key" "$value"
     fi
   done < <(required_env_keys)
-  if { [[ "$ENV_FILE" == /etc/* ]] && sudo grep -q '^SESSION_COOKIE_SECURE=' "$ENV_FILE"; } || { [[ "$ENV_FILE" != /etc/* ]] && grep -q '^SESSION_COOKIE_SECURE=' "$ENV_FILE"; }; then
-    if [[ "$ENV_FILE" == /etc/* ]]; then sudo sed -i 's/^SESSION_COOKIE_SECURE=.*/SESSION_COOKIE_SECURE=true/' "$ENV_FILE"; else sed -i 's/^SESSION_COOKIE_SECURE=.*/SESSION_COOKIE_SECURE=true/' "$ENV_FILE"; fi
-  else
-    append_env SESSION_COOKIE_SECURE true
-  fi
   [[ "$ENV_FILE" != /etc/* ]] || sudo chmod 600 "$ENV_FILE"
 }
 
@@ -129,7 +124,7 @@ Type=simple
 User=$USER
 WorkingDirectory=$REPO_ROOT/server
 EnvironmentFile=/etc/cruxset.env
-ExecStart=$uv_bin run uvicorn app.main:app --host 127.0.0.1 --port 8000
+ExecStart=/usr/bin/env SESSION_COOKIE_SECURE=true $uv_bin run uvicorn app.main:app --host 127.0.0.1 --port 8000
 Restart=always
 RestartSec=3
 [Install]

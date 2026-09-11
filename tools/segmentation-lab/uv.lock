@@ -91,6 +91,13 @@ models = [
     { name = "torchvision", version = "0.28.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin'" },
     { name = "transformers" },
 ]
+sam2 = [
+    { name = "torch", version = "2.13.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
+    { name = "torch", version = "2.13.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin'" },
+    { name = "torchvision", version = "0.28.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
+    { name = "torchvision", version = "0.28.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin'" },
+    { name = "transformers" },
+]
 test = [
     { name = "httpx" },
     { name = "pytest" },
@@ -108,11 +115,14 @@ requires-dist = [
     { name = "python-multipart", specifier = ">=0.0.20,<1" },
     { name = "sam3", marker = "extra == 'models'", git = "https://github.com/facebookresearch/sam3.git" },
     { name = "torch", marker = "extra == 'models'", specifier = ">=2.7,<3", index = "https://download.pytorch.org/whl/cpu" },
+    { name = "torch", marker = "extra == 'sam2'", specifier = ">=2.7,<3", index = "https://download.pytorch.org/whl/cpu" },
     { name = "torchvision", marker = "extra == 'models'", specifier = ">=0.22,<1", index = "https://download.pytorch.org/whl/cpu" },
+    { name = "torchvision", marker = "extra == 'sam2'", specifier = ">=0.22,<1", index = "https://download.pytorch.org/whl/cpu" },
     { name = "transformers", marker = "extra == 'models'", specifier = ">=4.56,<6" },
+    { name = "transformers", marker = "extra == 'sam2'", specifier = ">=4.56,<6" },
     { name = "uvicorn", specifier = ">=0.35,<1" },
 ]
-provides-extras = ["models", "test"]
+provides-extras = ["sam2", "models", "test"]
 
 [[package]]
 name = "fastapi"

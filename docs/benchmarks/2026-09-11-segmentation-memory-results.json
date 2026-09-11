@@ -1,0 +1,164 @@
+{
+  "memory-before-1536": {
+    "image_sha256": "206af758dd9584b010ba38b234a1e296dd07c22eda48bb126f2dd70be6f4798b",
+    "input_sha256": "5b1b64964d81510df241227dcf9f655db2b1a7eba6b7deba48357f9bc9ab3613",
+    "size": [
+      1536,
+      1152
+    ],
+    "parameters": {
+      "points_per_side": 48,
+      "points_per_batch": 8,
+      "pred_iou_thresh": 0.85,
+      "stability_score_thresh": 0.9,
+      "crop_n_layers": 0
+    },
+    "model": "sam2_tiled",
+    "threads": 4,
+    "versions": {
+      "torch": "2.13.0+cpu",
+      "transformers": "5.16.1",
+      "numpy": "1.26.4",
+      "opencv-python-headless": "4.11.0.86"
+    },
+    "elapsed_seconds": 1343.553161053016,
+    "peak_rss_mib": 2575.84765625,
+    "adapter_candidates": 465,
+    "retained_mask_bytes": 822804480,
+    "polygon_count": 465
+  },
+  "memory-after-1536": {
+    "image_sha256": "206af758dd9584b010ba38b234a1e296dd07c22eda48bb126f2dd70be6f4798b",
+    "input_sha256": "5b1b64964d81510df241227dcf9f655db2b1a7eba6b7deba48357f9bc9ab3613",
+    "size": [
+      1536,
+      1152
+    ],
+    "parameters": {
+      "points_per_side": 48,
+      "points_per_batch": 8,
+      "pred_iou_thresh": 0.85,
+      "stability_score_thresh": 0.9,
+      "crop_n_layers": 0
+    },
+    "model": "sam2_tiled",
+    "threads": 4,
+    "synthetic": false,
+    "versions": {
+      "torch": "2.13.0+cpu",
+      "transformers": "5.16.1",
+      "numpy": "1.26.4",
+      "opencv-python-headless": "4.11.0.86"
+    },
+    "elapsed_seconds": 1257.6733310089912,
+    "peak_rss_mib": 1893.3046875,
+    "adapter_candidates": 465,
+    "retained_mask_bytes": 402626,
+    "polygon_count": 465
+  },
+  "memory-after-4096": {
+    "image_sha256": "206af758dd9584b010ba38b234a1e296dd07c22eda48bb126f2dd70be6f4798b",
+    "input_sha256": "1b8e71876b98c25dcaada743309d6a0ccedc84cec700a4f0f1c90791403c1a34",
+    "size": [
+      4096,
+      3072
+    ],
+    "parameters": {
+      "points_per_side": 48,
+      "points_per_batch": 8,
+      "pred_iou_thresh": 0.85,
+      "stability_score_thresh": 0.9,
+      "crop_n_layers": 0
+    },
+    "model": "sam2_tiled",
+    "threads": 4,
+    "synthetic": false,
+    "versions": {
+      "torch": "2.13.0+cpu",
+      "transformers": "5.16.1",
+      "numpy": "1.26.4",
+      "opencv-python-headless": "4.11.0.86"
+    },
+    "elapsed_seconds": 1383.1929178680002,
+    "peak_rss_mib": 2525.6328125,
+    "adapter_candidates": 474,
+    "retained_mask_bytes": 3189412,
+    "polygon_count": 474
+  },
+  "memory-before-4096-stopped": {
+    "status": "stopped_at_user_request",
+    "complete": false,
+    "process_elapsed_seconds": 2004.9200000000128,
+    "peak_rss_mib_lower_bound": 10790.1015625,
+    "last_rss_mib": 10333.1875,
+    "note": "Stopped after optimized 4K completed and 1536 comparison matched exactly; no completed baseline 4K output comparison."
+  },
+  "synthetic-before-1536": {
+    "image_sha256": "206af758dd9584b010ba38b234a1e296dd07c22eda48bb126f2dd70be6f4798b",
+    "input_sha256": "5b1b64964d81510df241227dcf9f655db2b1a7eba6b7deba48357f9bc9ab3613",
+    "size": [
+      1536,
+      1152
+    ],
+    "parameters": {
+      "points_per_side": 48,
+      "points_per_batch": 8,
+      "pred_iou_thresh": 0.85,
+      "stability_score_thresh": 0.9,
+      "crop_n_layers": 0
+    },
+    "model": "sam2_tiled",
+    "threads": 4,
+    "synthetic": true,
+    "versions": {
+      "torch": "2.13.0+cpu",
+      "transformers": "5.16.1",
+      "numpy": "1.26.4",
+      "opencv-python-headless": "4.11.0.86"
+    },
+    "elapsed_seconds": 100.77025413600495,
+    "peak_rss_mib": 1070.3203125,
+    "adapter_candidates": 361,
+    "retained_mask_bytes": 638779392,
+    "polygon_count": 361
+  },
+  "synthetic-after-1536": {
+    "image_sha256": "206af758dd9584b010ba38b234a1e296dd07c22eda48bb126f2dd70be6f4798b",
+    "input_sha256": "5b1b64964d81510df241227dcf9f655db2b1a7eba6b7deba48357f9bc9ab3613",
+    "size": [
+      1536,
+      1152
+    ],
+    "parameters": {
+      "points_per_side": 48,
+      "points_per_batch": 8,
+      "pred_iou_thresh": 0.85,
+      "stability_score_thresh": 0.9,
+      "crop_n_layers": 0
+    },
+    "model": "sam2_tiled",
+    "threads": 4,
+    "synthetic": true,
+    "versions": {
+      "torch": "2.13.0+cpu",
+      "transformers": "5.16.1",
+      "numpy": "1.26.4",
+      "opencv-python-headless": "4.11.0.86"
+    },
+    "elapsed_seconds": 3.6539664209994953,
+    "peak_rss_mib": 178.9765625,
+    "adapter_candidates": 361,
+    "retained_mask_bytes": 27436,
+    "polygon_count": 361
+  },
+  "memory-1536-comparison": {
+    "same_inputs": true,
+    "exact_candidate_json": true,
+    "exact_png_files": true
+  },
+  "synthetic-1536-comparison": {
+    "same_inputs": true,
+    "exact_candidate_json": true,
+    "exact_png_files": true
+  }
+}

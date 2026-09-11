@@ -12,25 +12,29 @@ Cloudflare Web 是 CruxSet 的第三种 Web 运行形态：它由 Workers 提供
 | 分割实验台发布 | 是；请求须使用 `SEGMENTATION_PUBLISH_KEY` 的签名，且需要 D1 与 R2 |
 | 浏览器内运行 SAM、YOLO 或其他 AI 任务 | 否 |
 
+管理员可以使用独立的[云端分割实验台](./segmentation-cloud.md)。Worker 只负责私有任务、D1/R2 元数据和发布；模型运行在 GitHub Actions 中，不改变本地实验台的启动方式。云端链路的 GitHub 配置、任务时限和私有对象规则见该文档。
+
 `DB` 是 Worker 的必需 D1 绑定。未绑定时，`/api/v1/bootstrap` 会返回 `503 SERVICE_UNAVAILABLE`，应用不能作为可用的 Cloudflare Web 站点运行。`edge/wrangler.jsonc` 同时将 R2 桶 `cruxset-media` 绑定为 `MEDIA`；没有该绑定时，管理员图片上传不可用，受签名的分割发布也不能完成。
 
 ## 配置与部署
 
 在仓库根目录完成 Cloudflare 登录，并确认 `edge/wrangler.jsonc` 中的 D1 `DB`、R2 `MEDIA`、域名路由和 `web/dist` 静态资源配置适用于目标账户与环境。首次部署需要创建 D1 数据库和 R2 桶，将创建得到的 D1 数据库 ID 写入该配置，并为分割发布设置密钥：
 
+项目已将 Wrangler 安装为本地开发依赖。当前环境不要求全局安装 Wrangler，以下命令统一使用 `npx wrangler` 调用项目版本。
+
 ```bash
-wrangler login
-wrangler d1 create cruxset-db
-wrangler r2 bucket create cruxset-media
-wrangler secret put SEGMENTATION_PUBLISH_KEY --config edge/wrangler.jsonc
+npx wrangler login
+npx wrangler d1 create cruxset-db
+npx wrangler r2 bucket create cruxset-media
+npx wrangler secret put SEGMENTATION_PUBLISH_KEY --config edge/wrangler.jsonc
 ```
 
 构建前端、应用 D1 迁移并部署 Worker：
 
 ```bash
 npm run web:build
-wrangler d1 migrations apply cruxset-db --remote --config edge/wrangler.jsonc
-wrangler deploy --config edge/wrangler.jsonc
+npx wrangler d1 migrations apply cruxset-db --remote --config edge/wrangler.jsonc
+npx wrangler deploy --config edge/wrangler.jsonc
 ```
 
 生产数据库 ID、域名路由和 `SEGMENTATION_PUBLISH_KEY` 是部署环境配置。不要把密钥写入仓库或前端构建产物。部署后应验证公开浏览、注册/登录、线路写入，以及具备管理员账户和 `MEDIA` 绑定时的图片上传与墙面发布；浏览器不承担 AI 推理，分割结果由实验台签名后提交给 Worker。

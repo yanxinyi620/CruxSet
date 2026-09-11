@@ -2,7 +2,7 @@ import type { Wall } from '../../wechat/miniprogram/domain/types.js'
 export type LocalUser = { id: string; email: string; displayName?: string; isAdmin: boolean }
 export type AdminUser = { id: string; email: string; displayName: string; role: 'admin' | 'user'; createdAt: number }
 export type BrowseData = { walls: unknown[]; problems: unknown[] }
-export type WebCapabilities = { readOnly: boolean; writes: boolean; authentication: boolean; wallAuthoring: boolean; imageUpload: boolean; aiJobs: boolean }
+export type WebCapabilities = { readOnly: boolean; writes: boolean; authentication: boolean; wallAuthoring: boolean; imageUpload: boolean; aiJobs: boolean; segmentationLab?: boolean }
 export type BootstrapData = BrowseData & { user: LocalUser | null; capabilities?: WebCapabilities }
 export type NewWallDraft = { name: string; image: File; imageWidth: number; imageHeight: number }
 export type ProblemInput = { wallId: string; angle: number; grade: string; footRule: string; name?: string; description?: string; holds: Record<string, string[]> }
