@@ -1,5 +1,7 @@
 # Spraywall Segmentation Lab
 
+云端管理员工作台、GitHub Actions runner 配置和任务限制见[云端分割实验台](../../docs/segmentation-cloud.md)。云端链路是附加功能；下面的本地命令与数据目录保持不变。
+
 本地运行的攀岩训练墙岩点分割实验台。它面向一面固定 Spraywall：上传并裁剪墙图，使用 SAM 2.1 自动产生岩点候选，再在浏览器中以 SVG polygon 进行人工校准并导出结果。
 
 它是 CruxSet 的独立研究工具：不读取任一运行形态的数据；但可以通过显式发布，将已校准结果创建为本机 FastAPI、CloudBase 或 Cloudflare Web 中的一面新公开 Wall。有关本机启动方式，见[本地 Web 工作台](../../docs/local-web.md)。

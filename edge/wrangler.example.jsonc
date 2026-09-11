@@ -7,7 +7,13 @@
     "directory": "../web/dist",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/v1/*"]
+    "run_worker_first": ["/api/v1/*", "/segmentation-lab", "/segmentation-lab/*"]
+  },
+  "triggers": { "crons": ["*/5 * * * *"] },
+  "vars": {
+    "LAB_GITHUB_REPOSITORY": "yanxinyi620/CruxSet",
+    "LAB_GITHUB_REF": "main",
+    "LAB_GITHUB_WORKFLOW": "segmentation-lab.yml"
   },
   "d1_databases": [
     {

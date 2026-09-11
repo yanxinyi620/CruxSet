@@ -36,9 +36,10 @@ def configure_sam2_sampling(processor) -> None:
 class Sam2Adapter:
     name = "sam2"
 
-    def __init__(self, model_name: str = "facebook/sam2.1-hiera-large", tiled: bool = False) -> None:
+    def __init__(self, model_name: str = "facebook/sam2.1-hiera-large", tiled: bool = False, revision: str | None = None) -> None:
         self.model_name = model_name
         self.tiled = tiled
+        self.revision = revision
 
     @staticmethod
     def pipeline_parameters(parameters: dict[str, object]) -> dict[str, object]:
@@ -73,7 +74,8 @@ class Sam2Adapter:
         from transformers import pipeline
 
         progress(0.05, "loading SAM 2.1")
-        generator = pipeline("mask-generation", model=self.model_name, device=-1)
+        options = {"revision": self.revision} if self.revision else {}
+        generator = pipeline("mask-generation", model=self.model_name, device=-1, **options)
         configure_sam2_sampling(generator.image_processor)
         progress(0.25, "generating masks")
         parameters = self.parameters_for_request(request.parameters)

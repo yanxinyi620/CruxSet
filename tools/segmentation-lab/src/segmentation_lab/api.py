@@ -110,6 +110,14 @@ def create_app(settings: Settings, adapters: Mapping[str, SegmentationAdapter] |
     def calibration_workbench() -> FileResponse:
         return FileResponse(Path(__file__).parents[2] / "static" / "calibration.html")
 
+    @app.get("/runtime-config.js")
+    def runtime_config() -> FileResponse:
+        return FileResponse(Path(__file__).parents[2] / "static" / "runtime-config.js", media_type="application/javascript")
+
+    @app.get("/runtime.js")
+    def runtime() -> FileResponse:
+        return FileResponse(Path(__file__).parents[2] / "static" / "runtime.js", media_type="application/javascript")
+
     @app.get("/api/experiments/{experiment_id}/candidates")
     def candidates(experiment_id: str, source: str = "sam2") -> dict[str, list[dict[str, object]]]:
         return {"items": store.list_candidates(experiment_id, source=source)}
