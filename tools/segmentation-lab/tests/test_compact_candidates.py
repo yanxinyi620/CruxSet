@@ -187,7 +187,9 @@ def test_non_tiled_generate_returns_compact_global_candidates(tmp_path, monkeypa
     def pipeline(task, model, device):
         assert task == 'mask-generation'
         assert device == -1
-        return lambda *args, **kwargs: {'masks': [mask], 'scores': [.75]}
+        generator = lambda *args, **kwargs: {'masks': [mask], 'scores': [.75]}
+        generator.image_processor = SimpleNamespace(generate_crop_boxes=lambda *a, **k: None)
+        return generator
     monkeypatch.setitem(sys.modules, 'transformers', SimpleNamespace(pipeline=pipeline))
     adapter = Sam2Adapter()
     monkeypatch.setattr(adapter, 'available', lambda: ModelAvailability(True, None, 'cpu'))

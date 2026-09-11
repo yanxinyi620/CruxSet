@@ -9,6 +9,30 @@ from .base import AdapterMask, GenerateRequest, ModelAvailability, ProgressCallb
 from ..candidates import CompactCandidate, distinct_candidates
 
 
+def configure_sam2_sampling(processor) -> None:
+    """Place automatic prompts in SAM 2's square-resized image coordinates."""
+    import torch
+
+    original = processor.generate_crop_boxes
+
+    def generate_crop_boxes(image, target_size, crop_n_layers=0, *args, **kwargs):
+        if crop_n_layers != 0:
+            raise ValueError("SAM 2 automatic crop layers must be zero; use external tiling")
+        boxes, points, crops, labels = original(image, target_size, crop_n_layers, *args, **kwargs)
+        # Rebuild the uniform grid rather than depending on upstream's SAM 1
+        # longest-edge normalization, which misses the short axis of SAM 2 images.
+        count = int(points.shape[1] ** 0.5)
+        if count * count != points.shape[1]:
+            raise ValueError("Expected a square automatic sampling grid")
+        centers = (torch.arange(count, device=points.device, dtype=points.dtype) + 0.5) / count
+        yy, xx = torch.meshgrid(centers, centers, indexing="ij")
+        points = torch.stack((xx * processor.size["width"], yy * processor.size["height"]), dim=-1)
+        points = points.reshape(1, count * count, 1, 2)
+        return boxes, points, crops, labels
+
+    processor.generate_crop_boxes = generate_crop_boxes
+
+
 class Sam2Adapter:
     name = "sam2"
 
@@ -50,6 +74,7 @@ class Sam2Adapter:
 
         progress(0.05, "loading SAM 2.1")
         generator = pipeline("mask-generation", model=self.model_name, device=-1)
+        configure_sam2_sampling(generator.image_processor)
         progress(0.25, "generating masks")
         parameters = self.parameters_for_request(request.parameters)
         if self.tiled:
