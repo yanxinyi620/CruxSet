@@ -12,6 +12,7 @@ export function requestView(r: Row) {
   return {
     id: r.id,
     applicantId: r.applicant_id,
+    applicantName: String(r.display_name ?? '').trim() || String(r.email_normalized ?? '').split('@', 1)[0] || '用户',
     wallName: r.wall_name,
     target: r.target,
     status: r.status,
@@ -151,15 +152,14 @@ export async function publishRequestRoutes(
 ): Promise<Response | null> {
   const admin = user.role === 'admin'
   if (path === '/publish-requests' && request.method === 'GET') {
-    const rows = await (
-      admin
-        ? env.DB.prepare(
-            'SELECT * FROM lab_publish_requests WHERE requires_review=1 ORDER BY created_at DESC',
-          )
-        : env.DB.prepare(
-            'SELECT * FROM lab_publish_requests WHERE requires_review=1 AND applicant_id=? ORDER BY created_at DESC',
-          ).bind(user.id)
-    ).all<Row>()
+    const query = `SELECT r.*,u.display_name,a.email_normalized
+      FROM lab_publish_requests r
+      LEFT JOIN users u ON u.id=r.applicant_id
+      LEFT JOIN admins a ON a.user_id=r.applicant_id
+      WHERE r.requires_review=1${admin ? '' : ' AND r.applicant_id=?'}
+      ORDER BY r.created_at DESC`
+    const statement = env.DB.prepare(query)
+    const rows = await (admin ? statement : statement.bind(user.id)).all<Row>()
     return json({ items: rows.results.map(requestView), isAdmin: admin })
   }
   const m = path.match(

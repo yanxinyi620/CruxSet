@@ -81,6 +81,22 @@ def test_gateway_offline(lab, monkeypatch):
     assert lab[0].get('/api/v1/segmentation-lab/experiments').status_code == 503
 
 
+def test_request_applicants_use_current_profile_names_with_email_fallback(lab, monkeypatch):
+    client, repo = lab
+    monkeypatch.setattr(app.state, 'lab_transport', httpx.MockTransport(lambda r: httpx.Response(200, json={
+        'isAdmin': True, 'items': [{'id': 'request', 'applicantId': 'member'}, {'id': 'missing', 'applicantId': 'deleted-id'}],
+    })))
+    path = '/api/v1/segmentation-lab/publish-requests'
+    assert client.get(path).json()['items'][0]['applicantName'] == 'member'
+    repo.insert_user({'id': 'member', 'displayName': '  攀岩者  '})
+    data = client.get(path).json()
+    assert data['items'][0]['applicantName'] == '攀岩者'
+    assert data['items'][1]['applicantName'] == '用户'
+    assert 'member@example.com' not in json.dumps(data)
+    repo.insert_user({'id': 'member', 'displayName': ' '})
+    assert client.get(path).json()['items'][0]['applicantName'] == 'member'
+
+
 def test_gateway_rejects_encoded_traversal(lab):
     assert lab[0].get('/api/v1/segmentation-lab/%2e%2e/healthz').status_code == 422
 

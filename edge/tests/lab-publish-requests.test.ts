@@ -141,6 +141,18 @@ it('lists only review applications, retaining direct publication records for ret
   expect((await f.call(`/publish-requests/${direct.id}/preview`, f.admin)).status).toBe(404)
   expect((await f.call(`/publish-requests/${direct.id}/approve`, f.admin, {})).status).toBe(404)
 })
+it('uses the current applicant profile name, falling back to the email local part', async () => {
+  const f = fixture()
+  await f.create()
+  f.sqlite.exec("INSERT INTO users VALUES('member','',1,1); INSERT INTO admins(user_id,role,created_at,updated_at,email_normalized) VALUES('member','user',1,1,'climber@example.com')")
+  const list = async () => (await (await f.call('/publish-requests', f.admin)).json() as any).items[0]
+  expect((await list()).applicantName).toBe('climber')
+  f.sqlite.prepare('UPDATE users SET display_name=? WHERE id=?').run('  岩友  ', 'member')
+  expect((await list()).applicantName).toBe('岩友')
+  expect(JSON.stringify(await list())).not.toContain('climber@example.com')
+  f.sqlite.prepare('UPDATE users SET display_name=? WHERE id=?').run(' ', 'member')
+  expect((await list()).applicantName).toBe('climber')
+})
 it('copies an immutable request snapshot, deduplicates, authorizes preview and rejects with reason', async () => {
   const f = fixture(),
     r = await f.create()

@@ -51,6 +51,14 @@ describe('lab cross-platform publication interactions', () => {
     await p.run('submitPublish()')
     expect(p.request).not.toHaveBeenCalled()
   })
+  it('shows the applicant name without exposing their user ID in the table', () => {
+    const p=page()
+    const item={id:'r',applicantId:'internal-user-id',applicantName:'岩友 <A>',wallName:'墙',target:'cloudbase',status:'pending'}
+    expect(p.run(`requestRow(${JSON.stringify(item)},true)`)).toContain('岩友 &lt;A&gt;')
+    expect(p.run(`requestRow(${JSON.stringify(item)},true)`)).not.toContain('internal-user-id')
+    delete (item as any).applicantName
+    expect(p.run(`requestRow(${JSON.stringify(item)},true)`)).not.toContain('internal-user-id')
+  })
   it('renders escaped status and links, and only gives admins pending or failed review actions', () => {
     const p=page()
     const item={id:'r',applicantId:'member',wallName:'<img onerror=alert(1)>',target:'cloudbase',createdAt:1,status:'pending',reason:'<script>',result:{browseUrl:'javascript:alert(1)'}}

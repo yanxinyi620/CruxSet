@@ -7,6 +7,7 @@ from urllib.parse import urlsplit, quote
 
 import httpx
 from fastapi import APIRouter, Depends, Request, Response
+from fastapi.responses import JSONResponse
 from app.api.auth import require_user
 from app.api.errors import ApiError
 from app.auth.lab import can_use_lab, lab_key, legacy_owner_id, require_same_origin
@@ -50,4 +51,16 @@ async def lab_gateway(path: str, request: Request, user=Depends(require_user)):
     except httpx.RequestError as error:
         raise ApiError('LAB_UNAVAILABLE', 'Local segmentation lab is unavailable', 503) from error
     response_headers = {name:value for name,value in upstream.headers.items() if name in {'content-type', 'cache-control', 'etag', 'last-modified', 'content-disposition', 'content-range', 'accept-ranges'}}
+    if path == 'publish-requests' and request.method == 'GET' and upstream.is_success:
+        data = upstream.json()
+        repo = request.app.state.repository
+        names = {}
+        for item in data.get('items', []):
+            applicant_id = str(item.get('applicantId', ''))
+            if applicant_id not in names:
+                applicant = repo.find_user(applicant_id) or {}
+                account = repo.find_admin_by_user_id(applicant_id) or {}
+                names[applicant_id] = str(applicant.get('displayName') or '').strip() or str(account.get('emailNormalized') or '').split('@', 1)[0] or '用户'
+            item['applicantName'] = names[applicant_id]
+        return JSONResponse(data, status_code=upstream.status_code, headers={'Cache-Control': 'no-store'})
     return Response(content=upstream.content, status_code=upstream.status_code, headers=response_headers)
