@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RUNTIME_DIR="${RUNTIME_DIR:-$ROOT/.runtime/cruxset-dev}"
 ENV_FILE="${ENV_FILE:-/etc/cruxset.env}"
-PUBLISH_KEY='local-only-long-random-secret'
+PUBLISH_KEY=''
 PUBLISH_OWNER_ID='usr_web_lgjUPpx-3eu-s1_r'
 ACTION=''
 
@@ -27,6 +27,26 @@ load_cloudbase_env() {
   done
 }
 
+# Private persistent keys keep local account sessions and the internal lab API authenticated.
+private_auth_key() {
+  mkdir -p "$RUNTIME_DIR"
+  python3 "$ROOT/scripts/local-auth-key.py" "$RUNTIME_DIR/$1.key"
+}
+load_local_auth_env() {
+  local key value filename
+  for key in SESSION_SECRET CRUXSET_LAB_INTERNAL_KEY CRUXSET_SEGMENTATION_PUBLISH_KEY; do
+    value="${!key:-}"
+    [[ -n "$value" ]] || value="$(read_env_value "$key")"
+    if [[ "$value" == local-only-long-random-secret || "$value" == cruxset-development-only ]]; then value=''; fi
+    if [[ -z "$value" ]]; then
+      case "$key" in SESSION_SECRET) filename=session;; CRUXSET_SEGMENTATION_PUBLISH_KEY) filename=publish;; *) filename=lab-internal;; esac
+      value="$(private_auth_key "$filename")"
+    fi
+    export "$key=$value"
+  done
+  PUBLISH_KEY="$CRUXSET_SEGMENTATION_PUBLISH_KEY"
+}
+
 load_cloudbase_env
 if [[ -z "${CRUXSET_EDGE_SEGMENTATION_PUBLISH_KEY:-}" ]]; then
   value="$(read_env_value CRUXSET_EDGE_SEGMENTATION_PUBLISH_KEY)"
@@ -34,15 +54,6 @@ if [[ -z "${CRUXSET_EDGE_SEGMENTATION_PUBLISH_KEY:-}" ]]; then
 fi
 CLOUDBASE_STORAGE_URL="${CRUXSET_CLOUDBASE_STORAGE_URL:-}"
 CLOUDBASE_FUNCTION_URL="${CRUXSET_CLOUDBASE_FUNCTION_URL:-}"
-
-require_cloudbase_urls() {
-  CLOUDBASE_STORAGE_URL="${CRUXSET_CLOUDBASE_STORAGE_URL:-}"
-  CLOUDBASE_FUNCTION_URL="${CRUXSET_CLOUDBASE_FUNCTION_URL:-}"
-  [[ -n "$CLOUDBASE_STORAGE_URL" && -n "$CLOUDBASE_FUNCTION_URL" ]] || {
-    echo "请先在 $ENV_FILE 配置 CRUXSET_CLOUDBASE_STORAGE_URL 和 CRUXSET_CLOUDBASE_FUNCTION_URL。" >&2
-    return 1
-  }
-}
 
 usage() { echo "Usage: ${0##*/} {start|stop|restart|status}" >&2; }
 parse_args() { ACTION="${1:-}"; [[ $# == 1 && "$ACTION" =~ ^(start|stop|restart|status)$ ]] || { usage; return 2; }; }
@@ -74,12 +85,12 @@ start_one() {
 
 wait_port() { local port="$1" i; for i in {1..15}; do port_busy "$port" && return 0; sleep 1; done; return 1; }
 start_services() {
-  require_cloudbase_urls
-  start_one api 8000 "$ROOT/server" env SESSION_COOKIE_SECURE=false CRUXSET_SEGMENTATION_PUBLISH_KEY="$PUBLISH_KEY" CRUXSET_SEGMENTATION_PUBLISH_OWNER_ID="$PUBLISH_OWNER_ID" PYTHONPATH=. uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
+  load_local_auth_env
+  start_one api 8000 "$ROOT/server" env SESSION_SECRET="$SESSION_SECRET" CRUXSET_LAB_INTERNAL_KEY="$CRUXSET_LAB_INTERNAL_KEY" SESSION_COOKIE_SECURE=false CRUXSET_SEGMENTATION_PUBLISH_KEY="$PUBLISH_KEY" CRUXSET_SEGMENTATION_PUBLISH_OWNER_ID="$PUBLISH_OWNER_ID" PYTHONPATH=. uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
   wait_port 8000 || { stop_services; return 1; }
   start_one web 5173 "$ROOT" npm run web -- --host 0.0.0.0
   wait_port 5173 || { stop_services; return 1; }
-  start_one lab 8765 "$ROOT/tools/segmentation-lab" env SEG_LAB_DATA_DIR=./data CRUXSET_SEGMENTATION_PUBLISH_KEY="$PUBLISH_KEY" CRUXSET_EDGE_SEGMENTATION_PUBLISH_KEY="${CRUXSET_EDGE_SEGMENTATION_PUBLISH_KEY:-}" CRUXSET_BASE_URL=http://127.0.0.1:8000 CRUXSET_WEB_URL=http://127.0.0.1:5173 CRUXSET_CLOUDBASE_STORAGE_URL="$CLOUDBASE_STORAGE_URL" CRUXSET_CLOUDBASE_FUNCTION_URL="$CLOUDBASE_FUNCTION_URL" uv run uvicorn segmentation_lab.api:app --host 127.0.0.1 --port 8765
+  start_one lab 8765 "$ROOT/tools/segmentation-lab" env CRUXSET_LAB_INTERNAL_KEY="$CRUXSET_LAB_INTERNAL_KEY" SEG_LAB_DATA_DIR=./data CRUXSET_SEGMENTATION_PUBLISH_KEY="$PUBLISH_KEY" CRUXSET_EDGE_SEGMENTATION_PUBLISH_KEY="${CRUXSET_EDGE_SEGMENTATION_PUBLISH_KEY:-}" CRUXSET_BASE_URL=http://127.0.0.1:8000 CRUXSET_WEB_URL=http://127.0.0.1:5173 CRUXSET_CLOUDBASE_STORAGE_URL="$CLOUDBASE_STORAGE_URL" CRUXSET_CLOUDBASE_FUNCTION_URL="$CLOUDBASE_FUNCTION_URL" uv run uvicorn segmentation_lab.api:app --host 127.0.0.1 --port 8765
   wait_port 8765 || { stop_services; return 1; }
   status_services
 }

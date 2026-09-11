@@ -440,6 +440,10 @@
       function modelLabel(name) { return ({sam2: "SAM 2.1", sam2_tiled: "SAM 2.1（分块）", sam3: "SAM 3"})[name] || name; }
       async function models() {
         try { let d = await (await Lab.request("/models")).json();
+        if (!isCloud && Array.isArray(d.publishTargets)) {
+          const labels = {web: "本地 Web", cloudbase: "小程序 CloudBase", cloudflare: "Cloudflare 云端 Web"};
+          $("#publishTarget").innerHTML = d.publishTargets.filter(target => labels[target]).map(target => `<option value="${target}">${labels[target]}</option>`).join("");
+        }
         if (isCloud) d.items = d.items.filter((x) => ["sam2", "sam2_tiled"].includes(x.name));
         $("#modelsCount").textContent =
           `可用 ${d.items.filter((x) => x.available).length} 个模型`;
@@ -553,6 +557,7 @@
       cropCanvas.onpointerup=e=>{if(dragCropPoint!==undefined&&cropCanvas.hasPointerCapture(e.pointerId))cropCanvas.releasePointerCapture(e.pointerId);dragCropPoint=undefined};
       $("#resetCrop").onclick=()=>{cropPoints=[];drawCrop()};
       $("#calibrationLink").href = Lab.calibration();
+      if (!isCloud) { $("#publishTarget").innerHTML = '<option value="web">本地 Web</option>'; }
       if (isCloud) { $("#publishTarget").innerHTML = '<option value="cloudflare">Cloudflare 云端 Web</option>'; }
       load();
       models();

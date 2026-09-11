@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from uuid import uuid4
 
+from .ownership import assign_owner
+
 
 @dataclass(frozen=True)
 class ExperimentRecord:
@@ -18,10 +20,12 @@ class ExperimentStore:
         self.root = data_dir / "experiments"
         self.root.mkdir(parents=True, exist_ok=True)
 
-    def create(self, image_name: str, image_sha256: str, width: int, height: int) -> ExperimentRecord:
+    def create(self, image_name: str, image_sha256: str, width: int, height: int, owner_id: str | None = None) -> ExperimentRecord:
         experiment = ExperimentRecord(id=str(uuid4()), image_sha256=image_sha256)
         path = self.root / experiment.id
         path.mkdir()
+        if owner_id is not None:
+            assign_owner(path, owner_id)
         self._write_json(path / "experiment.json", {
             "id": experiment.id,
             "imageName": image_name,

@@ -96,3 +96,22 @@ def test_segmentation_publish_rejects_out_of_bounds_polygon(monkeypatch):
     )
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "INVALID_INPUT"
+
+
+def test_publish_uses_eligible_owner_and_rechecks_revocation(monkeypatch):
+    client, repository, admin_id = _client(monkeypatch)
+    repository.insert_user({'id':'member'})
+    repository.insert_admin({'userId':'member','role':'user','emailNormalized':'member@example.com','labEnabled':True})
+    metadata = dict(_metadata(), ownerId='member')
+    def publish():
+        return client.post('/api/v1/admin/segmentation-walls',headers={'Authorization':'Bearer test-key'},files={'image':('wall.png',_png(),'image/png')},data={'metadata':json.dumps(metadata)})
+    first = publish()
+    assert first.status_code == 201
+    assert repository.find_wall(first.json()['wallId'])['ownerId'] == 'member'
+    metadata['ownerId'] = admin_id
+    assert publish().status_code == 409
+    metadata['ownerId'] = 'member'
+    account = repository.find_admin_by_user_id('member'); account['labEnabled'] = False; repository.insert_admin(account)
+    assert publish().status_code == 403
+    metadata['ownerId'] = 'missing'
+    assert publish().status_code == 403

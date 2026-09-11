@@ -1,6 +1,6 @@
 from io import BytesIO
 
-from fastapi.testclient import TestClient
+from lab_client import TestClient
 from PIL import Image
 
 from segmentation_lab.api import create_app
@@ -48,7 +48,7 @@ def test_models_reports_availability_without_starting_inference(tmp_path):
 
     response = client.get("/api/models")
 
-    assert response.json() == {"items": [{"name": "sam3", "available": False, "reason": "checkpoint_not_found", "device": "cpu"}]}
+    assert response.json() == {"items": [{"name": "sam3", "available": False, "reason": "checkpoint_not_found", "device": "cpu"}], "publishTargets": ["web", "cloudbase", "cloudflare"]}
 
 
 def test_upload_creates_an_experiment_with_image_metadata(tmp_path):

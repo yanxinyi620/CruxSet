@@ -123,4 +123,4 @@ def test_bootstrap_returns_owned_private_content_and_safe_current_user():
 
     assert response.status_code == 200
     assert [wall["id"] for wall in response.json()["walls"]] == ["wall_public", "wall_private"]
-    assert response.json()["user"] == {"id": owner["userId"], "email": "owner@example.com", "displayName": "", "isAdmin": True}
+    assert response.json()["user"] == {"id": owner["userId"], "email": "owner@example.com", "displayName": "", "isAdmin": True, "labEnabled": True}

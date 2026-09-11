@@ -1,3 +1,4 @@
+from app.auth.lab import can_use_lab, lab_key
 import secrets
 import time
 import json
@@ -148,16 +149,21 @@ async def publish_segmentation_wall(request: Request, image: UploadFile = File(.
         raise ApiError("INVALID_INPUT", "Missing publish metadata", 422) from error
     if width <= 0 or height <= 0 or not request_id or not name:
         raise ApiError("INVALID_INPUT", "Invalid publish metadata", 422)
+    if "ownerId" in payload:
+        owner_id = payload["ownerId"]
+        if not isinstance(owner_id, str) or not _repo(request).find_user(owner_id) or not can_use_lab(_repo(request).find_admin_by_user_id(owner_id)):
+            raise ApiError("FORBIDDEN", "Publication owner no longer has lab access", 403)
+    else:
+        owner_id = getattr(request.app.state, "segmentation_publish_owner_id", "")
+        if not owner_id or not _repo(request).find_admin_by_user_id(owner_id):
+            raise ApiError("PUBLISH_NOT_CONFIGURED", "Segmentation publishing owner is not configured", 503)
     existing = next((wall for wall in _repo(request).list_walls() if wall.get("source", {}).get("publishRequestId") == request_id), None)
     if existing:
         source = existing.get("source", {})
-        if source.get("calibrationId") != calibration_id or existing.get("imageWidth") != width or existing.get("imageHeight") != height:
+        if existing.get("ownerId") != owner_id or source.get("calibrationId") != calibration_id or existing.get("imageWidth") != width or existing.get("imageHeight") != height:
             raise ApiError("PUBLISH_REQUEST_CONFLICT", "Publish request id was already used with different data", 409)
         return JSONResponse(status_code=200, content={"wallId": existing["id"], "wallName": existing["name"], "holdCount": len(existing.get("holds", [])), "browsePath": f"/wall/{existing['id']}", "created": False})
     holds = _segmentation_holds(payload.get("holds"), width, height)
-    owner_id = getattr(request.app.state, "segmentation_publish_owner_id", "")
-    if not owner_id or not _repo(request).find_admin_by_user_id(owner_id):
-        raise ApiError("PUBLISH_NOT_CONFIGURED", "Segmentation publishing owner is not configured", 503)
     content = await image.read()
     media = store_image(content, image.content_type or "", int(os.environ.get("SEGMENTATION_MAX_UPLOAD_BYTES", "52428800")))
     display_media = store_image(await display_image.read(), display_image.content_type or "", int(os.environ.get("SEGMENTATION_MAX_UPLOAD_BYTES", "52428800"))) if display_image else None
@@ -237,7 +243,8 @@ async def list_problems(request: Request):
 @router.get("/bootstrap")
 async def bootstrap(request: Request):
     walls = _visible_walls(request)
-    return {"user": _safe_user(request), "walls": walls, "problems": _problems_for_walls(request, walls)}
+    user = _safe_user(request)
+    return {"user": user, "walls": walls, "problems": _problems_for_walls(request, walls), "capabilities": {"segmentationLab": bool(lab_key(request) and user and user["labEnabled"]), "manageLabAccess": bool(lab_key(request) and user and user["isAdmin"])}}
 
 
 @router.post("/walls", status_code=201)

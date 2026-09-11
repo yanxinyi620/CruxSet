@@ -13,7 +13,7 @@ Cloudflare Web：web/dist       → Workers           → D1 + R2（MEDIA 配置
 | 形态 | 入口与存储 | 可用功能 |
 | --- | --- | --- |
 | 微信小程序 CloudBase | `wechat/miniprogram` + 云函数；CloudBase DB 与私有 Storage | 浏览公开墙面；创建、编辑、删除自己的线路；管理员管理墙面。 |
-| 本地 Web | `web`（Vite）+ FastAPI；SQLite 与本地媒体 | 管理员完整墙面创作、岩点标注、发布、线路管理，以及本机分割实验台。 |
+| 本地 Web | `web`（Vite）+ FastAPI；SQLite 与本地媒体 | 管理员完整墙面创作、岩点标注、发布、线路管理，以及按用户授权和隔离数据的本机分割实验台。 |
 | Cloudflare Web | 相同的 `web/dist` + Workers；D1 与配置为 `MEDIA` 的 R2 | 注册、登录、资料和线路写入；具备 `MEDIA` 的管理员可上传、创作、标注、发布，并删除自己的墙面。浏览器端不运行 AI 任务。 |
 
 三套存储系统各自独立，不会自动同步；只共享 Wall、Hold、Problem 的字段语义。

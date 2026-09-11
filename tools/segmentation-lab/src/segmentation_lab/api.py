@@ -5,7 +5,7 @@ from pathlib import Path
 import time
 from uuid import uuid4
 
-from fastapi import BackgroundTasks, Body, FastAPI, File, Request, UploadFile
+from fastapi import BackgroundTasks, Body, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse
 from fastapi.responses import FileResponse
 from fastapi.responses import Response
@@ -20,6 +20,8 @@ from .experiments import ExperimentStore
 from .cruxset import CruxSetPublisher
 from .cloudbase_sync import CloudBaseSynchronizer, sync_calibration
 from .service import BenchmarkService
+from .access import authenticate
+from .ownership import IDENTIFIER, migrate_legacy_owners, owner_of
 
 
 PostSuccessHook = Callable[[ExperimentStore, str, str, dict[str, object], str], Awaitable[object] | object]
@@ -49,6 +51,34 @@ async def _run_post_success_hook(hook: PostSuccessHook, store: ExperimentStore, 
 def create_app(settings: Settings, adapters: Mapping[str, SegmentationAdapter] | None = None, post_success_hook: PostSuccessHook | None = None) -> FastAPI:
     app = FastAPI(title="Spraywall Segmentation Lab")
     store = ExperimentStore(settings.data_dir)
+    app.state.lab_internal_key = settings.lab_internal_key or settings.cruxset_publish_key
+
+    @app.middleware("http")
+    async def trusted_gateway(request: Request, call_next):
+        if request.url.path == "/api" or request.url.path.startswith("/api/"):
+            try:
+                actor = await authenticate(request, app.state.lab_internal_key)
+                request.state.actor = actor
+                migrate_legacy_owners(store.root, actor["legacyOwnerId"])
+                parts = request.url.path.strip("/").split("/")
+                if len(parts) >= 3 and parts[:2] == ["api", "experiments"]:
+                    eid = parts[2]
+                    if not IDENTIFIER.fullmatch(eid) or (store.root / eid).is_symlink() or owner_of(store.root / eid) != actor["userId"]:
+                        raise HTTPException(404, "实验不存在。")
+                    if len(parts) >= 5 and parts[3] in {"runs", "calibrations"}:
+                        if not IDENTIFIER.fullmatch(parts[4]):
+                            raise HTTPException(404, "记录不存在。")
+            except HTTPException as error:
+                return JSONResponse({"error": {"code": {401: "AUTH_REQUIRED", 403: "FORBIDDEN", 404: "NOT_FOUND", 413: "IMAGE_TOO_LARGE", 503: "NOT_CONFIGURED"}.get(error.status_code, "INVALID_INPUT"), "message": error.detail}}, status_code=error.status_code)
+            except (ValueError, OSError):
+                return JSONResponse({"error": {"code": "OWNERSHIP_UNAVAILABLE", "message": "实验归属记录无法读取，请联系管理员。"}}, status_code=503)
+        response = await call_next(request)
+        if request.url.path.startswith("/api/"):
+            response.headers["Cache-Control"] = "no-store"
+        return response
+
+    def owned_experiments(request: Request):
+        return [item for item in store.list_experiments() if owner_of(store.root / str(item["id"])) == request.state.actor["userId"]]
 
     @app.exception_handler(SegmentationLabError)
     async def segmentation_lab_error(_: Request, error: SegmentationLabError) -> JSONResponse:
@@ -64,15 +94,15 @@ def create_app(settings: Settings, adapters: Mapping[str, SegmentationAdapter] |
     active_adapters = adapters or {"sam2": Sam2Adapter(), "sam2_tiled": Sam2Adapter(tiled=True), "sam3": Sam3Adapter()}
 
     @app.get("/api/models")
-    def models() -> dict[str, list[dict[str, object]]]:
+    def models(request: Request) -> dict[str, object]:
         return {"items": [
             {"name": name, "available": availability.available, "reason": availability.reason, "device": availability.device}
             for name, adapter in active_adapters.items()
             for availability in [adapter.available()]
-        ]}
+        ], "publishTargets": ["web", "cloudbase", "cloudflare"] if request.state.actor["isAdmin"] else ["web"]}
 
     @app.post("/api/experiments", status_code=201)
-    async def create_experiment(image: UploadFile = File(...)) -> dict[str, object]:
+    async def create_experiment(request: Request, image: UploadFile = File(...)) -> dict[str, object]:
         if image.content_type not in {"image/jpeg", "image/png"}:
             raise SegmentationLabError("unsupported_image", "Upload a JPEG or PNG image")
         content = await image.read()
@@ -84,15 +114,15 @@ def create_app(settings: Settings, adapters: Mapping[str, SegmentationAdapter] |
         except Exception as error:
             raise SegmentationLabError("invalid_image", "Image data could not be decoded") from error
         name = Path(image.filename or "wall.png").name
-        experiment = store.create(name, sha256(content).hexdigest(), width, height)
+        experiment = store.create(name, sha256(content).hexdigest(), width, height, owner_id=request.state.actor["userId"])
         input_dir = store.root / experiment.id / "input"
         input_dir.mkdir(exist_ok=True)
         (input_dir / f"original{Path(name).suffix.lower()}").write_bytes(content)
         return {"id": experiment.id, "image": {"name": name, "width": width, "height": height}}
 
     @app.get("/api/experiments")
-    def experiments() -> dict[str, list[dict[str, object]]]:
-        return {"items": [{"id": item["id"], "image": {"name": item["imageName"], "width": item["width"], "height": item["height"]}, "createdAt": item.get("createdAt"), "runs": item.get("runs", {})} for item in store.list_experiments()]}
+    def experiments(request: Request) -> dict[str, list[dict[str, object]]]:
+        return {"items": [{"id": item["id"], "image": {"name": item["imageName"], "width": item["width"], "height": item["height"]}, "createdAt": item.get("createdAt"), "runs": item.get("runs", {})} for item in owned_experiments(request)]}
 
     @app.get("/api/experiments/{experiment_id}/image")
     def experiment_image(experiment_id: str) -> FileResponse:
@@ -111,8 +141,10 @@ def create_app(settings: Settings, adapters: Mapping[str, SegmentationAdapter] |
         return FileResponse(Path(__file__).parents[2] / "static" / "calibration.html")
 
     @app.get("/runtime-config.js")
-    def runtime_config() -> FileResponse:
-        return FileResponse(Path(__file__).parents[2] / "static" / "runtime-config.js", media_type="application/javascript")
+    def runtime_config() -> Response:
+        import json
+        config = {"mode": "local", "apiBase": "/api", "homePath": settings.cruxset_web_url, "labPath": "/", "loginPath": settings.cruxset_web_url + "/me", "publishTargets": ["web"]}
+        return Response("window.SEGMENTATION_LAB_CONFIG = " + json.dumps(config) + ";", media_type="application/javascript")
 
     @app.get("/runtime.js")
     def runtime() -> FileResponse:
@@ -127,8 +159,9 @@ def create_app(settings: Settings, adapters: Mapping[str, SegmentationAdapter] |
         return {"items": store.list_calibrations(experiment_id)}
 
     @app.get("/api/calibrations")
-    def all_calibrations() -> dict[str, list[dict[str, object]]]:
-        return {"items": store.all_calibrations()}
+    def all_calibrations(request: Request) -> dict[str, list[dict[str, object]]]:
+        items = [{"experimentId": experiment["id"], **calibration} for experiment in owned_experiments(request) for calibration in store.list_calibrations(experiment["id"])]
+        return {"items": sorted(items, key=lambda item: item["updatedAt"], reverse=True)}
 
     @app.delete("/api/experiments/{experiment_id}", status_code=204)
     def delete_experiment(experiment_id: str) -> None:
@@ -156,7 +189,7 @@ def create_app(settings: Settings, adapters: Mapping[str, SegmentationAdapter] |
         return {"items": store.read_calibration_candidates(experiment_id, calibration_id)}
 
     @app.post("/api/experiments/{experiment_id}/calibrations/{calibration_id}/publish", status_code=201)
-    async def publish_calibration(experiment_id: str, calibration_id: str, tasks: BackgroundTasks, payload: dict[str, object] = Body(default={})) -> dict[str, object]:
+    async def publish_calibration(experiment_id: str, calibration_id: str, request: Request, tasks: BackgroundTasks, payload: dict[str, object] = Body(default={})) -> dict[str, object]:
         experiment = next((item for item in store.list_experiments() if item["id"] == experiment_id), None)
         if experiment is None:
             raise SegmentationLabError("experiment_not_found", "Experiment was not found")
@@ -166,6 +199,8 @@ def create_app(settings: Settings, adapters: Mapping[str, SegmentationAdapter] |
         target = payload.get("target", "web")
         if not isinstance(target, str) or target not in PUBLISH_TARGETS:
             raise SegmentationLabError("invalid_publish_target", "发布目标必须是 web、cloudbase 或 cloudflare。")
+        if target in {"cloudbase", "cloudflare"} and not request.state.actor["isAdmin"]:
+            raise HTTPException(403, "跨平台发布需要管理员权限。")
         if target == "web" and not settings.web_publish_configured:
             raise SegmentationLabError("publish_not_configured", "CruxSet 发布密钥未配置。")
         if target == "cloudbase" and not settings.cloudbase_publish_configured:
@@ -186,6 +221,8 @@ def create_app(settings: Settings, adapters: Mapping[str, SegmentationAdapter] |
             "imageHeight": experiment["height"],
             "holds": [{"sourceId": str(item["id"]), "kind": item.get("kind", "hold"), "polygon": item["polygon"]} for item in candidates],
         }
+        if target == "web":
+            metadata["ownerId"] = request.state.actor["userId"]
         image = image_path.read_bytes()
 
         def error_result(error: Exception, default_code: str) -> dict[str, object]:
@@ -245,7 +282,7 @@ def create_app(settings: Settings, adapters: Mapping[str, SegmentationAdapter] |
                         raise SegmentationLabError(str(cloud_error["code"]), str(cloud_error["message"]), bool(cloud_error["retryable"])) from error
 
         if target == "web":
-            if post_success_hook is not None and web_result is not None:
+            if post_success_hook is not None and web_result is not None and request.state.actor["isAdmin"]:
                 tasks.add_task(_run_post_success_hook, post_success_hook, store, experiment_id, calibration_id, web_result, wall_name)
             return {**(web_result or {}), "target": "web"}
         if target == "cloudbase":

@@ -108,9 +108,9 @@ def test_admin_can_list_all_users_without_password_hashes():
     assert response.status_code == 200
     assert response.json()["users"][0] == {
         "id": admin["userId"], "email": "admin@example.com", "displayName": "", "role": "admin",
-        "createdAt": repository.find_user(admin["userId"])["createdAt"],
+        "createdAt": repository.find_user(admin["userId"])["createdAt"], "labEnabled": True,
     }
-    assert response.json()["users"][1] == {"id": "usr_member", "email": "member@example.com", "displayName": "攀岩者", "role": "user", "createdAt": 200}
+    assert response.json()["users"][1] == {"id": "usr_member", "email": "member@example.com", "displayName": "攀岩者", "role": "user", "createdAt": 200, "labEnabled": False}
     assert "passwordHash" not in str(response.json())
 
 
@@ -124,3 +124,15 @@ def test_user_list_requires_an_administrator():
     repository.find_admin_by_user_id = lambda _user_id: {"role": "user"}  # type: ignore[method-assign]
     response = client.get("/api/v1/auth/admin/users", cookies={session_cookie_name(): create_session(account["userId"])})
     assert response.status_code == 403
+
+
+def test_localhost_http_login_works_with_secure_tunnel_configuration(monkeypatch):
+    monkeypatch.setenv('SESSION_COOKIE_SECURE', 'true')
+    repository = MemoryRepository()
+    create_admin_account(repository, 'local@example.com', 'correct horse')
+    monkeypatch.setattr(app.state, 'repository', repository)
+    client = TestClient(app, base_url='http://localhost:8080')
+    response = client.post('/api/v1/auth/admin/login',json={'email':'local@example.com','password':'correct horse'})
+    assert response.status_code == 200
+    assert 'secure' not in response.headers['set-cookie'].lower()
+    assert client.get('/api/v1/auth/me').status_code == 200

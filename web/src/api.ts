@@ -1,8 +1,8 @@
 import type { Wall } from '../../wechat/miniprogram/domain/types.js'
-export type LocalUser = { id: string; email: string; displayName?: string; isAdmin: boolean }
-export type AdminUser = { id: string; email: string; displayName: string; role: 'admin' | 'user'; createdAt: number }
+export type LocalUser = { id: string; email: string; displayName?: string; isAdmin: boolean; labEnabled?: boolean }
+export type AdminUser = { id: string; email: string; displayName: string; role: 'admin' | 'user'; labEnabled?: boolean; createdAt: number }
 export type BrowseData = { walls: unknown[]; problems: unknown[] }
-export type WebCapabilities = { readOnly: boolean; writes: boolean; authentication: boolean; wallAuthoring: boolean; imageUpload: boolean; aiJobs: boolean; segmentationLab?: boolean }
+export type WebCapabilities = { readOnly: boolean; writes: boolean; authentication: boolean; wallAuthoring: boolean; imageUpload: boolean; aiJobs: boolean; segmentationLab?: boolean; manageLabAccess?: boolean }
 export type BootstrapData = BrowseData & { user: LocalUser | null; capabilities?: WebCapabilities }
 export type NewWallDraft = { name: string; image: File; imageWidth: number; imageHeight: number }
 export type ProblemInput = { wallId: string; angle: number; grade: string; footRule: string; name?: string; description?: string; holds: Record<string, string[]> }
@@ -10,8 +10,9 @@ export type ProblemUpdate = { angle: number; grade: string; footRule: string; na
 export class ApiError extends Error {
   constructor(message: string, readonly code?: string) { super(message); this.name = 'ApiError' }
 }
-export function localApiBaseUrl(location: Pick<Location, 'protocol' | 'hostname'> = window.location): string {
-  return ['cruxset.xinyilab.top', 'api.cruxset.xinyilab.top', 'cruxset-edge.cruxset.workers.dev'].includes(location.hostname) ? 'https://api.cruxset.xinyilab.top' : ''
+export function localApiBaseUrl(_location: Pick<Location, 'protocol' | 'hostname'> = window.location): string {
+  // Web and the lab share the current origin's HttpOnly session cookie.
+  return ''
 }
 export function wallImageUrl(path: string, baseUrl = localApiBaseUrl()): string {
   if (/^\/?wall-images\//.test(path)) return `${baseUrl}/${path.replace(/^\//, '')}`
@@ -24,6 +25,7 @@ export class LocalApiClient {
   async login(email: string, password: string): Promise<LocalUser> { const fetcher = this.fetcher; const response = await fetcher(`${this.baseUrl}/api/v1/auth/admin/login`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) }); if (!response.ok) throw new Error('登录失败，请检查邮箱和密码'); return (await response.json()).user as LocalUser }
   async currentUser(): Promise<LocalUser | null> { const fetcher = this.fetcher; const response = await fetcher(`${this.baseUrl}/api/v1/auth/me`, { credentials: 'include' }); if (response.status === 401) return null; if (!response.ok) throw new Error('无法检查登录状态'); return (await response.json()).user as LocalUser }
   async listAdminUsers(): Promise<AdminUser[]> { const result = await this.get('/api/v1/auth/admin/users'); return result.users as AdminUser[] }
+  async updateLabAccess(userId: string, enabled: boolean): Promise<AdminUser> { const result = await this.request(`/api/v1/auth/admin/users/${encodeURIComponent(userId)}/lab-access`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled }) }); return result.user as AdminUser }
   async logout(): Promise<{ ok: true }> { return (await this.request('/api/v1/auth/logout', { method: 'POST' })) as { ok: true } }
   async updateProfile(displayName: string) { return this.request('/api/v1/auth/profile', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ displayName }) }) as unknown as { user: LocalUser } }
   async loadBrowseData(): Promise<BrowseData> {

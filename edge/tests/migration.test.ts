@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { describe, expect, it } from 'vitest'
 
@@ -29,4 +29,17 @@ describe('business schema', () => {
     expect(plan.map((row: { detail: string }) => row.detail).join(' ')).toContain('USING COVERING INDEX problem_holds_wall_id_idx')
     expect(plan.map((row: { detail: string }) => row.detail).join(' ')).not.toContain('SCAN problem_holds')
   })
+})
+
+it('adds lab grants to existing accounts without changing their roles or default access', () => {
+  const db = new DatabaseSync(':memory:')
+  const dir = new URL('../migrations/', import.meta.url)
+  for (const file of readdirSync(dir).sort().filter(file => file < '0010_lab_access.sql')) db.exec(readFileSync(new URL(file, dir), 'utf8'))
+  db.exec("INSERT INTO users VALUES ('a','Admin',1,1),('u','Member',1,1); INSERT INTO admins (user_id,role,created_at,updated_at) VALUES ('a','admin',1,1),('u','user',1,1)")
+  db.exec(readFileSync(new URL('0010_lab_access.sql', dir), 'utf8'))
+  expect(db.prepare('SELECT user_id,role,lab_enabled FROM admins ORDER BY user_id').all()).toEqual([{user_id:'a',role:'admin',lab_enabled:0},{user_id:'u',role:'user',lab_enabled:0}])
+  expect(() => db.exec("UPDATE admins SET lab_enabled=2 WHERE user_id='u'")).toThrow(/CHECK/)
+  db.exec("UPDATE admins SET lab_enabled=1 WHERE user_id='u'")
+  expect(db.prepare("SELECT role,lab_enabled FROM admins WHERE user_id='u'").get()).toMatchObject({role:'user',lab_enabled:1})
+  db.close()
 })

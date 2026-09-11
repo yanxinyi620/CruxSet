@@ -1,3 +1,4 @@
+import { canUseLab } from '../lab-access.js'
 import {
   BASE,
   MiB,
@@ -71,8 +72,8 @@ export async function handleLab(
       url = new URL(request.url),
       path = url.pathname.slice(BASE.length)
     if (path.startsWith('/runner/')) return await runner(request, ready, path)
-    if (!user) fail('AUTH_REQUIRED', '请先登录管理员账户。', 401)
-    if (user.role !== 'admin') fail('FORBIDDEN', '需要管理员权限。', 403)
+    if (!user) fail('AUTH_REQUIRED', '请先登录。', 401)
+    if (!canUseLab(user)) fail('FORBIDDEN', '尚未获得实验台权限，请联系管理员开通。', 403)
     if (
       !['GET', 'HEAD'].includes(request.method) &&
       request.headers.get('Origin') !== url.origin

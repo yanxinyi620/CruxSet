@@ -7,6 +7,7 @@ from pathlib import Path
 class Settings:
     data_dir: Path
     device: str = "cpu"
+    lab_internal_key: str = ""
     cruxset_base_url: str = "http://127.0.0.1:8000"
     cruxset_web_url: str = "http://127.0.0.1:5173"
     cruxset_publish_key: str = ""
@@ -32,6 +33,7 @@ class Settings:
     def from_env(cls) -> "Settings":
         return cls(
             data_dir=Path(os.environ.get("SEG_LAB_DATA_DIR", "./data")),
+            lab_internal_key=os.environ.get("CRUXSET_LAB_INTERNAL_KEY", ""),
             cruxset_base_url=os.environ.get("CRUXSET_BASE_URL", "http://127.0.0.1:8000").rstrip("/"),
             cruxset_web_url=os.environ.get("CRUXSET_WEB_URL", "http://127.0.0.1:5173").rstrip("/"),
             cruxset_publish_key=os.environ.get("CRUXSET_SEGMENTATION_PUBLISH_KEY", ""),

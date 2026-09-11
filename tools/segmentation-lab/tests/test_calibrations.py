@@ -1,5 +1,5 @@
 from segmentation_lab.experiments import ExperimentStore
-from fastapi.testclient import TestClient
+from lab_client import TestClient
 
 from segmentation_lab.api import create_app
 from segmentation_lab.config import Settings

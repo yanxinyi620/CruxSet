@@ -12,7 +12,7 @@ Cloudflare Web 是 CruxSet 的第三种 Web 运行形态：它由 Workers 提供
 | 分割实验台发布 | 是；请求须使用 `SEGMENTATION_PUBLISH_KEY` 的签名，且需要 D1 与 R2 |
 | 浏览器内运行 SAM、YOLO 或其他 AI 任务 | 否 |
 
-管理员可以使用独立的[云端分割实验台](./segmentation-cloud.md)。Worker 只负责私有任务、D1/R2 元数据和发布；模型运行在 GitHub Actions 中，不改变本地实验台的启动方式。云端链路的 GitHub 配置、任务时限和私有对象规则见该文档。
+管理员和获授权的创作者可以使用共享 Web 账户的[云端分割实验台](./segmentation-cloud.md)。Worker 只负责私有任务、D1/R2 元数据和发布；模型运行在 GitHub Actions 中，不改变本地实验台的启动方式。云端链路的 GitHub 配置、任务时限和私有对象规则见该文档。
 
 `DB` 是 Worker 的必需 D1 绑定。未绑定时，`/api/v1/bootstrap` 会返回 `503 SERVICE_UNAVAILABLE`，应用不能作为可用的 Cloudflare Web 站点运行。`edge/wrangler.jsonc` 同时将 R2 桶 `cruxset-media` 绑定为 `MEDIA`；没有该绑定时，管理员图片上传不可用，受签名的分割发布也不能完成。
 
@@ -65,3 +65,9 @@ Cloudflare Edge 的注册入口只创建普通用户（`role='user'`），首个
 4. 刷新网站以重新获取权限，或退出后重新登录。管理员上传墙图、创作和发布墙面还需要配置 R2 的 `MEDIA` 绑定。
 
 Cloudflare D1 与本地 Web、CloudBase 的账户数据相互独立。在本地运行 `scripts/create_local_admin.py` 不会创建或升级 Cloudflare Edge 的管理员账户。
+
+## 实验台授权
+
+部署此版本前先应用 `0010_lab_access.sql` 数据库迁移，再部署 Worker 与 Web 资源。管理员在“我的 → 管理中心 → 用户”开通或撤销普通用户的实验台权限；授权自动包含公开发布自己的校准结果，不授予网站管理权限。
+
+Web 与 `/segmentation-lab/` 使用同域 API 和登录会话。此前只在 `api` 子域持有登录会话的用户，需要在主域重新登录一次。开通权限后刷新“我的”即可看到实验台入口；撤销后下一次实验台 API 请求即被拒绝，保留已有数据和已发布墙面。

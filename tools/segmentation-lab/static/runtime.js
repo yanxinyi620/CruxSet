@@ -20,8 +20,8 @@
     let body = {};
     try { body = await response.clone().json(); } catch {}
     const message = body.message || body.detail || body.error?.message || "请求失败";
-    const error = new Error(response.status === 401 || response.status === 403 ? `${message} 请先登录。` : message);
-    error.loginPath = response.status === 401 || response.status === 403 ? loginPath : undefined;
+    const error = new Error(response.status === 401 ? `${message} 请先登录。` : message);
+    error.loginPath = response.status === 401 ? loginPath : undefined;
     throw error;
   }
 

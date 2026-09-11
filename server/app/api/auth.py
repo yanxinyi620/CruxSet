@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Request, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, StrictBool
+from app.auth.lab import can_use_lab, require_same_origin
 
 from app.api.errors import ApiError
 from app.auth.passwords import normalize_email, verify_password
@@ -47,7 +48,7 @@ def _safe_user(request: Request):
     admin = _repository(request).find_admin_by_user_id(user_id)
     if not user or not admin:
         return None
-    return {"id": user["id"], "email": admin["emailNormalized"], "displayName": user.get("displayName", ""), "isAdmin": admin.get("role") == "admin"}
+    return {"id": user["id"], "email": admin["emailNormalized"], "displayName": user.get("displayName", ""), "isAdmin": admin.get("role") == "admin", "labEnabled": can_use_lab(admin)}
 
 
 def require_admin(request: Request):
@@ -80,12 +81,12 @@ async def login(payload: AdminLoginRequest, request: Request, response: Response
         key=session_cookie_name(),
         value=create_session(str(admin["userId"])),
         httponly=True,
-        secure=secure_cookie(),
+        secure=secure_cookie(request),
         samesite="lax",
         max_age=60 * 60 * 8,
     )
     account = _repository(request).find_user(str(admin["userId"])) or {}
-    return {"user": {"id": admin["userId"], "email": normalized_email, "displayName": account.get("displayName", ""), "isAdmin": admin.get("role") == "admin"}}
+    return {"user": {"id": admin["userId"], "email": normalized_email, "displayName": account.get("displayName", ""), "isAdmin": admin.get("role") == "admin", "labEnabled": can_use_lab(admin)}}
 
 @router.post("/register")
 async def register(payload: RegisterRequest, request: Request, response: Response):
@@ -100,8 +101,8 @@ async def register(payload: RegisterRequest, request: Request, response: Respons
     user_id = f"usr_web_{secrets.token_urlsafe(12)}"; now = int(time.time() * 1000)
     _repository(request).insert_user({"id": user_id, "createdAt": now, "updatedAt": now})
     _repository(request).insert_admin({"userId": user_id, "role": "user", "emailNormalized": normalized, "passwordHash": __import__('app.auth.passwords', fromlist=['_hasher'])._hasher.hash(payload.password), "createdAt": now, "updatedAt": now})
-    response.set_cookie(key=session_cookie_name(), value=create_session(user_id), httponly=True, secure=secure_cookie(), samesite="lax", max_age=60 * 60 * 8)
-    return {"user": {"id": user_id, "email": normalized, "isAdmin": False}}
+    response.set_cookie(key=session_cookie_name(), value=create_session(user_id), httponly=True, secure=secure_cookie(request), samesite="lax", max_age=60 * 60 * 8)
+    return {"user": {"id": user_id, "email": normalized, "isAdmin": False, "labEnabled": False}}
 
 
 @router.get("/admin/users")
@@ -120,6 +121,7 @@ async def list_admin_users(request: Request, _=Depends(require_admin)):
             "email": email,
             "displayName": str(user.get("displayName") or ""),
             "role": role,
+            "labEnabled": can_use_lab(account),
             "createdAt": int(user.get("createdAt") or account.get("createdAt") or 0),
         })
     result.sort(key=lambda item: (-item["createdAt"], item["email"]))
@@ -138,10 +140,27 @@ async def update_profile(payload: ProfileUpdate, request: Request, user=Depends(
     name = payload.displayName.strip()
     if len(name) > 40: raise ApiError("INVALID_INPUT", "User name is too long", 422)
     updated = dict(user); updated["displayName"] = name; _repository(request).insert_user(updated)
-    return {"user": {"id": user["id"], "email": _repository(request).find_admin_by_user_id(str(user["id"]))["emailNormalized"], "displayName": name, "isAdmin": True}}
+    return {"user": _safe_user(request)}
 
 
 @router.post("/logout")
-async def logout(response: Response):
-    response.delete_cookie(session_cookie_name(), secure=secure_cookie(), httponly=True, samesite="lax")
+async def logout(request: Request, response: Response):
+    response.delete_cookie(session_cookie_name(), secure=secure_cookie(request), httponly=True, samesite="lax")
     return {"ok": True}
+
+
+class LabAccessUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    enabled: StrictBool
+
+
+@router.patch("/admin/users/{user_id}/lab-access")
+async def update_lab_access(user_id: str, payload: LabAccessUpdate, request: Request, _=Depends(require_admin)):
+    require_same_origin(request)
+    account = _repository(request).find_admin_by_user_id(user_id)
+    if not account or not _repository(request).find_user(user_id):
+        raise ApiError("NOT_FOUND", "User not found", 404)
+    import time
+    updated = dict(account, labEnabled=payload.enabled, updatedAt=int(time.time() * 1000))
+    _repository(request).insert_admin(updated)
+    return {"user": {"id": user_id, "labEnabled": can_use_lab(updated)}}

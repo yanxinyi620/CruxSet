@@ -1,6 +1,6 @@
 from io import BytesIO
 
-from fastapi.testclient import TestClient
+from lab_client import TestClient
 from PIL import Image
 
 from segmentation_lab.api import create_app

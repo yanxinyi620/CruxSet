@@ -1,10 +1,10 @@
 # Cloud segmentation lab
 
-The cloud segmentation lab adds a private, administrator-only path at
+The cloud segmentation lab adds a private, authorized-user path at
 `/segmentation-lab/`. The browser uploads an image to the Worker, the Worker
 creates a GitHub Actions task, and the one-shot runner calls the existing
 segmentation service. Candidates, the WebP preview, and calibration records
-remain behind the Worker until an administrator explicitly publishes a
+remain behind the Worker until its owner explicitly publishes a
 calibration to the Cloudflare site.
 
 This is an additional path. The local lab keeps its existing data directory,
@@ -13,6 +13,33 @@ SAM3 availability behavior. Existing local commands in
 [`tools/segmentation-lab/README.md`](../tools/segmentation-lab/README.md) do
 not change. Cloud experiments and local experiments are separate datasets and
 are not synchronized.
+
+## Accounts and lab authorization
+
+The cloud lab shares the Cloudflare Web account and same-origin HttpOnly session
+at `/segmentation-lab/`; it has no separate registration or login. Web API requests
+also use the current origin. Users previously signed in only on the `api` subdomain
+may need to sign in once again on the main site after this change.
+
+Administrators always have lab access. Other accounts start without it. In
+**我的 → 管理中心 → 用户**, an administrator can select **开通实验台权限** or
+**撤销实验台权限** for a regular account. Granted users are displayed as **创作者**,
+while their account role remains `user`. This grant includes computation,
+calibration, export and explicit public publication of their own results; it does
+not grant user management or general administrator wall-authoring permissions.
+Refresh **我的** after a grant to see **分割实验台**, then enter without logging in again.
+
+Permissions are read from the database on each API request. Revocation blocks the
+next lab request even with an existing session, including reads and publication.
+Experiment data and previously published walls remain intact; an already queued
+or running machine task may finish, but does not publish automatically. Restoring
+the grant restores access to the user's retained experiments. Experimental data
+remains isolated by owner, including between administrators.
+
+Apply `edge/migrations/0010_lab_access.sql` to the target D1 database before deploying
+the updated Worker. It adds `admins.lab_enabled` with a default of `0`, preserving
+existing accounts and administrator access. Normal D1 migration commands are in
+[the deployment guide](./cloudflare-edge-deployment.md). Local FastAPI exposes the same grant-management capability for its independent local accounts; grants and experiment data are not synchronized between deployments.
 
 ## Prerequisites
 
@@ -28,7 +55,7 @@ inputs.
 The cloud path currently supports `sam2` and `sam2_tiled` on Ubuntu 24.04,
 Python 3.11, CPU PyTorch, and four CPU threads. The Actions job has a 90-minute
 timeout. A queued task expires after 30 minutes and a claimed task after 120
-minutes. Each administrator may have at most two queued or running tasks.
+minutes. Each authorized user may have at most two queued or running tasks.
 Images are JPEG or PNG, at most 20 MiB, at most 4096 pixels on either side,
 and at most 16,777,216 pixels. Parameters are allowlisted: point density
 8–64, batch size 1–8, quality and stability thresholds 0–1, and crop layers
@@ -124,7 +151,7 @@ between local and cloud storage.
 
 ## Publish and rollback
 
-Inference never publishes a wall automatically. An administrator saves a
+Inference never publishes a wall automatically. An authorized user saves a
 calibration, reviews it in the existing editor, and explicitly chooses the
 Cloudflare publish action. The browser never receives the publish signing key.
 If a cloud task is unhealthy, let it reach its timeout or delete it, then retry

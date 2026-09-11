@@ -26,3 +26,8 @@ server/data/
 .runtime/**/*.pid
 .runtime/edge/
 .runtime/edge-public/
+
+web/dist-local/
+
+# Local process state, private credentials and migration manifests
+.runtime/

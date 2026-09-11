@@ -4,7 +4,8 @@
 <body><div class="bar"><span class="brand">CRUXSET / SEGMENTATION LAB</span><a href="/">← 实验档案</a><button onclick="reset()">重置视图</button><span id="info">正在加载…</span></div><div class="stage" id="stage"><div class="wall" id="wall"><img id="image"><svg id="overlay"></svg></div></div>
 <script src="/runtime-config.js"></script><script src="/runtime.js"></script>
 <script>
-const id=location.pathname.split('/').pop(),query=new URLSearchParams(location.search),original=query.get('mode')==='original',source=query.get('source')||'sam2',img=image,svg=overlay,stage=document.querySelector('#stage'),wall=document.querySelector('#wall'),info=document.querySelector('#info');let s=.22,x=0,y=0,d;
+document.querySelector('.bar a').href=Lab.config.labPath;
+const id=location.pathname.replace(/\/$/, '').split('/').pop(),query=new URLSearchParams(location.search),original=query.get('mode')==='original',source=query.get('source')||'sam2',img=image,svg=overlay,stage=document.querySelector('#stage'),wall=document.querySelector('#wall'),info=document.querySelector('#info');let s=.22,x=0,y=0,d;
 function paint(){wall.style.transform=`translate(${x}px,${y}px) scale(${s})`}
 function reset(){s=Math.min(.8,stage.clientWidth/img.naturalWidth,stage.clientHeight/img.naturalHeight);x=(stage.clientWidth-img.naturalWidth*s)/2;y=(stage.clientHeight-img.naturalHeight*s)/2;paint()}
 stage.onwheel=e=>{e.preventDefault();let r=stage.getBoundingClientRect(),px=e.clientX-r.left,py=e.clientY-r.top,n=Math.max(.05,Math.min(3,s*(e.deltaY<0?1.15:1/1.15)));x=px-(px-x)*n/s;y=py-(py-y)*n/s;s=n;paint()};stage.onpointerdown=e=>{d=[e.clientX,e.clientY,x,y];stage.setPointerCapture(e.pointerId)};stage.onpointermove=e=>{if(d){x=d[2]+e.clientX-d[0];y=d[3]+e.clientY-d[1];paint()}};stage.onpointerup=()=>d=null;

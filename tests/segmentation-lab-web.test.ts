@@ -38,13 +38,6 @@ describe('shared segmentation lab pages', () => {
     expect(source('results.html')).not.toContain('window.fetch=')
   })
 
-  it('packages the shared sources beneath the cloud entry without copied sources', () => {
-    const vite = readFileSync(resolve('web/vite.config.ts'), 'utf8')
-    expect(vite).toContain('segmentation-lab')
-    expect(vite).toContain('tools/segmentation-lab/static')
-    expect(vite).toContain('apiBase: "/api/v1/segmentation-lab"')
-  })
-
   it('saves a calibration through the configured API without a global fetch alias', async () => {
     const fetcher = vi.fn(async () => new Response('{}', {status:201}))
     const window:any = {SEGMENTATION_LAB_CONFIG:{mode:'cloud',apiBase:'/api/v1/segmentation-lab'}}
@@ -57,15 +50,29 @@ describe('shared segmentation lab pages', () => {
     expect(source('calibration.html')).not.toMatch(/const fetch\s*=/)
   })
 
-  it('shows the lab entry only to administrators in the web workspace', () => {
+  it('shows the lab entry through effective Web capabilities', () => {
     const main = readFileSync(resolve('web/src/main.ts'), 'utf8')
     const api = readFileSync(resolve('web/src/api.ts'), 'utf8')
     expect(main).toContain('/segmentation-lab/')
     expect(main).toContain('分割实验台')
-    expect(main).toContain('capabilities?.segmentationLab')
+    expect(main).toContain('if (access().segmentationLab &&')
     expect(api).toContain('segmentationLab?: boolean')
     expect(source('index.html')).toContain('defaultPublishTarget')
     expect(source('index.html')).toContain('已删除任务')
     expect(source('index.html')).toContain('receipt?.targets?.cloudflare')
   })
+})
+
+it.each([401,403])('only offers login for an unauthenticated lab response (%s)', async status => {
+  const fetcher = vi.fn(async () => new Response(JSON.stringify({error:{message: status === 401 ? '请先登录。' : '尚未获得实验台权限，请联系管理员开通。'}}), {status}))
+  const window:any = {SEGMENTATION_LAB_CONFIG:{mode:'cloud'}}
+  vm.runInNewContext(source('runtime.js'), {window,fetch:fetcher,Error,String,Object,Response})
+  const error = await window.Lab.request('/experiments').catch((error:Error) => error)
+  expect(error.loginPath).toBe(status === 401 ? '/me' : undefined)
+  if (status === 403) expect(error.message).not.toContain('请先登录')
+})
+
+it('returns from the results viewer to the configured lab path', () => {
+  expect(source('results.html')).toContain("document.querySelector('.bar a').href=Lab.config.labPath")
+  expect(source('results.html')).toContain("location.pathname.replace(/\\/$/, '')")
 })

@@ -71,8 +71,8 @@ async function fixture() {
         {
           ...init,
           headers: {
-            ...(auth === 'session'
-              ? { Cookie: 'cruxset_session=session' }
+            ...(auth === 'session' || auth.startsWith('cookie:')
+              ? { Cookie: 'cruxset_session=' + (auth === 'session' ? 'session' : auth.slice(7)) }
               : auth
                 ? { Authorization: 'Bearer ' + auth }
                 : {}),
@@ -121,9 +121,58 @@ async function fixture() {
     'fetch',
     vi.fn(async () => new Response(null, { status: 204 })),
   )
-  return { env, sqlite, objects, call, post, upload }
+  const addAccount = async (id: string, role = 'user') => {
+    sqlite.prepare('INSERT INTO users VALUES (?,?,1,1)').run(id, id)
+    sqlite.prepare('INSERT INTO admins (user_id,role,created_at,updated_at,email_normalized,password_hash) VALUES (?,?,1,1,?,?)').run(id, role, id + '@example.com', 'x')
+    const tokenHash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(id)))].map(n => n.toString(16).padStart(2, '0')).join('')
+    sqlite.prepare('INSERT INTO sessions VALUES (?,?,?,?)').run(tokenHash, id, Date.now() + 3600000, Date.now())
+    return 'cookie:' + id
+  }
+  const apiCall = (path: string, method = 'GET', body?: unknown, token = 'session', origin: string | null = 'https://cruxset.xinyilab.top') => worker.fetch!(new Request('https://cruxset.xinyilab.top/api/v1' + path, {
+    method, headers: { ...(token ? {Cookie: 'cruxset_session=' + token} : {}), ...(origin ? {Origin: origin} : {}), 'Content-Type': 'application/json' },
+    ...(body !== undefined ? {body: JSON.stringify(body)} : {}),
+  }), env, {} as any) as Promise<Response>
+  return { env, sqlite, objects, call, post, upload, addAccount, apiCall }
 }
 describe('cloud segmentation lab', () => {
+  it('grants and revokes lab access on an existing member session without administrator powers', async () => {
+    const f = await fixture()
+    await f.addAccount('member')
+    expect((await f.call('/experiments', {}, 'cookie:member')).status).toBe(403)
+    const before = await (await f.apiCall('/bootstrap', 'GET', undefined, 'member')).json() as any
+    expect(before.capabilities).toMatchObject({segmentationLab:false,manageLabAccess:false})
+    expect((await f.apiCall('/auth/admin/users/member/lab-access', 'PATCH', {enabled:true})).status).toBe(200)
+    const response = await f.apiCall('/bootstrap', 'GET', undefined, 'member')
+    expect(response.headers.get('Cache-Control')).toBe('no-store')
+    expect(await response.json()).toMatchObject({user:{isAdmin:false,labEnabled:true},capabilities:{segmentationLab:true,manageLabAccess:false,wallAuthoring:false,imageUpload:false}})
+    expect(await (await f.apiCall('/auth/me', 'GET', undefined, 'member')).json()).toMatchObject({user:{labEnabled:true}})
+    expect((await f.call('/experiments', {}, 'cookie:member')).status).toBe(200)
+    expect((await f.apiCall('/auth/admin/users', 'GET', undefined, 'member')).status).toBe(403)
+    expect((await f.apiCall('/walls', 'POST', {}, 'member')).status).toBe(403)
+    expect((await f.apiCall('/auth/admin/users/member/lab-access', 'PATCH', {enabled:false})).status).toBe(200)
+    expect((await f.call('/experiments', {}, 'cookie:member')).status).toBe(403)
+    expect((await f.call('/models', {}, 'cookie:member')).status).toBe(403)
+    expect(await (await f.apiCall('/bootstrap', 'GET', undefined, 'member')).json()).toMatchObject({capabilities:{segmentationLab:false}})
+    const users = await (await f.apiCall('/auth/admin/users')).json() as any
+    expect(users.users.find((u:any) => u.id === 'member')).toMatchObject({role:'user',labEnabled:false})
+    expect(await (await f.apiCall('/bootstrap')).json()).toMatchObject({capabilities:{segmentationLab:true,manageLabAccess:true}})
+  })
+  it('allows only administrators to change strict boolean grants from the same origin', async () => {
+    const f = await fixture()
+    await f.addAccount('member')
+    const path = '/auth/admin/users/member/lab-access'
+    expect((await f.apiCall(path, 'PATCH', {enabled:true}, '')).status).toBe(401)
+    expect((await f.apiCall(path, 'PATCH', {enabled:true}, 'member')).status).toBe(403)
+    for (const body of [{}, {enabled:'false'}, {enabled:1}, null, {enabled:true,role:'admin'}]) {
+      expect((await f.apiCall(path, 'PATCH', body)).status).toBe(422)
+    }
+    for (const origin of [null, 'https://evil.example', 'https://api.cruxset.xinyilab.top']) {
+      expect((await f.apiCall(path, 'PATCH', {enabled:true}, 'session', origin)).status).toBe(403)
+    }
+    expect((await f.apiCall('/auth/admin/users/missing/lab-access', 'PATCH', {enabled:true})).status).toBe(404)
+    expect((await f.apiCall('/auth/admin/users/admin/lab-access', 'PATCH', {enabled:false})).status).toBe(409)
+    expect((await f.call('/experiments', {}, 'cookie:member')).status).toBe(403)
+  })
   it('requires a session and keeps input objects out of public media routes', async () => {
     const f = await fixture()
     expect((await f.call('/experiments', {}, '')).status).toBe(401)
@@ -138,9 +187,14 @@ describe('cloud segmentation lab', () => {
     )
     expect(response.status).toBe(404)
   })
-  it('runs upload, dispatch, claim, outputs, calibration and idempotent publication', async () => {
-    const f = await fixture(),
-      e = await f.upload()
+  it.each(['admin', 'creator'])('runs upload through public publication as %s', async (role) => {
+    const f = await fixture()
+    if (role === 'creator') {
+      await f.addAccount('manager', 'admin')
+      f.sqlite.exec("UPDATE admins SET role='user' WHERE user_id='admin'")
+      expect((await f.apiCall('/auth/admin/users/admin/lab-access', 'PATCH', {enabled: true}, 'manager')).status).toBe(200)
+    }
+    const e = await f.upload()
     const r = await f.post(`/experiments/${e.id}/runs`, {
       model: 'sam2',
       parameters: { points_per_side: 48, points_per_batch: 8 },
@@ -236,6 +290,20 @@ describe('cloud segmentation lab', () => {
     expect(first.status).toBe(201)
     const second = await f.post(p, { wallName: 'Wall', target: 'cloudflare' })
     expect(second.status).toBe(200)
+    expect(f.sqlite.prepare('SELECT owner_id,visibility,published FROM walls').get()).toMatchObject({owner_id:'admin',visibility:'public',published:1})
+    await f.addAccount('other')
+    const manager = role === 'creator' ? 'manager' : 'session'
+    expect((await f.apiCall('/auth/admin/users/other/lab-access', 'PATCH', {enabled:true}, manager)).status).toBe(200)
+    for (const path of [`/experiments/${e.id}`, `/experiments/${e.id}/image`, `/experiments/${e.id}/candidates?source=${taskId}`, `/experiments/${e.id}/calibrations/${calibration.id}`]) {
+      expect((await f.call(path, {}, 'cookie:other')).status).toBe(404)
+    }
+    expect((await f.post(p, {wallName:'Stolen',target:'cloudflare'}, 'cookie:other')).status).toBe(404)
+    if (role === 'creator') {
+      expect((await f.apiCall('/auth/admin/users/admin/lab-access', 'PATCH', {enabled:false}, manager)).status).toBe(200)
+      expect((await f.post(p, {wallName:'Wall',target:'cloudflare'})).status).toBe(403)
+      expect(f.sqlite.prepare('SELECT COUNT(*) n FROM walls').get().n).toBe(1)
+      expect((await f.apiCall('/auth/admin/users/admin/lab-access', 'PATCH', {enabled:true}, manager)).status).toBe(200)
+    }
     expect(f.sqlite.prepare('SELECT COUNT(*) n FROM walls').get().n).toBe(1)
     expect(
       (

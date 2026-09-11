@@ -15,6 +15,7 @@ import type {
 import { WallHoldEditor } from "./wall-hold-editor.js";
 import { PreviewStore } from "./preview-store.js";
 import { LocalApiClient, wallImageUrl, type AdminUser, type WebCapabilities } from "./api.js";
+import { isLocalLabHost } from "./local-lab-host.js";
 import { webAccess } from "./web-access.js";
 import { adminUserCard } from "./admin-management.js";
 import { WallCanvasView, ROLE_COLORS } from "./wall-canvas.js";
@@ -109,13 +110,27 @@ let authenticated = false,
   routeFilterGrade: Grade | undefined,
   selectedRouteId = "";
 let capabilities: WebCapabilities | undefined;
-const access = () => webAccess(authenticated ? { id: profileUserId, email: profileEmail, isAdmin } : null, capabilities);
+declare const __LOCAL_LAB__: boolean;
+const localDeployment = typeof __LOCAL_LAB__ !== "undefined" && __LOCAL_LAB__;
+const localLab = localDeployment && isLocalLabHost(window.location.hostname);
+const access = () => webAccess(authenticated ? { id: profileUserId, email: profileEmail, isAdmin } : null, capabilities, localLab);
 let isAdmin = false,
   adminTab: "walls" | "users" = "walls",
   adminUsers: AdminUser[] = [],
   adminWalls: Wall[] = [],
   adminLoading = false,
   adminLoaded = false;
+const labAccessSaving = new Set<string>();
+const refreshSession = async () => {
+  const snapshot = await api.loadBootstrap();
+  capabilities = snapshot.capabilities;
+  authenticated = Boolean(snapshot.user);
+  profileEmail = snapshot.user?.email || "";
+  profileName = snapshot.user?.displayName || "";
+  profileUserId = snapshot.user?.id || "";
+  isAdmin = Boolean(snapshot.user?.isAdmin);
+  await store.useApi(api, snapshot);
+};
 const initialQuery = typeof window === 'undefined' ? new URLSearchParams() : previewQuery(window.location.search);
 if (initialQuery.has('panel')) panel = initialQuery.get('panel') as typeof panel;
 routeFilterAngle = initialQuery.has('angle') ? Number(initialQuery.get('angle')) : undefined;
@@ -250,7 +265,7 @@ const renderLogin = () => {
       profileName = user.displayName || "";
       profileUserId = user.id;
       isAdmin = user.isAdmin;
-      await store.useApi(api);
+      await refreshSession();
       authenticated = true;
       browseReady = true;
       void render();
@@ -264,7 +279,7 @@ const renderLogin = () => {
     dialog.innerHTML = `<h2>注册普通用户</h2><input placeholder="邮箱" type="email" autocomplete="email"><input placeholder="密码（至少 8 位）" type="password" autocomplete="new-password"><input placeholder="再次输入密码" type="password" autocomplete="new-password"><div class="profile-name-actions"><button data-register-confirm>注册</button><button data-register-cancel>取消</button></div>`;
     document.body.append(dialog); dialog.showModal(); (dialog.querySelector("h2") as HTMLElement).focus();
     dialog.querySelector("[data-register-cancel]")!.addEventListener("click", () => dialog.close());
-    dialog.querySelector("[data-register-confirm]")!.addEventListener("click", async () => { const inputs = [...dialog.querySelectorAll("input")] as HTMLInputElement[]; try { const user = await api.register(inputs[0].value, inputs[1].value, inputs[2].value); profileEmail = user.email; profileName = user.displayName || ""; profileUserId = user.id; isAdmin = user.isAdmin; dialog.close(); dialog.remove(); authenticated = true; await store.useApi(api); browseReady = true; void render(); } catch (error) { loginError = (error as Error).message; dialog.close(); dialog.remove(); renderLogin(); } });
+    dialog.querySelector("[data-register-confirm]")!.addEventListener("click", async () => { const inputs = [...dialog.querySelectorAll("input")] as HTMLInputElement[]; try { const user = await api.register(inputs[0].value, inputs[1].value, inputs[2].value); profileEmail = user.email; profileName = user.displayName || ""; profileUserId = user.id; isAdmin = user.isAdmin; dialog.close(); dialog.remove(); authenticated = true; await refreshSession(); browseReady = true; void render(); } catch (error) { loginError = (error as Error).message; dialog.close(); dialog.remove(); renderLogin(); } });
     dialog.addEventListener("close", () => dialog.remove(), { once: true });
   };
 };
@@ -754,7 +769,12 @@ const render = async () => {
         }).join("") || '<p class="admin-empty">暂无墙面。</p>';
         const userCards = adminUsers.map((user) => {
           const card = adminUserCard(user);
-          return `<article class="admin-card"><div class="admin-card-head"><h2>${h(card.email)}</h2><small class="admin-status">${h(card.roleLabel)}</small></div><p>用户名：${h(card.name)}<br>注册于 ${h(card.registeredAt)}</p></article>`;
+          const labControl = capabilities?.manageLabAccess
+            ? user.role === "admin"
+              ? '<p>实验台：管理员默认开放（含公开发布）</p>'
+              : `<p>实验台：${user.labEnabled ? "已开通，可计算、校准和公开发布" : "未开通"}</p><button class="admin-lab-access" data-lab-access="${h(user.id)}" ${labAccessSaving.has(user.id) ? "disabled" : ""}>${labAccessSaving.has(user.id) ? "正在保存…" : user.labEnabled ? "撤销实验台权限" : "开通实验台权限"}</button>`
+            : "";
+          return `<article class="admin-card"><div class="admin-card-head"><h2>${h(card.email)}</h2><small class="admin-status">${h(card.roleLabel)}</small></div><p>用户名：${h(card.name)}<br>注册于 ${h(card.registeredAt)}</p>${labControl}</article>`;
         }).join("") || '<p class="admin-empty">暂无用户。</p>';
         return `${back}<div class="editor-head"><h1>管理中心</h1><p class="lead">查看全站墙面和用户。</p></div>${managementError ? `<p class="editor-toast">${h(managementError)}</p>` : ""}<div class="admin-tabs" role="tablist"><button role="tab" aria-selected="${adminTab === "walls"}" class="${adminTab === "walls" ? "active" : ""}" data-admin-tab="walls">墙面 ${adminWalls.length}</button><button role="tab" aria-selected="${adminTab === "users"}" class="${adminTab === "users" ? "active" : ""}" data-admin-tab="users">用户 ${adminUsers.length}</button></div>${adminLoading ? '<p class="admin-empty">正在加载…</p>' : adminTab === "walls" ? `<div class="admin-list">${wallCards}</div>` : `<div class="admin-list">${userCards}</div>`}`;
       })();
@@ -773,11 +793,16 @@ const render = async () => {
         : `<div class="editor-head"><h1>我的</h1><p class="lead">管理你的资料、墙面与线路。</p></div><button class="hub-card profile" data-panel="profile"><i>◎</i><span><b>个人资料</b><em>${h(profileEmail)}</em></span><strong>›</strong></button>${myWallManagementEntry}<button class="hub-card problems" data-panel="my-problems"><i>◇</i><span><b>我的线路</b><em>共 ${myProblems.length} 条线路</em></span><strong>›</strong></button>${isAdmin ? `<button class="hub-card admin-management" data-panel="admin-management"><i>▦</i><span><b>管理中心</b><em>墙面与用户管理</em></span><strong>›</strong></button>` : ""}`;
   const isPrimaryPage = (tab === "browse" && !selected) || (tab === "create" && panel === "home") || (tab === "me" && panel === "home");
   root.innerHTML = `<div class="device ${isPrimaryPage ? "" : "secondary-page"}">${isPrimaryPage ? "<header><small>CRUXSET</small></header>" : ""}<main>${tab === "browse" ? browse : tab === "create" ? create : me}</main><nav>${(["browse", "create", "me"] as const).map((x) => `<button class="${tab === x ? "active" : ""}" data-tab="${x}">${x === "browse" ? "线路" : x === "create" ? "创建" : "我的"}</button>`).join("")}</nav></div>`;
-  if (isAdmin && capabilities?.segmentationLab && tab === "me" && panel === "home") {
+  if (access().segmentationLab && (!localDeployment || localLab) && tab === "me" && panel === "home") {
     const labEntry = document.createElement("a");
     labEntry.href = "/segmentation-lab/";
+    labEntry.target = "_blank";
+    labEntry.rel = "noopener";
+    const labDescription = localLab ? "本地图像分割与人工校准" : "云端图像分割与人工校准";
+    labEntry.setAttribute("aria-label", `分割实验台，${labDescription}（在新标签页打开）`);
+    labEntry.title = "在新标签页打开";
     labEntry.className = "hub-card admin-management";
-    labEntry.innerHTML = "<i>◌</i><span><b>分割实验台</b><em>云端图像分割与人工校准</em></span><strong>›</strong>";
+    labEntry.innerHTML = `<i>◌</i><span><b>分割实验台</b><em>${labDescription}</em></span><strong aria-hidden="true">↗</strong>`;
     root.querySelector("main")?.append(labEntry);
   }
   if (selectedRoute && route.name === "route-browser") {
@@ -863,13 +888,29 @@ const render = async () => {
     panel = "home";
     loginError = "";
     profileName = "";
-    await store.useApi(api);
+    await refreshSession();
     store.navigate({ name: "browse" }, { replace: true });
   });
-  root.querySelector<HTMLButtonElement>("[data-save-profile]")?.addEventListener("click", async () => { const dialog = document.createElement("dialog"); dialog.className = "profile-name-dialog"; dialog.innerHTML = `<h2 tabindex="-1">修改用户名称</h2><input value="${h(profileName || profileEmail.split("@", 1)[0] || "")}" maxlength="40" autocomplete="off" autocapitalize="off" spellcheck="false"><div class="profile-name-actions"><button data-profile-confirm>保存</button><button data-profile-cancel>取消</button></div>`; document.body.append(dialog); dialog.showModal(); (dialog.querySelector("h2") as HTMLElement).focus(); dialog.querySelector("[data-profile-cancel]")!.addEventListener("click", () => dialog.close()); dialog.querySelector("[data-profile-confirm]")!.addEventListener("click", async () => { const value = (dialog.querySelector("input") as HTMLInputElement).value.trim(); try { const result = await api.updateProfile(value); profileName = result.user.displayName || ""; dialog.close(); dialog.remove(); await store.useApi(api); await render(); } catch (error) { managementError = `保存用户名称失败：${(error as Error).message}`; dialog.close(); dialog.remove(); await render(); } }); dialog.addEventListener("close", () => dialog.remove(), { once: true }); });
+  root.querySelector<HTMLButtonElement>("[data-save-profile]")?.addEventListener("click", async () => { const dialog = document.createElement("dialog"); dialog.className = "profile-name-dialog"; dialog.innerHTML = `<h2 tabindex="-1">修改用户名称</h2><input value="${h(profileName || profileEmail.split("@", 1)[0] || "")}" maxlength="40" autocomplete="off" autocapitalize="off" spellcheck="false"><div class="profile-name-actions"><button data-profile-confirm>保存</button><button data-profile-cancel>取消</button></div>`; document.body.append(dialog); dialog.showModal(); (dialog.querySelector("h2") as HTMLElement).focus(); dialog.querySelector("[data-profile-cancel]")!.addEventListener("click", () => dialog.close()); dialog.querySelector("[data-profile-confirm]")!.addEventListener("click", async () => { const value = (dialog.querySelector("input") as HTMLInputElement).value.trim(); try { const result = await api.updateProfile(value); profileName = result.user.displayName || ""; dialog.close(); dialog.remove(); await refreshSession(); await render(); } catch (error) { managementError = `保存用户名称失败：${(error as Error).message}`; dialog.close(); dialog.remove(); await render(); } }); dialog.addEventListener("close", () => dialog.remove(), { once: true }); });
   root.querySelectorAll<HTMLButtonElement>("[data-admin-tab]").forEach((button) => button.onclick = () => {
     adminTab = button.dataset.adminTab as typeof adminTab;
     void render();
+  });
+  root.querySelectorAll<HTMLButtonElement>("[data-lab-access]").forEach((button) => button.onclick = async () => {
+    const user = adminUsers.find((item) => item.id === button.dataset.labAccess);
+    if (!isAdmin || !capabilities?.manageLabAccess || !user || user.role === "admin" || labAccessSaving.has(user.id)) return;
+    labAccessSaving.add(user.id);
+    managementError = "";
+    void render();
+    try {
+      const updated = await api.updateLabAccess(user.id, !user.labEnabled);
+      adminUsers = adminUsers.map((item) => item.id === updated.id ? updated : item);
+    } catch (error) {
+      managementError = `保存实验台权限失败：${(error as Error).message}`;
+    } finally {
+      labAccessSaving.delete(user.id);
+      void render();
+    }
   });
   root.querySelectorAll<HTMLButtonElement>("[data-admin-delete-wall]").forEach((button) => button.onclick = async () => {
     const wall = adminWalls.find((item) => item.id === button.dataset.adminDeleteWall);

@@ -67,9 +67,9 @@ it('surfaces the server error message from the error envelope', async () => {
   await expect(new LocalApiClient('http://localhost:8000', fetcher).publishWall('wall_1')).rejects.toThrow('Wall is already published')
 })
 
-it('uses the production API origin on each deployed frontend hostname', () => {
+it('shares the current origin with the lab on every deployed frontend hostname', () => {
   for (const hostname of ['cruxset.xinyilab.top', 'api.cruxset.xinyilab.top', 'cruxset-edge.cruxset.workers.dev']) {
-    expect(localApiBaseUrl({ protocol: 'https:', hostname })).toBe('https://api.cruxset.xinyilab.top')
+    expect(localApiBaseUrl({ protocol: 'https:', hostname })).toBe('')
   }
 })
 
