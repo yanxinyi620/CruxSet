@@ -1,66 +1,31 @@
 import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
-import { expect, it } from 'vitest'
-
-const read = (path: string) => readFileSync(resolve(path), 'utf8')
-
-it('registers only public wall and route pages for ordinary mini-program navigation', () => {
-  const config = JSON.parse(read('wechat/miniprogram/app.json'))
-
-  expect(config.pages).not.toContain('pages/create/drafts/index')
-  expect(config.pages).not.toContain('pages/admin/index')
-  expect(config.pages).not.toContain('pages/admin/wall-editor/index')
-  expect(config.pages).toContain('pages/walls/index')
-  expect(config.pages).toContain('pages/wall-picker/index')
-  expect(config.pages).toContain('pages/problem/editor/index')
-  expect(config.pages).toContain('pages/me/problems/index')
+import { expect, it, vi } from 'vitest'
+const read=(p:string)=>readFileSync(p,'utf8')
+it('registers native authoring and management pages while excluding the lab',()=>{
+ const app=JSON.parse(read('wechat/miniprogram/app.json'))
+ for(const page of ['pages/create/drafts/index','pages/admin/index','pages/admin/wall-editor/index','pages/admin/management/index','pages/me/walls/index'])expect(app.pages).toContain(page)
+ expect(app.pages.join(' ')).not.toMatch(/segmentation|experiment|lab/)
 })
-
-it('keeps the Create page limited to creating a route', () => {
-  const source = read('wechat/miniprogram/pages/create/index.ts') + read('wechat/miniprogram/pages/create/index.wxml')
-
-  expect(source).toContain('createProblem')
-  expect(source).toContain('/pages/wall-picker/index?mode=create')
-  expect(source).not.toMatch(/createWall|openDrafts|pages\/admin\/index|pages\/create\/drafts/)
+it('guards administrator creation actions but leaves ordinary route creation available',async()=>{
+ let page:any
+ vi.stubGlobal('Page',(p:any)=>{page=p})
+ const navigateTo=vi.fn()
+ vi.stubGlobal('wx',{navigateTo})
+ await import('../wechat/miniprogram/pages/create/index.js')
+ page.createWall();page.openDrafts()
+ expect(navigateTo).not.toHaveBeenCalled()
+ page.createProblem()
+ expect(navigateTo).toHaveBeenCalledWith({url:'/pages/wall-picker/index?mode=create'})
+ page.data.isAdmin=true
+ page.createWall();page.openDrafts()
+ expect(navigateTo).toHaveBeenCalledWith({url:'/pages/admin/index'})
+ expect(navigateTo).toHaveBeenCalledWith({url:'/pages/create/drafts/index'})
+ vi.unstubAllGlobals()
 })
-
-it('does not expose removed wall draft or hold-annotation navigation handlers', () => {
-  const source = [
-    read('wechat/miniprogram/pages/create/index.ts'),
-    read('wechat/miniprogram/pages/create/index.wxml'),
-    read('wechat/miniprogram/pages/me/index.ts'),
-    read('wechat/miniprogram/pages/me/index.wxml'),
-  ].join('\n')
-
-  expect(source).not.toMatch(/pages\/create\/drafts|pages\/admin\/index|pages\/admin\/wall-editor/)
-  expect(source).not.toMatch(/createWall|openDrafts|resumeDraft|annotateWall/)
-})
-
-it('keeps administrator wall management reachable from My for later admin gating', () => {
-  const source = read('wechat/miniprogram/pages/me/index.ts') + read('wechat/miniprogram/pages/me/index.wxml')
-
-  expect(source).toContain('openWalls')
-  expect(source).toContain('/pages/me/walls/index')
-  expect(source).toContain('openProblems')
-  expect(source).toContain('/pages/me/problems/index')
-})
-
-it('gates the My wall-management entry on the cloud administrator status', () => {
-  const source = read('wechat/miniprogram/pages/me/index.ts') + read('wechat/miniprogram/pages/me/index.wxml')
-
-  expect(source).toContain('isAdmin')
-  expect(source).toMatch(/isAdmin[\s\S]*openWalls|openWalls[\s\S]*isAdmin/)
-  expect(source).toContain('wx:if="{{isAdmin}}"')
-})
-
-it('leaves removed wall creation and draft pages without executable handlers', () => {
-  const sources = [
-    read('wechat/miniprogram/pages/admin/index.ts'),
-    read('wechat/miniprogram/pages/admin/index.wxml'),
-    read('wechat/miniprogram/pages/create/drafts/index.ts'),
-    read('wechat/miniprogram/pages/create/drafts/index.wxml'),
-  ].join('\n')
-
-  expect(sources).not.toMatch(/createWall|resumeDraft|pages\/admin\/wall-editor/)
-  expect(sources).not.toMatch(/bindtap="(?:create|resumeDraft|chooseImage)"/)
+it('separates personal walls from administrator management entry',()=>{
+ const source=read('wechat/miniprogram/pages/me/index.wxml')
+ expect(source).toContain('我的墙面')
+ expect(source).toContain('bindtap="openManagement"')
+ expect(source).toContain('wx:if="{{isAdmin}}"')
+ expect(read('wechat/miniprogram/pages/me/walls/index.ts')).toContain('listMyWalls')
 })

@@ -11,7 +11,7 @@ Cloudflare Web：web/dist         → Workers           → D1 + R2（MEDIA 配�
 
 三种运行形态各自保存独立数据：CloudBase 使用独立数据库和私有 Storage，本地 Web 使用 FastAPI、SQLite 与本地媒体，Cloudflare Web 使用 Workers、D1 与配置为 `MEDIA` 的 R2。它们只共享 Wall、Hold、Problem 的字段语义，数据不会自动同步。小程序独立运行，绝不依赖 FastAPI；Cloudflare Web 的浏览器端不运行 AI。Cloudflare 的管理员在具备 `MEDIA` 配置时可上传、创作、标注和发布墙面。
 
-小程序页面和组件通过 `wechat/miniprogram/services/` 访问数据；页面不得直接依赖 CloudBase。小程序的坐标、命中、手势、线路校验、筛选、随机与编辑状态位于 `wechat/miniprogram/domain/`，可由 Vitest 独立验证；Web 的对应页面、编辑器和业务实现位于 `web/src/`。两端独立实现相同的字段语义，不再使用根目录共享领域层。
+小程序页面和组件通过 `wechat/miniprogram/services/` 访问数据；页面不得直接依赖 CloudBase。小程序的坐标、命中、手势、线路校验、筛选、随机与编辑状态位于 `wechat/miniprogram/domain/`，可由 Vitest 独立验证；Web 的对应页面、编辑器和业务实现位于 `web/src/`。两端使用相同字段语义；轻量岩点识别纯算法位于小程序 domain，由 Web 重导出复用，不依赖根目录共享领域层。
 
 分割实验台使用 SAM 模型生成候选 polygon 并支持人工校准。可分别发布到本地 Web、CloudBase 或 Cloudflare Web。选择 CloudBase 时，它先向 `storageUpload` 获取经过 HMAC 验证的短期上传凭证，原图和完整签名校准 JSON 均直传私有 Storage；随后仅将 JSON 的 `fileID` 交给 `segmentationPublish` 下载、验签并创建墙面。所有发布只新建目标中的公开 Wall，不读取、修改或删除该目标的既有数据。
 
@@ -23,7 +23,7 @@ Cloudflare Web：web/dist         → Workers           → D1 + R2（MEDIA 配�
 - `walls` 保存物理墙、墙图、几何与岩点。岩点坐标 `x/y/radius` 均为 0–1 normalized coordinate。
 - `problems` 只保存 `wallId` 与 Hold ID，不保存屏幕坐标；其内部 `id` 与用户可见的 `number` 不同。
 - `admins` 保存 `userId` 与角色；Web 还保存独立的实验台授权。云端 `lab_experiments`、`lab_tasks`、`lab_calibrations` 保存实验元数据，`lab_daily_usage` 独立保存每日任务次数。
-- `counters/problem_number` 由服务端事务生成 `CS-000001` 格式的线路编号。
+- CloudBase 的 `counters/wall_number` 与每墙 `routes_<wallId>` 计数器由服务端事务分配稳定编号；线路格式为 `CS-` + 至少两位墙号 + 四位线路序号，删除不复用编号。
 
 Phase 1 不创建评论、点赞、关注或训练记录等集合。
 
@@ -33,8 +33,8 @@ Phase 1 不创建评论、点赞、关注或训练记录等集合。
 - `specified` 只允许踩线路指定的 Foot，且至少需要一个；`all` 允许使用当前墙面全部可踩岩点，通常不填写 `foot[]`。
 - 线路至少包含一个 Start 和一个 Finish；每个 Hold 最多一个显式线路角色。难度为 V0–V16，描述最多 500 字。
 - 搜索、排序与随机仅作用于当前 Wall、Angle、Grade 的过滤结果；单个随机会话一轮内不重复，耗尽后重新洗牌。
-- 小程序不提供创建墙面、上传墙图、岩点标注或发布能力；它只浏览公开 Wall、查看/创建线路、编辑/删除自己的线路，管理员额外可查看和删除墙面。
-- 分割实验台发布的 Wall 直接为公开状态，且至少有两个 Hold 才可用于创建线路。小程序中有线路关联的 Wall 不可删除。
+- 小程序普通用户浏览公开 Wall、创建和管理自己的线路及墙面；管理员可上传墙图、创建私有草稿、手动/轻量自动标注及公开发布，并管理全站墙面和用户。
+- 分割实验台发布的 Wall 直接为公开状态，且至少有两个 Hold 才可用于创建线路。小程序删除墙面时需确认清理所有关联线路。
 - 已发布 Wall 的岩点几何锁定；需要修改时新建私有 Wall。墙面删除是否级联取决于运行形态，见下表。
 
 ## 角色、授权与删除
@@ -43,7 +43,7 @@ Web 的普通用户、创作者和管理员使用同一账户体系。创作者�
 
 | 运行形态 | 墙面删除权限 | 关联线路与图片 |
 | --- | --- | --- |
-| 微信小程序 | 管理员 | 有关联线路时拒绝删除，不级联 |
+| 微信小程序 | 所有者或管理员 | 确认后级联删除线路，保留共享图片；未完成操作可重试 |
 | 本地 Web | 用户删除自己的墙面，管理员保留全站管理能力 | 删除墙面时同时删除关联线路，清理未被其他墙面引用的媒体 |
 | Cloudflare Web | 用户可删除自己拥有的墙面 | 同时删除所有关联线路、岩点和发布图片；存储清理失败后台重试 |
 
@@ -59,4 +59,4 @@ Web 的普通用户、创作者和管理员使用同一账户体系。创作者�
 - 线路编号只能在 `saveProblem` 的事务中生成。
 - Storage 保持私有；墙图只能由 `getWallImageUrl` 在校验公开状态、所有权或管理员身份后换取短期 URL。
 - `storageUpload` 与 `segmentationPublish` 的 HTTP 网关入口均以服务端 HMAC 签名验证，CloudBase 管理员 OpenID 仅在云函数中解析为业务 `users.id`。
-- CloudBase 删除线路仅限创建者或管理员，删除 Wall 仅限管理员且有关联线路时拒绝。Web 删除规则按上表执行，不能把小程序的 `WALL_IN_USE` 规则套用于 Web。
+- CloudBase 删除线路仅限创建者或管理员；删除 Wall 仅限所有者或管理员。删除中禁止新增关联线路，删除任务和媒体清理可重试。

@@ -1,4 +1,10 @@
 // @ts-nocheck
-import { currentUserIsAdmin } from '../../../services/users.js'
-import { deleteWall,listAdminWalls } from '../../../services/walls.js'
-Page({data:{walls:[]},onShow(){currentUserIsAdmin().then(isAdmin=>{if(!isAdmin)return wx.reLaunch({url:'/pages/me/index'});this.reload()}).catch(()=>wx.reLaunch({url:'/pages/me/index'}))},async reload(){this.setData({walls:(await listAdminWalls()).sort((a,b)=>b.updatedAt-a.updatedAt)})},remove(e){const wallId=e.currentTarget.dataset.wallId;wx.showModal({title:'删除墙面？',content:'有线路使用该墙面时无法删除。',success:r=>r.confirm&&deleteWall(wallId).then(()=>this.reload()).catch(error=>wx.showToast({title:String(error.message).includes('WALL_IN_USE')?'墙面正在被线路使用':'删除失败',icon:'none'}))})}})
+import { listMyWalls } from '../../../services/walls.js'
+import { cloudErrorMessage } from '../../../services/errors.js'
+import { confirmWallDeletion } from '../../../services/wall-deletion.js'
+Page({
+  data:{walls:[],loading:true,error:'',notice:'',deleting:''},
+  onShow(){return this.reload()},
+  async reload(){this.setData({loading:true,error:''});try{this.setData({walls:(await listMyWalls()).sort((a,b)=>b.updatedAt-a.updatedAt)})}catch(error){this.setData({error:cloudErrorMessage(error)})}finally{this.setData({loading:false})}},
+  remove(e){return confirmWallDeletion(this,e.currentTarget.dataset.wallId)},
+})

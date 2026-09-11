@@ -35,7 +35,7 @@ it('accepts a tiny HTTP trigger body that references a signed payload object', (
 })
 
 it('treats a missing idempotency receipt as a new publish instead of a document error', async () => {
-  const where = vi.fn(() => ({ limit: () => ({ get: async () => ({ data: [] }) }) }))
-  await expect(publishFunction._existingReceiptFrom({ collection: () => ({ where }) }, 'segmentation-new')).resolves.toBeUndefined()
-  expect(where).toHaveBeenCalledWith({ id: 'segmentation-new' })
+  const doc = vi.fn(() => ({ get: async () => { throw new Error('document does not exist') } }))
+  await expect(publishFunction._existingReceiptFrom({ collection: () => ({ doc }) }, 'segmentation-new')).resolves.toBeUndefined()
+  expect(doc).toHaveBeenCalledWith('segmentation-new')
 })

@@ -1,3 +1,4 @@
+const { find, nextWallNumber, bootstrapWallNumbers } = require('./database.js')
 const crypto = require('crypto')
 // Keep pure validation importable by local contract tests. CloudBase always
 // provides wx-server-sdk at deployment time.
@@ -118,7 +119,7 @@ const fingerprintFor = payload => crypto.createHash('sha256').update(canonicaliz
 
 const receiptIdFor = requestId => `segmentation_${crypto.createHash('sha256').update(requestId).digest('hex')}`
 
-const existingReceiptFrom = async (transaction, receiptId) => (await transaction.collection('segmentationPublishes').where({ id: receiptId }).limit(1).get()).data[0]
+const existingReceiptFrom = async (transaction, receiptId) => (await find(transaction, 'segmentationPublishes', receiptId)) || undefined
 
 const ownerFor = async (db, ownerOpenid) => {
   const users = await db.collection('users').where({ openid: ownerOpenid }).limit(1).get()
@@ -183,26 +184,18 @@ exports.main = async event => {
   const receiptId = receiptIdFor(validated.publishRequestId)
   const wallId = `wall_seg_${crypto.createHash('sha256').update(validated.publishRequestId).digest('hex').slice(0, 24)}`
   let result
+  const observedMax = await bootstrapWallNumbers(db)
   await db.runTransaction(async transaction => {
-    // `doc(id).get()` throws when the document is absent in CloudBase. A
-    // query returns an empty array instead, which is the normal first-publish
-    // case while preserving the idempotency check for later retries.
     const existing = await existingReceiptFrom(transaction, receiptId)
     if (existing) {
+      if (existing.deleted || !(await find(transaction, 'walls', existing.wallId)) || (await find(transaction, 'wallDeletionJobs', existing.wallId))) fail('WALL_DELETED')
       if (existing.fingerprint !== fingerprint) fail('PUBLISH_REQUEST_CONFLICT')
       result = { wallId: existing.wallId, wallName: existing.wallName, holdCount: existing.holdCount, browsePath: `/wall/${existing.wallId}`, created: false }
       return
     }
     const now = Date.now()
-    const walls = (await transaction.collection('walls').get()).data
-    const numbered = walls.filter(item => Number.isInteger(item.wallNumber) && item.wallNumber > 0)
-    const missing = walls.filter(item => !Number.isInteger(item.wallNumber) || item.wallNumber <= 0).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0) || String(a.id).localeCompare(String(b.id)))
-    let nextWallNumber = Math.max(0, ...numbered.map(item => item.wallNumber)) + 1
-    for (const item of missing) {
-      await transaction.collection('walls').doc(item.id).update({ data: { wallNumber: nextWallNumber } })
-      nextWallNumber += 1
-    }
-    const wallNumber = nextWallNumber
+    if (await find(transaction, 'wallDeletionJobs', wallId)) fail('WALL_DELETED')
+    const wallNumber = await nextWallNumber(transaction, observedMax)
     await transaction.collection('walls').doc(wallId).set({ data: {
       id: wallId,
       wallNumber,

@@ -12,7 +12,7 @@ Cloudflare Web：web/dist       → Workers           → D1 + R2（MEDIA 绑定
 
 | 形态 | 主要能力 | 使用与部署 |
 | --- | --- | --- |
-| 微信小程序 | 浏览公开墙面，创建、编辑和删除自己的线路；管理员管理符合删除条件的墙面 | [小程序 CloudBase](docs/miniprogram-cloudbase.md) |
+| 微信小程序 | 浏览与全屏预览线路，管理自己的线路和墙面；管理员上传、标注、发布墙面及管理全站内容 | [小程序 CloudBase](docs/miniprogram-cloudbase.md) |
 | 本地 Web | 管理员墙面创作、标注和发布；线路管理；共享本地账户的分割实验台 | [本地 Web](docs/local-web.md) |
 | Cloudflare Web | 注册登录、资料与线路管理；管理员墙面创作；创作者使用云端实验台并管理自己的公开墙面 | [Cloudflare 部署](docs/cloudflare-edge-deployment.md) |
 
