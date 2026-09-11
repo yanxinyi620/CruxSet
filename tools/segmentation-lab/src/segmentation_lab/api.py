@@ -18,7 +18,8 @@ from .config import Settings
 from .errors import SegmentationLabError
 from .experiments import ExperimentStore
 from .cruxset import CruxSetPublisher
-from .cloudbase_sync import CloudBaseSynchronizer, sync_calibration
+from .cloudbase_sync import CloudBaseSynchronizer, sync_calibration, mobile_webp
+from .publish_requests import install_publish_requests
 from .service import BenchmarkService
 from .access import authenticate
 from .ownership import IDENTIFIER, migrate_legacy_owners, owner_of
@@ -99,7 +100,7 @@ def create_app(settings: Settings, adapters: Mapping[str, SegmentationAdapter] |
             {"name": name, "available": availability.available, "reason": availability.reason, "device": availability.device}
             for name, adapter in active_adapters.items()
             for availability in [adapter.available()]
-        ], "publishTargets": ["web", "cloudbase", "cloudflare"] if request.state.actor["isAdmin"] else ["web"]}
+        ], "publishTargets": ["web", "cloudbase", "cloudflare"], "isAdmin": request.state.actor["isAdmin"], "requestTargets": [] if request.state.actor["isAdmin"] else ["cloudbase", "cloudflare"]}
 
     @app.post("/api/experiments", status_code=201)
     async def create_experiment(request: Request, image: UploadFile = File(...)) -> dict[str, object]:
@@ -324,6 +325,22 @@ def create_app(settings: Settings, adapters: Mapping[str, SegmentationAdapter] |
     def workbench() -> FileResponse:
         return FileResponse(Path(__file__).parents[2] / "static" / "index.html")
 
+    async def publish_snapshot(target, image, filename, metadata):
+        if target == "cloudbase":
+            if not settings.cloudbase_publish_configured:
+                raise SegmentationLabError("cloudbase_not_configured", "CloudBase 发布配置未完整设置。")
+            publisher = CloudBaseSynchronizer(settings.cloudbase_function_url, settings.cloudbase_signing_key, storage_url=settings.cloudbase_storage_url, owner_openid=settings.cloudbase_owner_openid)
+            return await publisher.publish(mobile_webp(image), "wall.webp", metadata)
+        if not settings.edge_publish_configured:
+            raise SegmentationLabError("cloudflare_not_configured", "Cloudflare 发布密钥未配置。")
+        result = await CruxSetPublisher(settings.edge_segmentation_url, settings.edge_segmentation_publish_key, auth_mode="hmac").publish(image, filename, metadata)
+        if result.get("browsePath"):
+            from urllib.parse import urlsplit
+            origin = urlsplit(settings.edge_segmentation_url)
+            result = {**result, "browseUrl": f"{origin.scheme}://{origin.netloc}{result['browsePath']}"}
+        return result
+
+    install_publish_requests(app, store, settings, publish_snapshot)
     return app
 
 

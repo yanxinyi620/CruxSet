@@ -11,7 +11,7 @@ export function labRuntimeConfig(local: boolean): string {
   return `window.SEGMENTATION_LAB_CONFIG = ${JSON.stringify({
     mode: local ? 'local' : 'cloud', apiBase: labApiPrefix, homePath: '/', labPath, loginPath: '/me',
     models: local ? ['sam2', 'sam2_tiled', 'sam3'] : ['sam2', 'sam2_tiled'],
-    publishTargets: local ? ['web', 'cloudbase', 'cloudflare'] : ['cloudflare'],
+    publishTargets: local ? ['web', 'cloudbase', 'cloudflare'] : ['cloudflare', 'cloudbase'],
   })};\n`
 }
 function pageSource(file: string, root = sourceRoot): string {

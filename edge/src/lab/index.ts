@@ -19,6 +19,12 @@ import {
   type Row,
 } from './common.js'
 import { runner, startTask, sweep } from './tasks.js'
+import {
+  createPublishRequest,
+  approvePublishRequest,
+  publishRequestRoutes,
+  requestView,
+} from './publish-requests.js'
 import { publishCalibration } from './publish.js'
 export { sweep } from './tasks.js'
 
@@ -74,7 +80,8 @@ export async function handleLab(
       path = url.pathname.slice(BASE.length)
     if (path.startsWith('/runner/')) return await runner(request, ready, path)
     if (!user) fail('AUTH_REQUIRED', '请先登录。', 401)
-    if (!canUseLab(user)) fail('FORBIDDEN', '尚未获得实验台权限，请联系管理员开通。', 403)
+    if (!canUseLab(user))
+      fail('FORBIDDEN', '尚未获得实验台权限，请联系管理员开通。', 403)
     if (
       !['GET', 'HEAD'].includes(request.method) &&
       request.headers.get('Origin') !== url.origin
@@ -82,6 +89,9 @@ export async function handleLab(
       fail('FORBIDDEN', '请从当前站点提交请求。', 403)
     if (path === '/models' && request.method === 'GET')
       return json({
+        isAdmin: user.role === 'admin',
+        publishTargets: ['cloudflare', 'cloudbase'],
+        requestTargets: user.role === 'admin' ? [] : ['cloudbase'],
         items: ['sam2', 'sam2_tiled'].map((name) => ({
           name,
           available: configured(env),
@@ -181,6 +191,13 @@ export async function handleLab(
         })),
       })
     }
+    const reviewResponse = await publishRequestRoutes(
+      request,
+      ready,
+      user,
+      path,
+    )
+    if (reviewResponse) return reviewResponse
     const m = path.match(/^\/experiments\/([\w-]+)(.*)$/)
     if (!m) fail('NOT_FOUND', '接口不存在。', 404)
     const e = await experiment(ready, m[1], user.id),
@@ -318,7 +335,9 @@ export async function handleLab(
         throw error
       }
     }
-    const cm = tail.match(/^\/calibrations\/([\w-]+)(\/export.svg|\/publish)?$/)
+    const cm = tail.match(
+      /^\/calibrations\/([\w-]+)(\/export.svg|\/publish|\/publish-requests)?$/,
+    )
     if (cm) {
       const c = await calibration(ready, e.id, cm[1])
       if (!cm[2] && request.method === 'GET')
@@ -333,8 +352,34 @@ export async function handleLab(
         await sweep(ready)
         return new Response(null, { status: 204 })
       }
+      if (cm[2] === '/publish-requests' && request.method === 'POST') {
+        return json(
+          requestView(
+            await createPublishRequest(ready, e, c, user, await body(request)),
+          ),
+          201,
+        )
+      }
       if (cm[2] === '/publish' && request.method === 'POST') {
         const b = await body(request)
+        if (b.target === 'cloudbase') {
+          if (user.role !== 'admin')
+            fail('FORBIDDEN', '跨平台发布需要管理员审核，请提交发布申请。', 403)
+          const row = await approvePublishRequest(
+            ready,
+            (await createPublishRequest(ready, e, c, user, b)).id,
+            user.id,
+          )
+          if (row.status !== 'published')
+            fail('PUBLISH_FAILED', row.error || 'CloudBase 发布失败。', 502)
+          return json({
+            ...JSON.parse(row.result),
+            target: 'cloudbase',
+            status: 'succeeded',
+            wallName: row.wall_name,
+            publishRequestId: row.id,
+          })
+        }
         if (b.target !== undefined && b.target !== 'cloudflare')
           fail('INVALID_TARGET', '云端校准发布到当前 Cloudflare 站点。')
         return await publishCalibration(

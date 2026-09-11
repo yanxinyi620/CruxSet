@@ -19,6 +19,8 @@ Cloudflare Web 是 CruxSet 的三种运行形态之一：它由 Workers 提供 A
 
 ## 配置与部署
 
+跨平台发布申请需要 `0012_lab_publish_requests.sql`。云端发布到小程序还需四项 CloudBase 服务端配置，详见[跨平台发布申请](segmentation-cloud.md#跨平台发布申请)。先应用迁移，再部署代码；申请和审核不需要修改 GitHub Actions 工作流。
+
 在仓库根目录完成 Cloudflare 登录，并确认 `edge/wrangler.jsonc` 中的 D1 `DB`、R2 `MEDIA`、域名路由和 `web/dist` 静态资源配置适用于目标账户与环境。首次部署需要创建 D1 数据库和 R2 桶，将创建得到的 D1 数据库 ID 写入该配置。只有需要接收本地实验台跨平台发布时，才需设置 `SEGMENTATION_PUBLISH_KEY`；云端实验台的 Actions 密钥见[云端实验台](segmentation-cloud.md)。
 
 项目已将 Wrangler 安装为本地开发依赖。当前环境不要求全局安装 Wrangler，以下命令统一使用 `npx wrangler` 调用项目版本。

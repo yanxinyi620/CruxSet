@@ -48,7 +48,7 @@ def test_models_reports_availability_without_starting_inference(tmp_path):
 
     response = client.get("/api/models")
 
-    assert response.json() == {"items": [{"name": "sam3", "available": False, "reason": "checkpoint_not_found", "device": "cpu"}], "publishTargets": ["web", "cloudbase", "cloudflare"]}
+    assert response.json() == {"items": [{"name": "sam3", "available": False, "reason": "checkpoint_not_found", "device": "cpu"}], "publishTargets": ["web", "cloudbase", "cloudflare"], "isAdmin": True, "requestTargets": []}
 
 
 def test_upload_creates_an_experiment_with_image_metadata(tmp_path):
@@ -159,7 +159,8 @@ def test_calibration_results_split_continue_and_export_actions(tmp_path):
 
     assert "<th>继续</th>" in response.text
     assert "<th>导出</th>" in response.text
-    assert "<th>操作</th>" not in response.text
+    calibration_table = response.text.split('<tbody id="calibrations">')[0].rsplit('<table', 1)[1]
+    assert "<th>操作</th>" not in calibration_table
 
 
 def test_calibration_results_offer_cruxset_publish(tmp_path):
@@ -208,7 +209,8 @@ def test_publish_dialog_exposes_explicit_targets_with_web_default(tmp_path):
     assert '<option value="web" selected>本地 Web</option>' in response.text
     assert '<option value="cloudbase">小程序 CloudBase</option>' in response.text
     assert 'value="both"' not in response.text
-    assert '"target": $("#publishTarget").value' in response.text
+    assert 'JSON.stringify({ wallName, target })' in response.text
+    assert 'needsReview ? "publish-requests" : "publish"' in response.text
 
 
 def test_continue_calibration_link_includes_the_saved_result_identity(tmp_path):

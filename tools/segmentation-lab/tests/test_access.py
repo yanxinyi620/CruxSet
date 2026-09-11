@@ -96,7 +96,7 @@ def test_models_declare_actor_publish_targets(tmp_path):
     class Unavailable:
         def available(self): return ModelAvailability(False, 'missing', 'cpu')
     app = create_app(Settings(data_dir=tmp_path, cruxset_publish_key='key'), adapters={'sam2': Unavailable()})
-    assert TestClient(app, user_id='member', is_admin=False).get('/api/models').json()['publishTargets'] == ['web']
+    assert TestClient(app, user_id='member', is_admin=False).get('/api/models').json()['publishTargets'] == ['web', 'cloudbase', 'cloudflare']
     assert TestClient(app).get('/api/models').json()['publishTargets'] == ['web','cloudbase','cloudflare']
 
 

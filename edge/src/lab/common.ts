@@ -1,4 +1,8 @@
 export interface LabEnv {
+  CRUXSET_CLOUDBASE_FUNCTION_URL?: string
+  CRUXSET_CLOUDBASE_STORAGE_URL?: string
+  CRUXSET_CLOUDBASE_SIGNING_KEY?: string
+  CRUXSET_CLOUDBASE_OWNER_OPENID?: string
   DB?: D1Database
   MEDIA?: R2Bucket
   LAB_RUNNER_KEY?: string

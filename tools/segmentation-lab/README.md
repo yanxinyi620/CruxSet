@@ -30,6 +30,8 @@ SEG_LAB_DATA_DIR=./data uv run uvicorn segmentation_lab.api:app --host 127.0.0.1
 
 ## 发布到本机 CruxSet
 
+创作者选择小程序或云端 Web 时，发布弹窗会确认提交管理员审核。申请列表位于首页底部、实验台说明上方；创作者只看自己的申请，管理员可查看墙面快照、通过并发布、拒绝或重试失败发布。快照独立保存在 `data/publish-requests`，删除原实验不影响申请，本地服务重启后仍可处理。跨平台墙面归目标平台管理员，不占申请人的公开墙面额度；直接发布本地 Web 仍归当前登录用户。详细规则见[跨平台发布申请](../../docs/segmentation-cloud.md#跨平台发布申请)。
+
 完整的本机启动方式见[本地 Web 工作台](../../docs/local-web.md)。CruxSet API 与实验台必须配置同一个本机密钥；密钥不会发送到浏览器，也不要提交到版本库：
 
 ```bash
