@@ -42,10 +42,15 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .cache/huggingface
-          key: sam2-${{ runner.os }}-665f8e2ad61cf5f53d65644ff27c8ee525124610
+          key: sam2-${{ runner.os }}-665f8e2ad61cf5f53d65644ff27c8ee525124610-v1
       - name: Install runner
         working-directory: tools/segmentation-lab
         run: uv sync --locked --extra sam2
       - name: Run claimed task
         working-directory: tools/segmentation-lab
-        run: uv run --no-sync python -m segmentation_lab.cloud_runner
+        run: /usr/bin/time -f 'runner_elapsed_seconds=%e runner_peak_rss_kib=%M' uv run --no-sync python -m segmentation_lab.cloud_runner
+      - name: Report disk usage
+        if: always()
+        run: |
+          df -h .
+          du -sh tools/segmentation-lab/.venv "$HF_HOME" 2>/dev/null || true
