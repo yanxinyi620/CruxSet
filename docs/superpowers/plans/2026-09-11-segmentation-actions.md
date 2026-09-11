@@ -47,5 +47,5 @@ Cloud publish returns local-compatible {target:'cloudflare',targets:{cloudflare:
 ## Final integration
 - [x] Run complete Python, TS suites; edge typecheck, Web build, Worker dry-run.
 - [x] Exercise browser with actual local API and cloud Worker emulator or authorized deployed endpoint.
-- [ ] Inspect configured deployment access without printing secrets. Deploy and dispatch actual model runs when credentials and repository workflow availability permit; otherwise state exact missing configuration while finishing all local verification.
+- [x] Inspect configured deployment access without printing secrets. Deploy and dispatch actual model runs when credentials and repository workflow availability permit; otherwise state exact missing configuration while finishing all local verification. Production deployment and four successful model runs recorded in `docs/benchmarks/2026-09-11-segmentation-cloud-verification.md`.
 - [x] Independent spec review followed by quality review; resolve findings and repeat affected checks.

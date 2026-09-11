@@ -136,3 +136,7 @@ are independent of the cloud task queue.
 Remote model runs and production deployment are environment-dependent. This
 document describes the configured workflow and setup; it is not a claim that a
 repository workflow, Worker, or model run has been deployed or verified.
+
+The production deployment and four successful remote runs on 2026-09-11 are
+recorded separately in [the verification report](benchmarks/2026-09-11-segmentation-cloud-verification.md),
+including CPU memory measurements and browser calibration/publication checks.
