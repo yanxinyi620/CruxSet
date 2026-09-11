@@ -25,7 +25,9 @@ CRUXSET_CLOUDBASE_SIGNING_KEY='<与云函数相同的随机密钥>'
 CRUXSET_CLOUDBASE_OWNER_OPENID='<CloudBase 管理员 OpenID>'
 ```
 
-实验台的 `cloudbase` 目标只写入 CloudBase。发布目标需要分别选择；所有发布都创建新的公开 Wall，不会同步或覆盖其他运行形态的数据。
+使用本地实验台登录的管理员选择配置好的 `cloudbase` 目标；普通本地创作者不具备跨平台发布权限，云端实验台只发布当前 Cloudflare 站点。实验台的 `cloudbase` 目标只写入 CloudBase。发布目标需要分别选择；所有发布都创建新的公开 Wall，不会同步或覆盖其他运行形态的数据。
+
+Cloudflare 的实验台授权和数量额度不适用于小程序账户。小程序有线路关联的墙面仍不能删除，与 Web 级联清理规则不同。
 
 ## 验收
 

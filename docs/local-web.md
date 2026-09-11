@@ -1,10 +1,14 @@
 # 本地 Web 工作台
 
-本地 Web 是管理员创作工作台：Vite 前端通过 FastAPI 使用 SQLite 与本地媒体。它可独立运行，分割实验台通过同一个 Web 地址访问、由独立本机进程运行。正式公网访问使用 [Cloudflare Web](cloudflare-edge-deployment.md)。
+本地 Web 支持账户登录、线路创作和管理员墙面创作：Vite 前端通过 FastAPI 使用 SQLite 与本地媒体。它可独立运行，分割实验台通过同一个 Web 地址访问、由独立本机进程运行。正式公网访问使用 [Cloudflare Web](cloudflare-edge-deployment.md)。
 
 ## 能力
 
 管理员可上传墙图、创建私有 Wall、标注岩点、发布墙面，并管理线路。已发布墙面锁定几何；需要修改岩点时创建新的私有 Wall。
+
+本地实验台已接入登录、授权和用户数据隔离，**没有应用云端的图片 10 张、保留任务 20 个、每日任务 20 次、公开墙面 10 面额度**。本机性能、磁盘和模型配置仍决定实际可运行规模。
+
+本地创作者可在“我的 → 我的墙面”删除自己拥有的墙面；同时删除所有关联线路，并清理不再被其他墙面引用的原图和展示图。管理员保留原有全站墙面管理权限。撤销实验台授权不影响用户清理自己的已有墙面。来源实验与校准仍在实验台单独管理。实验台 04 区域右侧提供“管理我的墙面”跳转入口。
 
 ## 启动
 
@@ -16,6 +20,8 @@ npm install
 ./scripts/cruxset-dev status
 ```
 
+首次需要运行本机模型时，可先在 `tools/segmentation-lab` 执行 `uv sync --extra models --extra test` 安装依赖，具体模型配置见[实验台说明](../tools/segmentation-lab/README.md)。
+
 脚本启动 FastAPI（8000）、Web（5173）与分割实验台（8765）。打开 `http://localhost:5173`，管理员或已获实验台授权的用户在“我的”点击“分割实验台”，会在新标签页打开 `http://localhost:5173/segmentation-lab/`。访问实验台数据需要主站登录和实验台授权；管理员默认可用，普通用户由管理员在“我的 → 管理中心 → 用户”开通。日志和 PID 位于 `.runtime/cruxset-dev`。首次创建管理员：
 
 ```bash
@@ -23,7 +29,7 @@ cd server
 PYTHONPATH=. uv run python scripts/create_local_admin.py admin@example.com
 ```
 
-日常命令为 `start`、`restart`、`stop`、`status`。本地使用无需配置 CloudBase；仅在选择 CloudBase 发布目标时，才需要在 `/etc/cruxset.env` 配置相应 URL、签名密钥和管理员 OpenID。
+当前仓库仅保留 `scripts/cruxset-dev`；旧 `cruxset-web`、Caddy 与 Quick Tunnel 管理方式已移除。日常命令为 `start`、`restart`、`stop`、`status`。本地使用无需配置 CloudBase；仅在选择 CloudBase 发布目标时，才需要在 `/etc/cruxset.env` 配置相应 URL、签名密钥和管理员 OpenID。
 
 ## 页面与请求路径
 
@@ -48,6 +54,12 @@ npm run web:preview:local    # 默认 http://localhost:4173；8000、8765 仍需
 ```
 
 默认 `npm run web:build` 仍生成 Cloudflare 使用的 `web/dist`，不会被本地构建覆盖。Vite 开发入口支持 localhost、回环地址与私网 IPv4 主机名，公开域名不能通过它访问实验台。
+
+## HTTP、HTTPS 与会话
+
+开发脚本设置 `SESSION_COOKIE_SECURE=false`，供本地 HTTP 使用。手动启动 FastAPI 默认是 `true`；若通过普通 HTTP 访问，登录 Cookie 可能受限。使用同一个主机名访问主站与实验台，避免在 `localhost`、`127.0.0.1` 和不同域名间切换导致会话不一致。
+
+Secure 属性控制浏览器会话传输，不控制模型计算或后台发布。本地实验台通过带签名身份的内部请求调用发布 API，不依赖浏览器把 Cookie 发送到 8765。`CRUXSET_BASE_URL` 指向后台 API，`CRUXSET_WEB_URL` 决定发布后的浏览链接和独立页面返回主站的地址。正式 Cloudflare HTTPS 站点使用自己的账户和会话。
 
 ## 服务端环境参数
 

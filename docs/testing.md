@@ -7,16 +7,30 @@
 ```bash
 npm test
 npm run build
+npm run edge:typecheck
+npx tsc -p web/tsconfig.json
+npm run web:build
+npm run web:build:local
 npm run verify:phase1
 ```
 
-`npm run build` 会检查共享领域代码与小程序 TypeScript。发布前使用 `npm run verify:phase1 -- --release`，该命令要求真实 AppID。
+`npm run build` 执行根项目和小程序 TypeScript 检查；Worker、Web 类型与两种页面构建分别检查。发布前使用 `npm run verify:phase1 -- --release`，该命令要求真实 AppID。
 
-分割实验台的测试在其目录内独立运行：
+本地 API 和分割实验台分别运行 Python 测试（以下各段从仓库根目录开始）：
 
 ```bash
+cd server
+uv run pytest -q
+```
+
+分割实验台：
+
+```bash
+cd tools/segmentation-lab
 uv run --extra test pytest -s -q
 ```
+
+文档修改后还应检查 Markdown 相对链接、脚本名称和环境变量是否与仓库一致。基准记录与历史设计不作为当前权限或额度规范。
 
 ## 本地 Web：完整创作（FastAPI、SQLite 与本地媒体）
 
@@ -55,11 +69,11 @@ uv run --extra test pytest -s -q
 
 - [ ] 在实验台选择已保存校准结果并点击“发布到 CruxSet”。
 - [ ] `web` 目标只在本机 Web 创建新的公开 Wall；`cloudbase` 目标只在 CloudBase 创建；`cloudflare` 目标只在 Cloudflare Web 创建新的公开 Wall。
-- [ ] 分别选择 `web`、`cloudbase`、`cloudflare` 发布，确认每个目标独立完成。
+- [ ] 本地管理员分别选择配置好的 `web`、`cloudbase`、`cloudflare` 发布，确认每个目标独立完成；本地普通创作者只允许 `web`，云端工作台只允许当前 Cloudflare 站点。
 - [ ] 选择 `cloudbase` 后，原图大于 6 MB 时仍能完成直传 Storage；完整签名校准 JSON 也会直传 Storage，`segmentationPublish` 仅接收小于 100 KB 的 `payloadFileId` 请求，随后出现新的公开 Wall，岩点数量与校准结果一致。
 - [ ] 在小程序 CloudBase 模式刷新公开墙面列表，能看到新 Wall、墙图和岩点，并可正常创建线路。
 - [ ] 管理员可在小程序查看并删除无关联线路的已发布墙面；有线路时删除被 `WALL_IN_USE` 阻止。
-- [ ] 再次发布同一校准结果生成新的 Wall ID，不修改旧 Wall。
+- [ ] 本地实验台再次显式发布会按目标协议处理；云端工作台重复提交同一已发布校准返回原回执，不新增 Wall。云端墙面已删除时旧回执不恢复墙面，需保存新校准。
 
 ## 云端实验台账户与授权
 
@@ -96,3 +110,19 @@ uv run pytest tests/test_lab_http_integration.py -q
 ```
 
 云端创作者额度测试：`edge/tests/segmentation-lab.test.ts` 覆盖图片、保留任务、每日任务、公开墙面上限，删除释放与每日计数保留、北京时间换日、并发提交、墙面所有权、关联线路与媒体清理及清理失败重试。`edge/tests/lab-quota-migration.test.ts` 验证旧任务用量回填和已有超额数据保留。`tests/web-cloud-access.test.ts` 验证自有墙面管理独立于实验台授权和管理员墙面创建权限。
+
+## 云端额度与墙面管理验收
+
+- [ ] 非管理员第 11 张实验图片被拒绝；删除旧图片后可上传，并清理关联任务和校准。
+- [ ] 未删除任务达到 20 个时拒绝新增；删除旧任务后释放保留额度，已保存校准副本不受影响。
+- [ ] 当日第 21 个任务被拒绝；删除任务和图片不退回每日次数，北京时间零点开始新一天。
+- [ ] 参数无效或额度已满时不计数；创建成功后触发失败、模型失败或超时仍计数；重试计为新任务。
+- [ ] 同时提交不能超过个人剩余额度；管理员不受新增四项数量额度限制，所有账户仍最多 2 个排队或运行任务。
+- [ ] 创作者公开墙面达到 10 面后发布被拒绝；重复提交同一已发布校准不重复占用额度。
+- [ ] 云端“我的 → 我的墙面”仅列出自己的墙面；删除经确认后清理相关线路、岩点和发布图片，保留来源实验及校准。
+- [ ] 用户不能删除他人墙面；实验台授权被撤销后仍能清理自己已有公开墙面。
+- [ ] 发布图片清理暂时失败时保留待清理记录，后续定时清理可完成。
+- [ ] 本地与云端的 04 校准按钮右侧均有“管理我的墙面”，在新标签页打开各自主站，保留原实验台页面。
+- [ ] 本地不显示或实施云端数量额度；本地创作者可删除自己墙面及关联线路、原图和展示图，不能删除他人墙面；仍被其他墙面引用的媒体保留。
+
+部署验收先检查迁移记录和页面版本，再使用专用测试账户验证写入；不得为制造超额案例删除真实用户内容。自动化测试数量随代码变化，以当次执行结果为准。

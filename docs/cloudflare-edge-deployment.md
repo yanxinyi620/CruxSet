@@ -1,6 +1,6 @@
 # Cloudflare Edge 部署
 
-Cloudflare Web 是 CruxSet 的第三种 Web 运行形态：它由 Workers 提供 API，并以同一份 `web/dist` 提供前端资源。它使用独立的 D1 和 R2 数据；这些数据不会与本地 Web 的 SQLite/本地媒体，或小程序的 CloudBase 数据库与 Storage 自动同步。本地 FastAPI 与 SQLite 保留用于本地开发和创作，正式公网访问使用此部署方式。
+Cloudflare Web 是 CruxSet 的三种运行形态之一：它由 Workers 提供 API，并以同一份 `web/dist` 提供前端资源。它使用独立的 D1 和 R2 数据；这些数据不会与本地 Web 的 SQLite/本地媒体，或小程序的 CloudBase 数据库与 Storage 自动同步。本地 FastAPI 与 SQLite 保留用于本地开发和创作，正式公网访问使用此部署方式。
 
 | 能力 | Cloudflare Web |
 | --- | --- |
@@ -8,8 +8,9 @@ Cloudflare Web 是 CruxSet 的第三种 Web 运行形态：它由 Workers 提供
 | 注册、登录、查看及更新个人资料 | 是 |
 | 创建、编辑与删除自己的线路 | 是 |
 | 管理员上传图片、创建私有墙面、保存岩点、发布墙面 | 是；需要 R2 `MEDIA` 绑定 |
-| 管理员删除自己创建的墙面 | 是；同时删除其关联线路与 R2 图片 |
-| 分割实验台发布 | 是；请求须使用 `SEGMENTATION_PUBLISH_KEY` 的签名，且需要 D1 与 R2 |
+| 管理自己的公开墙面 | 管理员和创作者在“我的墙面”删除自己的墙面，同时清理关联线路、岩点与发布图片 |
+| 云端实验台 | 共享主站会话；管理员和授权创作者可计算、校准、导出和公开发布自己的结果 |
+| 本地实验台向本部署发布 | 独立的机器发布入口，使用 `SEGMENTATION_PUBLISH_KEY` 验签；与云端用户会话发布不同 |
 | 浏览器内运行 SAM、YOLO 或其他 AI 任务 | 否 |
 
 管理员和获授权的创作者可以使用共享 Web 账户的[云端分割实验台](./segmentation-cloud.md)。Worker 只负责私有任务、D1/R2 元数据和发布；模型运行在 GitHub Actions 中，不改变本地实验台的启动方式。云端链路的 GitHub 配置、任务时限和私有对象规则见该文档。
@@ -18,7 +19,7 @@ Cloudflare Web 是 CruxSet 的第三种 Web 运行形态：它由 Workers 提供
 
 ## 配置与部署
 
-在仓库根目录完成 Cloudflare 登录，并确认 `edge/wrangler.jsonc` 中的 D1 `DB`、R2 `MEDIA`、域名路由和 `web/dist` 静态资源配置适用于目标账户与环境。首次部署需要创建 D1 数据库和 R2 桶，将创建得到的 D1 数据库 ID 写入该配置，并为分割发布设置密钥：
+在仓库根目录完成 Cloudflare 登录，并确认 `edge/wrangler.jsonc` 中的 D1 `DB`、R2 `MEDIA`、域名路由和 `web/dist` 静态资源配置适用于目标账户与环境。首次部署需要创建 D1 数据库和 R2 桶，将创建得到的 D1 数据库 ID 写入该配置。只有需要接收本地实验台跨平台发布时，才需设置 `SEGMENTATION_PUBLISH_KEY`；云端实验台的 Actions 密钥见[云端实验台](segmentation-cloud.md)。
 
 项目已将 Wrangler 安装为本地开发依赖。当前环境不要求全局安装 Wrangler，以下命令统一使用 `npx wrangler` 调用项目版本。
 
@@ -26,6 +27,8 @@ Cloudflare Web 是 CruxSet 的第三种 Web 运行形态：它由 Workers 提供
 npx wrangler login
 npx wrangler d1 create cruxset-db
 npx wrangler r2 bucket create cruxset-media
+
+# 可选：仅在接收本地实验台跨平台发布时配置
 npx wrangler secret put SEGMENTATION_PUBLISH_KEY --config edge/wrangler.jsonc
 ```
 
@@ -37,7 +40,7 @@ npx wrangler d1 migrations apply cruxset-db --remote --config edge/wrangler.json
 npx wrangler deploy --config edge/wrangler.jsonc
 ```
 
-生产数据库 ID、域名路由和 `SEGMENTATION_PUBLISH_KEY` 是部署环境配置。不要把密钥写入仓库或前端构建产物。部署后应验证公开浏览、注册/登录、线路写入，以及具备管理员账户和 `MEDIA` 绑定时的图片上传与墙面发布；浏览器不承担 AI 推理，分割结果由实验台签名后提交给 Worker。
+生产数据库 ID、域名路由和 `SEGMENTATION_PUBLISH_KEY` 是部署环境配置。不要把密钥写入仓库或前端构建产物。部署后应验证公开浏览、注册/登录、线路写入，以及具备管理员账户和 `MEDIA` 绑定时的图片上传与墙面发布；浏览器不承担 AI 推理。云端实验台由现有会话授权，Actions 只负责计算；本地跨平台发布才使用机器发布签名。
 
 ## 注册并升级为管理员
 
@@ -68,6 +71,16 @@ Cloudflare D1 与本地 Web、CloudBase 的账户数据相互独立。在本地�
 
 ## 实验台授权
 
-部署此版本前先应用 `0010_lab_access.sql` 数据库迁移，再部署 Worker 与 Web 资源。管理员在“我的 → 管理中心 → 用户”开通或撤销普通用户的实验台权限；授权自动包含公开发布自己的校准结果，不授予网站管理权限。
+先应用所有待执行迁移，再部署 Worker 与 Web 资源：`0010_lab_access.sql` 增加实验台授权，`0011_lab_quotas.sql` 增加创作者额度、独立每日账本及数据库触发器。已有超额内容保留；新操作按额度检查。管理员在“我的 → 管理中心 → 用户”开通或撤销普通用户的实验台权限；授权自动包含公开发布自己的校准结果，不授予网站管理权限。
 
 Web 与 `/segmentation-lab/` 使用同域 API 和登录会话。此前只在 `api` 子域持有登录会话的用户，需要在主域重新登录一次。开通权限后刷新“我的”即可看到实验台入口；撤销后下一次实验台 API 请求即被拒绝，保留已有数据和已发布墙面。
+
+## 额度、墙面管理与上线检查
+
+云端创作者最多保留 10 张实验图片、20 个任务，每日创建 20 个任务，同时公开 10 面墙。管理员不受这四项额度限制；每人同时排队或运行最多 2 个任务适用于所有账户。删除释放保留数量，不退回当天次数，每日按北京时间零点重置。完整语义见[云端实验台](segmentation-cloud.md#创作者额度)。
+
+“我的 → 我的墙面”允许用户删除自己拥有的已公开墙面和全部关联线路、岩点、发布图片；权限被撤销后仍可清理自己已有墙面。实验台 04 区域提供该页面的新标签页入口。原实验及校准不随墙面删除，媒体删除暂时失败会进入后台清理队列。
+
+迁移使用 D1 触发器进行原子额度检查。`0011` 中的 `CASE` 表达式需保留括号，避免远端 D1 将表达式的 `END` 误识别成触发器结束。迁移失败后先查询 `d1_migrations` 和实际 schema，确认是否回滚，不要盲目重复手动建表。
+
+部署后检查首页、`/me?panel=my-walls`、`/segmentation-lab/` 和 `/api/v1/healthz`。未登录实验 API 应返回 401，已登录但未授权返回 403；以测试账户验收授权、额度、归属与删除，不要使用真实用户数据制造超额任务。页面可加载本身不代表已有实验访问权限。
