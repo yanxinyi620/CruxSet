@@ -414,7 +414,8 @@
           $("#quotaUsage").hidden=false;
           $("#quotaUsage").textContent=`图片 ${u.images}/${q.images} · 保留任务 ${u.tasks}/${q.tasks} · 今日任务 ${u.dailyTasks}/${q.dailyTasks} · 公开墙面 ${u.publicWalls}/${q.publicWalls}。最多同时排队或运行 2 个任务；每日次数按北京时间零点重置，删除不退回当天次数。`;
         }
-        $("#myWallsLink").hidden = !isCloud;
+        $("#myWallsLink").href = `${Lab.config.loginPath}?panel=my-walls`;
+        $("#myWallsLink").hidden = false;
         $("#images").innerHTML =
           all
             .map(
