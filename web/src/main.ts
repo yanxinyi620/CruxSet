@@ -17,7 +17,7 @@ import { PreviewStore } from "./preview-store.js";
 import { LocalApiClient, wallImageUrl, type AdminUser, type WebCapabilities } from "./api.js";
 import { isLocalLabHost } from "./local-lab-host.js";
 import { webAccess } from "./web-access.js";
-import { adminUserCard } from "./admin-management.js";
+import { adminUserCard, withLabAccess } from "./admin-management.js";
 import { WallCanvasView, ROLE_COLORS } from "./wall-canvas.js";
 import { DraftCanvasView, type DraftMode, type DraftTransform } from "./draft-canvas.js";
 import { autoDetectHolds, DETECT_ROI_FALLBACK_MESSAGE, type Roi } from "./auto-detect.js";
@@ -144,6 +144,23 @@ const syncUiUrl = (replace = false) => {
   if (typeof window !== 'undefined') window.history[replace ? 'replaceState' : 'pushState']({}, '', toPreviewUrl(route, query));
 };
 const adminDate = (timestamp: number) => new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(timestamp));
+const updateLabAccessControls = (userId: string, error = "") => {
+  const user = adminUsers.find((item) => item.id === userId);
+  if (!user) return;
+  root.querySelectorAll<HTMLButtonElement>("[data-lab-access]").forEach((button) => {
+    if (button.dataset.labAccess !== userId) return;
+    const saving = labAccessSaving.has(userId);
+    button.disabled = saving;
+    button.textContent = saving ? "正在保存…" : user.labEnabled ? "撤销实验台权限" : "开通实验台权限";
+    const card = button.closest(".admin-card");
+    const role = card?.querySelector<HTMLElement>(".admin-status");
+    if (role) role.textContent = adminUserCard(user).roleLabel;
+    const status = card?.querySelector<HTMLElement>("[data-lab-access-status]");
+    if (status) status.textContent = `实验台：${user.labEnabled ? "已开通，可计算、校准和公开发布" : "未开通"}`;
+    const message = card?.querySelector<HTMLElement>("[data-lab-access-error]");
+    if (message) { message.textContent = error; message.hidden = !error; }
+  });
+};
 const loadAdminManagement = async () => {
   if (!isAdmin || adminLoading) return;
   adminLoading = true;
@@ -772,7 +789,7 @@ const render = async () => {
           const labControl = capabilities?.manageLabAccess
             ? user.role === "admin"
               ? '<p>实验台：管理员默认开放（含公开发布）</p>'
-              : `<p>实验台：${user.labEnabled ? "已开通，可计算、校准和公开发布" : "未开通"}</p><button class="admin-lab-access" data-lab-access="${h(user.id)}" ${labAccessSaving.has(user.id) ? "disabled" : ""}>${labAccessSaving.has(user.id) ? "正在保存…" : user.labEnabled ? "撤销实验台权限" : "开通实验台权限"}</button>`
+              : `<p data-lab-access-status>实验台：${user.labEnabled ? "已开通，可计算、校准和公开发布" : "未开通"}</p><button class="admin-lab-access" data-lab-access="${h(user.id)}" ${labAccessSaving.has(user.id) ? "disabled" : ""}>${labAccessSaving.has(user.id) ? "正在保存…" : user.labEnabled ? "撤销实验台权限" : "开通实验台权限"}</button><p data-lab-access-error role="alert" hidden></p>`
             : "";
           return `<article class="admin-card"><div class="admin-card-head"><h2>${h(card.email)}</h2><small class="admin-status">${h(card.roleLabel)}</small></div><p>用户名：${h(card.name)}<br>注册于 ${h(card.registeredAt)}</p>${labControl}</article>`;
         }).join("") || '<p class="admin-empty">暂无用户。</p>';
@@ -898,16 +915,17 @@ const render = async () => {
     const user = adminUsers.find((item) => item.id === button.dataset.labAccess);
     if (!isAdmin || !capabilities?.manageLabAccess || !user || user.role === "admin" || labAccessSaving.has(user.id)) return;
     labAccessSaving.add(user.id);
-    managementError = "";
-    void render();
+    updateLabAccessControls(user.id);
+    let saveError = "";
     try {
       const updated = await api.updateLabAccess(user.id, !user.labEnabled);
-      adminUsers = adminUsers.map((item) => item.id === updated.id ? updated : item);
+      adminUsers = adminUsers.map((item) => item.id === user.id ? withLabAccess(item, updated) : item);
     } catch (error) {
-      managementError = `保存实验台权限失败：${(error as Error).message}`;
+      saveError = `保存实验台权限失败：${(error as Error).message}`;
     } finally {
       labAccessSaving.delete(user.id);
-      void render();
+      // Update only this card: replacing the page loses scroll position and focus.
+      updateLabAccessControls(user.id, saveError);
     }
   });
   root.querySelectorAll<HTMLButtonElement>("[data-admin-delete-wall]").forEach((button) => button.onclick = async () => {

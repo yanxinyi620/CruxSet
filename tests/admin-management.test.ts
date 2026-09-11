@@ -24,3 +24,13 @@ it('updates lab access with a credentialed request and returns the saved account
 it('shows a granted member as a creator without changing the account role', () => {
   expect(adminUserCard({id:'member',email:'member@example.com',displayName:'',role:'user',labEnabled:true,createdAt:0})).toMatchObject({role:'user',roleLabel:'创作者'})
 })
+
+it.each(['local', 'cloud'])('preserves user details when applying a %s lab-access response', async mode => {
+  const original = {id:'member',email:'member@example.com',displayName:'攀岩者',role:'user' as const,labEnabled:false,createdAt:123}
+  const result = mode === 'local' ? {id:'member',labEnabled:true} : {...original,labEnabled:true}
+  const { withLabAccess } = await import('../web/src/admin-management.js')
+  const saved = withLabAccess(original,result)
+  expect(saved).toEqual({...original,labEnabled:true})
+  expect(adminUserCard(saved)).toMatchObject({name:'攀岩者',roleLabel:'创作者'})
+  expect(withLabAccess(saved,{id:'member',labEnabled:false})).toEqual(original)
+})
