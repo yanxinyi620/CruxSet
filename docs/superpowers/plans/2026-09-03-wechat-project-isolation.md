@@ -58,7 +58,7 @@ git commit -m "refactor: isolate WeChat developer project"
 - Modify: `README.md`
 - Modify: `docs/reference.md`
 - Modify: `docs/testing.md`
-- Modify: `docs/wsl-cloudflare-tunnel.md`
+- Modify: `docs/local-web.md`
 - Modify: `tools/segmentation-lab/README.md`
 
 - [ ] **Step 1: 查找旧路径引用**

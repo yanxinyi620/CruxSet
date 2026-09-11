@@ -78,7 +78,6 @@ uv run --extra test pytest -s -q
 - [ ] 结果查看、校准深链刷新、返回实验档案、图片、SVG 导出和显式发布均使用同域路径。
 - [ ] 关闭实验台进程后主站仍可访问，实验台请求清楚报错；恢复原进程后原实验仍存在。
 - [ ] `web:build:local` 与 `web:build` 分别生成本地/云端配置，目录分别为 `dist-local`、`dist`。
-- [ ] Caddy 的 localhost 入口可访问实验台；Tunnel 主机名下实验台页面与 API 返回 404。
 
 ## 本地实验台权限与迁移
 

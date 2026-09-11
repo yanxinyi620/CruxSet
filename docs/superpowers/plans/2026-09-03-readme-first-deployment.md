@@ -56,11 +56,11 @@ Run `git add README.md && git commit -m "docs: reorganize README for first deplo
 
 **Files:**
 
-- Verify: `README.md`, `docs/reference.md`, `docs/testing.md`, `docs/wsl-cloudflare-tunnel.md`
+- Verify: `README.md`, `docs/reference.md`, `docs/testing.md`, `docs/local-web.md`
 
 - [ ] **Step 1: Check local document targets**
 
-Run `test -f docs/reference.md && test -f docs/testing.md && test -f docs/wsl-cloudflare-tunnel.md && test -f tools/segmentation-lab/README.md`. Expected: exit code 0.
+Run `test -f docs/reference.md && test -f docs/testing.md && test -f docs/local-web.md && test -f tools/segmentation-lab/README.md`. Expected: exit code 0.
 
 - [ ] **Step 2: Check publication terminology**
 

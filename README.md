@@ -19,7 +19,7 @@ Cloudflare Web：web/dist       → Workers           → D1 + R2（MEDIA 配置
 三套存储系统各自独立，不会自动同步；只共享 Wall、Hold、Problem 的字段语义。
 
 - [微信小程序 CloudBase](docs/miniprogram-cloudbase.md)：部署、启动与真机验收。
-- [本地 Web 工作台](docs/local-web.md)：启动、创作、分割实验台与 Tunnel。
+- [本地 Web 工作台](docs/local-web.md)：启动、创作与分割实验台。
 - [Cloudflare Web](docs/cloudflare-edge-deployment.md)：Workers、D1、R2 与线上部署。
 
 通用规则见 [设计参考](docs/reference.md)，完整检查见 [测试与验收](docs/testing.md)。

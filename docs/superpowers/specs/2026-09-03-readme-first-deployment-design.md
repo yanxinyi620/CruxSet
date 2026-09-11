@@ -6,7 +6,7 @@
 
 ## 读者与范围
 
-默认读者是首次在本机部署 CruxSet、CloudBase 与微信小程序的维护者。README 不展开长期运行、Tunnel 或完整测试细节，而是链接至 `docs/` 的对应文档。
+默认读者是首次在本机部署 CruxSet、CloudBase 与微信小程序的维护者。README 不展开完整测试细节，而是链接至 `docs/` 的对应文档。
 
 ## 结构
 
@@ -21,7 +21,7 @@
 
 - 默认小程序模式保持 `cloudbase`，但保留 `mock` 离线演示说明。
 - 不改动 Web、云函数、实验台或小程序行为。
-- 不复制 `docs/wsl-cloudflare-tunnel.md` 的长期运行步骤。
+- 不复制 `docs/local-web.md` 的本地启动步骤。
 - 不复制 `docs/testing.md` 的完整验收清单。
 
 ## 验证

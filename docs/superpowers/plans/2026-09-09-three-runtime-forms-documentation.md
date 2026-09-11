@@ -28,7 +28,7 @@ Cloudflare Web → Workers → D1 + R2（配置 MEDIA 时）
 
 - [ ] **Step 2: 增加“当前三种运行形态”表格**
 
-在架构图后加入小程序 CloudBase、本地 Web、Cloudflare Web 三行，明确每行的入口、持久化位置和主要能力；注明 Mock 是小程序的离线演示设置，Tunnel 只是本地 Web 的公网入口。
+在架构图后加入小程序 CloudBase、本地 Web、Cloudflare Web 三行，明确每行的入口、持久化位置和主要能力；注明 Mock 是小程序的离线演示设置。
 
 - [ ] **Step 3: 写明数据隔离和发布目标**
 
@@ -36,9 +36,9 @@ Cloudflare Web → Workers → D1 + R2（配置 MEDIA 时）
 
 - [ ] **Step 4: 验证入口页内容**
 
-Run: `rg -n '当前三种运行形态|Mock|Tunnel|Cloudflare Web' README.md`
+Run: `rg -n '当前三种运行形态|Mock|Cloudflare Web' README.md`
 
-Expected: 三种形态、Mock 和 Tunnel 的定位均可检索到。
+Expected: 三种形态、Mock 的定位均可检索到。
 
 - [ ] **Step 5: Commit**
 
@@ -95,7 +95,7 @@ git commit -m "docs: clarify runtime data boundaries"
 
 - [ ] **Step 3: 写明 Cloudflare 与其他形态的关系**
 
-明确它不替代小程序 CloudBase；它和本地 Web 共用 Vite 前端但使用独立后端与数据集；Cloudflare Tunnel 不属于此部署形态。
+明确它不替代小程序 CloudBase；它和本地 Web 共用 Vite 前端但使用独立后端与数据集。
 
 - [ ] **Step 4: 验证过时断言已移除**
 
