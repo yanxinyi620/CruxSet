@@ -232,7 +232,6 @@
           <button id="resetCrop" style="display:none">重选边框</button>
           <button id="upload" class="upload-action" disabled>导入墙图</button>
         </div>
-        <p id="quotaUsage" class="sub" hidden></p>
         <p id="previewHint" role="status" aria-live="polite">选择 JPG 或 PNG 后，在这里确认预览。</p>
         <p id="cropHint" style="display:none">点击图片添加角点，拖动圆点微调；选择多个角点勾勒墙面轮廓（至少3个）。</p>
         <img id="preview" alt="墙图预览" />
@@ -304,6 +303,14 @@
           </thead>
           <tbody id="calibrations"></tbody>
         </table>
+      </section>
+      <section id="quotaSection" class="step" aria-labelledby="quotaTitle">
+        <div class="head">
+          <h2 id="quotaTitle">云端实验台说明</h2>
+        </div>
+        <p id="quotaUsage" class="sub">云端创作者额度：图片 10 张 · 保留任务 20 个 · 每日任务 20 次 · 公开墙面 10 面。</p>
+        <p class="sub">云端最多同时排队或运行 2 个任务；每日次数按北京时间零点重置，删除不退回当天次数。</p>
+        <p class="sub">管理员不受上述四项数量额度限制。本地实验台不适用这组云端额度。</p>
       </section>
     </main>
     <div id="confirm" class="confirm" role="dialog" aria-modal="true">
@@ -411,8 +418,7 @@
         $("#count").textContent = `已导入 ${all.length} 张`;
         if (isCloud && d.usage?.limits) {
           const u=d.usage.used, q=d.usage.limits;
-          $("#quotaUsage").hidden=false;
-          $("#quotaUsage").textContent=`图片 ${u.images}/${q.images} · 保留任务 ${u.tasks}/${q.tasks} · 今日任务 ${u.dailyTasks}/${q.dailyTasks} · 公开墙面 ${u.publicWalls}/${q.publicWalls}。最多同时排队或运行 2 个任务；每日次数按北京时间零点重置，删除不退回当天次数。`;
+          $("#quotaUsage").textContent=`图片 ${u.images}/${q.images} · 保留任务 ${u.tasks}/${q.tasks} · 今日任务 ${u.dailyTasks}/${q.dailyTasks} · 公开墙面 ${u.publicWalls}/${q.publicWalls}。`;
         }
         $("#myWallsLink").href = `${Lab.config.loginPath}?panel=my-walls`;
         $("#myWallsLink").hidden = false;
