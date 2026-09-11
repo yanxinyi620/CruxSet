@@ -125,3 +125,43 @@ def test_new_route_uses_stored_wall_number_not_current_wall_position():
 
     assert response.status_code == 201
     assert response.json()["problem"]["number"] == "CS-030001"
+
+
+def test_creator_can_delete_own_wall_and_all_routes_without_lab_grant(tmp_path, monkeypatch):
+    monkeypatch.setenv("CRUXSET_MEDIA_DIR", str(tmp_path))
+    repository = MemoryRepository()
+    client, cookie, account = _authed(repository)
+    account = repository.find_admin_by_user_id(account["userId"])
+    account["role"] = "user"
+    account["labEnabled"] = False
+    repository.insert_admin(account)
+    (tmp_path / "source.jpg").write_bytes(b"source")
+    (tmp_path / "display.webp").write_bytes(b"display")
+    repository.insert_wall({"id": "mine", "ownerId": account["userId"], "visibility": "public", "published": True, "imageFileId": "source.jpg", "displayImageFileId": "display.webp"})
+    repository.insert_problem({"id": "someone-elses-route", "wallId": "mine", "createdBy": "other"})
+    assert client.get("/api/v1/bootstrap", cookies=cookie).json()["capabilities"]["manageOwnWalls"] is True
+    response = client.delete("/api/v1/walls/mine", cookies=cookie)
+    assert response.status_code == 200
+    assert repository.find_wall("mine") is None
+    assert repository.find_problem("someone-elses-route") is None
+    assert not (tmp_path / "source.jpg").exists()
+    assert not (tmp_path / "display.webp").exists()
+
+
+def test_creator_cannot_delete_another_users_wall(tmp_path, monkeypatch):
+    monkeypatch.setenv("CRUXSET_MEDIA_DIR", str(tmp_path))
+    repository = MemoryRepository()
+    client, cookie, account = _authed(repository)
+    account = repository.find_admin_by_user_id(account["userId"])
+    account["role"] = "user"
+    account["labEnabled"] = True
+    repository.insert_admin(account)
+    (tmp_path / "keep.jpg").write_bytes(b"keep")
+    repository.insert_wall({"id": "other-wall", "ownerId": "other", "imageFileId": "keep.jpg"})
+    repository.insert_problem({"id": "keep-route", "wallId": "other-wall"})
+    assert client.delete("/api/v1/walls/other-wall", cookies=cookie).status_code == 404
+    assert repository.find_wall("other-wall") is not None
+    assert repository.find_problem("keep-route") is not None
+    assert (tmp_path / "keep.jpg").exists()
+    client.cookies.clear()
+    assert client.delete("/api/v1/walls/other-wall").status_code == 401

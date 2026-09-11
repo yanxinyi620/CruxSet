@@ -99,7 +99,7 @@ def test_legacy_owner_selection_and_configuration(lab, monkeypatch):
     assert legacy_owner_id(request) == 'admin'
     monkeypatch.setattr(app.state,'lab_internal_key','')
     monkeypatch.setattr(app.state,'segmentation_publish_key','')
-    assert client.get('/api/v1/bootstrap').json()['capabilities'] == {'segmentationLab':False,'manageLabAccess':False}
+    assert client.get('/api/v1/bootstrap').json()['capabilities'] == {'segmentationLab':False,'manageLabAccess':False,'manageOwnWalls':True}
     assert client.get('/api/v1/segmentation-lab/experiments').status_code == 503
 
 

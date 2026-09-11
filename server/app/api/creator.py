@@ -244,7 +244,7 @@ async def list_problems(request: Request):
 async def bootstrap(request: Request):
     walls = _visible_walls(request)
     user = _safe_user(request)
-    return {"user": user, "walls": walls, "problems": _problems_for_walls(request, walls), "capabilities": {"segmentationLab": bool(lab_key(request) and user and user["labEnabled"]), "manageLabAccess": bool(lab_key(request) and user and user["isAdmin"])}}
+    return {"user": user, "walls": walls, "problems": _problems_for_walls(request, walls), "capabilities": {"segmentationLab": bool(lab_key(request) and user and user["labEnabled"]), "manageLabAccess": bool(lab_key(request) and user and user["isAdmin"]), "manageOwnWalls": bool(user)}}
 
 
 @router.post("/walls", status_code=201)
@@ -313,8 +313,11 @@ async def update_problem(problem_id: str, payload: ProblemUpdate, request: Reque
 
 
 @router.delete("/walls/{wall_id}")
-async def delete_wall(wall_id: str, request: Request, user=Depends(require_admin)):
+async def delete_wall(wall_id: str, request: Request, user=Depends(require_user)):
     wall = _editable_wall(request, wall_id)
+    account = _repo(request).find_admin_by_user_id(str(user["id"]))
+    if wall.get("ownerId") != user["id"] and (not account or account.get("role") != "admin"):
+        raise ApiError("NOT_FOUND", "Resource not found", 404)
     linked_problems = [problem for problem in _repo(request).list_problems() if problem.get("wallId") == wall_id]
     media_names = {
         name for name in (_media_basename(wall.get("imageFileId")), _media_basename(wall.get("displayImageFileId"))) if name
