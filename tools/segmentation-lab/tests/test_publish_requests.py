@@ -25,6 +25,20 @@ def submit(member, url, target='cloudflare'):
     return response.json()
 
 
+def test_admin_direct_publication_does_not_enter_application_list(tmp_path, monkeypatch):
+    _, member, admin, _, _, url = setup(tmp_path)
+    class Publisher:
+        def __init__(self, *args, **kwargs): pass
+        async def publish(self, *args): return {'wallId': 'admin-wall'}
+    monkeypatch.setattr('segmentation_lab.api.CruxSetPublisher', Publisher)
+    eid, cid = _publish_fixture(admin)
+    response = admin.post(f'/api/experiments/{eid}/calibrations/{cid}/publish', json={'target': 'cloudflare', 'wallName': 'Direct'})
+    assert response.status_code == 201
+    assert admin.get('/api/publish-requests').json()['items'] == []
+    application = submit(member, url)
+    assert [item['id'] for item in admin.get('/api/publish-requests').json()['items']] == [application['id']]
+
+
 def test_snapshot_authorization_and_approval_after_original_deleted(tmp_path, monkeypatch):
     settings, member, admin, eid, cid, url = setup(tmp_path)
     item = submit(member, url)

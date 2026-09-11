@@ -32,6 +32,7 @@ export async function createPublishRequest(
   c: Row,
   user: Row,
   b: Row,
+  requiresReview = true,
 ) {
   if (b.target !== 'cloudbase') fail('INVALID_TARGET', '该目标不支持发布申请。')
   const name = String(b.wallName ?? `${e.name} · 校准`).trim()
@@ -74,9 +75,9 @@ export async function createPublishRequest(
       httpMetadata: { contentType: 'image/webp' },
     })
     const row = await env.DB.prepare(
-      "INSERT OR IGNORE INTO lab_publish_requests (id,applicant_id,experiment_id,calibration_id,wall_name,target,status,snapshot_key,created_at) VALUES (?,?,?,?,?,?,'pending',?,?) RETURNING *",
+      "INSERT OR IGNORE INTO lab_publish_requests (id,applicant_id,experiment_id,calibration_id,wall_name,target,status,snapshot_key,created_at,requires_review) VALUES (?,?,?,?,?,?,'pending',?,?,?) RETURNING *",
     )
-      .bind(id, user.id, e.id, c.id, name, b.target, key, Date.now())
+      .bind(id, user.id, e.id, c.id, name, b.target, key, Date.now(), requiresReview ? 1 : 0)
       .first<Row>()
     if (row) return row
     await env.MEDIA.delete([key + 'snapshot.json', key + 'display.webp'])
@@ -153,10 +154,10 @@ export async function publishRequestRoutes(
     const rows = await (
       admin
         ? env.DB.prepare(
-            'SELECT * FROM lab_publish_requests ORDER BY created_at DESC',
+            'SELECT * FROM lab_publish_requests WHERE requires_review=1 ORDER BY created_at DESC',
           )
         : env.DB.prepare(
-            'SELECT * FROM lab_publish_requests WHERE applicant_id=? ORDER BY created_at DESC',
+            'SELECT * FROM lab_publish_requests WHERE requires_review=1 AND applicant_id=? ORDER BY created_at DESC',
           ).bind(user.id)
     ).all<Row>()
     return json({ items: rows.results.map(requestView), isAdmin: admin })
@@ -166,7 +167,7 @@ export async function publishRequestRoutes(
   )
   if (!m) return null
   const r = await env.DB.prepare(
-    'SELECT * FROM lab_publish_requests WHERE id=?',
+    'SELECT * FROM lab_publish_requests WHERE id=? AND requires_review=1',
   )
     .bind(m[1])
     .first<Row>()

@@ -41,13 +41,17 @@ describe('shared segmentation lab pages', () => {
   it('saves a calibration through the configured API without a global fetch alias', async () => {
     const fetcher = vi.fn(async () => new Response('{}', {status:201}))
     const window:any = {SEGMENTATION_LAB_CONFIG:{mode:'cloud',apiBase:'/api/v1/segmentation-lab'}}
-    const context=vm.createContext({window,fetch:fetcher,Response,Error,String,Object,TextDecoder,eid:'exp-1',tid:'task-1',items:[],msg:()=>{}})
+    const saveStatus = {textContent:'',dataset:{},innerHTML:''}
+    const saveButton = {disabled:false}
+    const context=vm.createContext({window,fetch:fetcher,Response,Error,String,Object,TextDecoder,eid:'exp-1',tid:'task-1',items:[],msg:()=>{},q:(selector:string)=>selector==='#save'?saveButton:saveStatus})
     vm.runInContext(source('runtime.js'),context)
     context.Lab=window.Lab
     const save=source('calibration.html').match(/q\('#save'\)\.onclick=(async\(\)=>\{.*?\});stage/s)![1]
     await vm.runInContext(`(${save})()`,context)
     expect(fetcher).toHaveBeenCalledWith('/api/v1/segmentation-lab/experiments/exp-1/calibrations',expect.objectContaining({method:'POST'}))
     expect(source('calibration.html')).not.toMatch(/const fetch\s*=/)
+    expect(saveStatus.textContent).toBe('保存成功，已保存为独立校准结果。')
+    expect(saveButton.disabled).toBe(false)
   })
 
   it('shows the lab entry through effective Web capabilities', () => {
@@ -59,7 +63,7 @@ describe('shared segmentation lab pages', () => {
     expect(api).toContain('segmentationLab?: boolean')
     expect(source('index.html')).toContain('defaultPublishTarget')
     expect(source('index.html')).toContain('已删除任务')
-    expect(source('index.html')).toContain('receipt?.targets?.cloudflare')
+    expect(source('index.html')).not.toContain('receipt?.targets?.cloudflare')
   })
 })
 

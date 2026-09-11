@@ -124,6 +124,23 @@ function fixture() {
     )
   return { env, sqlite, objects, call, create, user, admin }
 }
+it('lists only review applications, retaining direct publication records for retries', async () => {
+  const f = fixture()
+  const application = await f.create()
+  const direct = await createPublishRequest(
+    f.env,
+    { id: 'admin-e', name: 'Admin source', width: 100, height: 100 },
+    { id: 'admin-c', candidates_key: 'candidates', display_key: 'display' },
+    f.admin,
+    { target: 'cloudbase', wallName: 'Direct wall' },
+    false,
+  )
+  const adminList = await (await f.call('/publish-requests', f.admin)).json() as any
+  expect(adminList.items.map((item: any) => item.id)).toEqual([application.id])
+  expect(f.sqlite.prepare('SELECT id FROM lab_publish_requests WHERE id=?').get(direct.id)).toBeTruthy()
+  expect((await f.call(`/publish-requests/${direct.id}/preview`, f.admin)).status).toBe(404)
+  expect((await f.call(`/publish-requests/${direct.id}/approve`, f.admin, {})).status).toBe(404)
+})
 it('copies an immutable request snapshot, deduplicates, authorizes preview and rejects with reason', async () => {
   const f = fixture(),
     r = await f.create()

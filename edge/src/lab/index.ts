@@ -367,7 +367,7 @@ export async function handleLab(
             fail('FORBIDDEN', '跨平台发布需要管理员审核，请提交发布申请。', 403)
           const row = await approvePublishRequest(
             ready,
-            (await createPublishRequest(ready, e, c, user, b)).id,
+            (await createPublishRequest(ready, e, c, user, b, false)).id,
             user.id,
           )
           if (row.status !== 'published')

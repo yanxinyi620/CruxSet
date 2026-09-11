@@ -589,9 +589,7 @@
           calibrations
             .map((x) => {
               const source = x.sourceTaskId ? escapeText(x.sourceTaskId.slice(0, 8)) : "已删除任务";
-              const receipt = x.publish;
-              const published = receipt?.targets?.cloudflare?.status === "succeeded" ? `已发布${receipt.browseUrl ? ` · <a href="${escapeText(receipt.browseUrl)}" target="_blank">查看</a>` : ""}` : "";
-              return `<tr><td>${source}</td><td>${time(x.updatedAt)}</td><td>${x.candidateCount}</td><td><a href="${Lab.calibration(`experiment=${encodeURIComponent(x.experimentId)}&calibration=${encodeURIComponent(x.id)}`)}">校准</a></td><td><a href="${Lab.api(`/experiments/${x.experimentId}/calibrations/${x.id}/export.svg`)}">SVG</a></td><td>${published || `<button class="publish" onclick="publishCalibration('${x.experimentId}','${x.id}',this)">发布</button>`}</td><td><button class="danger" onclick="del('/experiments/${x.experimentId}/calibrations/${x.id}')">删除</button></td></tr>`;
+              return `<tr><td>${source}</td><td>${time(x.updatedAt)}</td><td>${x.candidateCount}</td><td><a href="${Lab.calibration(`experiment=${encodeURIComponent(x.experimentId)}&calibration=${encodeURIComponent(x.id)}`)}">校准</a></td><td><a href="${Lab.api(`/experiments/${x.experimentId}/calibrations/${x.id}/export.svg`)}">SVG</a></td><td><button class="publish" onclick="publishCalibration('${x.experimentId}','${x.id}',this)">发布</button></td><td><button class="danger" onclick="del('/experiments/${x.experimentId}/calibrations/${x.id}')">删除</button></td></tr>`;
             })
             .join("") || '<tr><td colspan="6">尚无校准结果</td></tr>';
         } catch (error) { Lab.report(error, $("#previewHint")); } finally { loading = false; }
