@@ -6,9 +6,9 @@ import { currentUserId, ensureUser } from '../../../services/users.js'
 import { cloudErrorMessage } from '../../../services/errors.js'
 
 let wall = null, wallId = '', problemId = '', draftKey = '', editor = new ProblemEditor({})
-const roles = [{ id: 'start', label: 'Start', color: '#39a96b' }, { id: 'foot', label: 'Foot', color: '#d7ad18' }, { id: 'hand', label: 'Hand', color: '#316eea' }, { id: 'assist', label: 'Assist', color: '#ef8f39' }, { id: 'finish', label: 'Finish', color: '#8b55c7' }]
+const roles = [{ id: 'start', label: '起步', color: '#39a96b' }, { id: 'foot', label: '脚点', color: '#d7ad18' }, { id: 'hand', label: '手点', color: '#316eea' }, { id: 'assist', label: '辅助', color: '#ef8f39' }, { id: 'finish', label: '终点', color: '#8b55c7' }]
 const footRules = ['feet_follow', 'specified', 'all'], grades = Array.from({ length: 17 }, (_, i) => `V${i}`)
-const labels = { feet_follow: '跟随手点', specified: '指定脚点', all: '全墙脚点' }, hints = { feet_follow: '手类点可踩，黄色 Foot 只能脚踩', specified: '脚只能踩线路中的黄色 Foot', all: '当前墙面所有允许踩的岩点均可作为脚点' }
+const labels = { feet_follow: '跟随手点', specified: '指定脚点', all: '全墙脚点' }, hints = { feet_follow: '手类点可踩，黄色脚点 只能脚踩', specified: '脚只能踩线路中的黄色脚点', all: '当前墙面所有允许踩的岩点均可作为脚点' }
 const persist = page => { if (!draftKey || page.data.loading || page.data.loadError || page.saved) return; try { wx.setStorageSync(draftKey, { angle: page.data.angle, grade: page.data.grade, footRule: page.data.footRule, holds: editor.value().holds, name: page.data.dialogName, description: page.data.dialogDescription, role: page.data.selectedRole }) } catch { wx.showToast({title:'草稿空间不足，请先保存线路',icon:'none'}) } }
 
 Page({

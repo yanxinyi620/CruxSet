@@ -1,25 +1,17 @@
 <view class="page route-browser">
-  <view class="eyebrow">墙面线路</view>
   <view class="title">{{wallName}}</view>
 
-  <view class="filter-buttons"><button bindtap="openFilter" data-filter="angle">角度：{{angle === null ? '全部' : angle + '°'}}</button><button bindtap="openFilter" data-filter="grade">难度：{{grade}}</button></view>
-  <view wx:if="{{filter}}" class="filter-sheet"><view class="sheet-mask" bindtap="closeFilter"></view><view class="sheet-panel"><view class="sheet-title">选择{{filter === 'angle' ? '角度' : '难度'}}</view><view wx:if="{{filter === 'angle'}}" class="sheet-options"><button wx:for="{{angles}}" wx:key="*this" data-value="{{item}}" bindtap="selectAngle">{{item === null ? '全部' : item + '°'}}</button></view><view wx:else class="sheet-options"><button wx:for="{{grades}}" wx:key="*this" data-value="{{item}}" bindtap="selectGrade">{{item}}</button></view><button class="sheet-close" bindtap="closeFilter">关闭</button></view></view>
-  <!-- filters use a modal sheet to match Web's choice dialogs -->
-  <view hidden>
-  <view class="filter-label">角度</view><scroll-view scroll-x class="chips">
-    <view wx:for="{{angles}}" wx:key="*this" class="chip {{angle === item ? 'active' : ''}}" data-value="{{item}}" bindtap="selectAngle">{{item === null ? '全部' : item + '°'}}</view>
-  </scroll-view>
-
-  <view class="filter-label">难度</view>
-  <scroll-view scroll-x class="chips">
-    <view wx:for="{{grades}}" wx:key="*this" class="chip {{grade === item ? 'active' : ''}}" data-value="{{item}}" bindtap="selectGrade">{{item}}</view>
-  </scroll-view></view>
-
+  <view class="filter-buttons">
+    <picker mode="selector" range="{{angleLabels}}" value="{{angleIndex}}" bindchange="selectAngle"><view class="filter-select"><text>角度：{{angle === null ? '全部' : angle + '°'}}</text><text>⌄</text></view></picker>
+    <picker mode="selector" range="{{grades}}" value="{{gradeIndex}}" bindchange="selectGrade"><view class="filter-select"><text>难度：{{grade}}</text><text>⌄</text></view></picker>
+  </view>
+  <view wx:if="{{error}}" class="empty">{{error}}</view>
   <view wx:if="{{problems.length}}" class="problem-list">
-    <view wx:for="{{problems}}" wx:key="id" class="card problem" data-id="{{item.id}}" bindtap="openProblem">
+    <view wx:for="{{problems}}" wx:key="id" class="problem" data-id="{{item.id}}" bindtap="openProblem">
       <view class="problem-number">{{item.number}}</view>
-      <view class="muted">{{item.name || '未命名线路'}} · {{item.grade}} · {{item.angle}}°</view>
+      <view class="muted">{{item.name || '未命名线路'}} · {{item.angle}}° · {{item.grade}}</view>
     </view>
   </view>
-  <view wx:else class="empty">当前筛选条件下暂无线路</view>
+  <view wx:elif="{{loading}}" class="empty">正在加载线路…</view>
+  <view wx:elif="{{!error}}" class="empty">当前筛选条件下暂无线路</view>
 </view>
