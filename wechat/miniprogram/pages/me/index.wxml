@@ -1,1 +1,9 @@
-<view class="page me-hub"><view class="preview-top"><view>CRUXSET</view><view class="preview-avatar"></view></view><view class="page-title">我的</view><view class="page-lead">管理自己创建的线路。</view><view class="hub-card profile" bindtap="openProfile"><view class="hub-title">个人资料</view><view class="hub-meta">设置 CruxSet 昵称与微信身份信息</view><view class="hub-arrow">›</view></view><view wx:if="{{isAdmin}}" class="hub-card walls" bindtap="openWalls"><view class="hub-title">墙面管理</view><view class="hub-meta">管理员入口</view><view class="hub-arrow">›</view></view><view class="hub-card problems" bindtap="openProblems"><view class="hub-title">我的线路</view><view class="hub-meta">{{problemCount}} 条线路 · 仅显示我创建的线路</view><view class="hub-arrow">›</view></view></view>
+<view class="page me-hub">
+  <view class="preview-top"><view>CRUXSET</view><view class="preview-avatar"></view></view>
+  <view class="page-title">我的</view><view class="page-lead">管理你的资料、墙面与线路。</view>
+  <view class="hub-card profile" bindtap="openProfile"><view class="hub-icon">◎</view><view class="hub-copy"><view class="hub-title">个人资料</view><view class="hub-meta">微信身份与 CruxSet 昵称</view></view><view class="hub-arrow">›</view></view>
+  <view class="hub-card walls" bindtap="openWalls"><view class="hub-icon">▧</view><view class="hub-copy"><view class="hub-title">我的墙面</view><view class="hub-meta">管理自己拥有的墙面</view></view><view class="hub-arrow">›</view></view>
+  <view class="hub-card problems" bindtap="openProblems"><view class="hub-icon">◇</view><view class="hub-copy"><view class="hub-title">我的线路</view><view class="hub-meta">{{loading?'正在加载线路数量…':error?'查看我创建的线路':'共 '+problemCount+' 条线路'}}</view></view><view class="hub-arrow">›</view></view>
+  <view wx:if="{{isAdmin}}" class="hub-card admin-management" bindtap="openManagement"><view class="hub-icon">▦</view><view class="hub-copy"><view class="hub-title">管理中心</view><view class="hub-meta">墙面与用户管理</view></view><view class="hub-arrow">›</view></view>
+  <view wx:if="{{error}}" class="error-card">{{error}}<button size="mini" bindtap="reload">重试</button></view>
+</view>

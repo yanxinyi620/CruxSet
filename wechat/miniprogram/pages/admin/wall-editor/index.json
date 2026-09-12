@@ -1,1 +1,1 @@
-{"navigationBarTitleText":"墙面标注"}
+{"navigationBarTitleText":"墙面标注","usingComponents":{"wall-canvas":"../../../components/wall-canvas/index"}}

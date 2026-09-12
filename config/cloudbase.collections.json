@@ -1,11 +1,107 @@
 {
   "collections": [
-    {"name":"users","indexes":[{"fields":["openid"],"unique":true}]},
-    {"name":"walls","indexes":[{"fields":["name"],"order":"asc"}]},
-    {"name":"problems","indexes":[{"fields":["wallId","angle","grade"]},{"fields":["number"],"order":"asc"},{"fields":["createdBy"]}]},
-    {"name":"admins","indexes":[{"fields":["userId"],"unique":true}]},
-    {"name":"counters","indexes":[]},
-    {"name":"segmentationPublishes","indexes":[{"fields":["publishRequestId"],"unique":true},{"fields":["wallId"],"unique":true}]}
+    {
+      "name": "users",
+      "indexes": [
+        {
+          "fields": [
+            "openid"
+          ],
+          "unique": true
+        }
+      ]
+    },
+    {
+      "name": "walls",
+      "indexes": [
+        {
+          "fields": [
+            "name"
+          ],
+          "order": "asc"
+        }
+      ]
+    },
+    {
+      "name": "problems",
+      "indexes": [
+        {
+          "fields": [
+            "wallId",
+            "angle",
+            "grade"
+          ]
+        },
+        {
+          "fields": [
+            "number"
+          ],
+          "order": "asc"
+        },
+        {
+          "fields": [
+            "createdBy"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "admins",
+      "indexes": [
+        {
+          "fields": [
+            "userId"
+          ],
+          "unique": true
+        }
+      ]
+    },
+    {
+      "name": "counters",
+      "indexes": []
+    },
+    {
+      "name": "segmentationPublishes",
+      "indexes": [
+        {
+          "fields": [
+            "publishRequestId"
+          ],
+          "unique": true
+        },
+        {
+          "fields": [
+            "wallId"
+          ],
+          "unique": true
+        }
+      ]
+    },
+    {
+      "name": "storageUploads",
+      "indexes": []
+    },
+    {
+      "name": "adminUploads",
+      "indexes": []
+    },
+    {
+      "name": "wallDeletionJobs",
+      "indexes": []
+    }
   ],
-  "writePolicy": {"clientWritable":[],"cloudFunctionWritable":["users","walls","problems","admins","counters","segmentationPublishes"]}
+  "writePolicy": {
+    "clientWritable": [],
+    "cloudFunctionWritable": [
+      "users",
+      "walls",
+      "problems",
+      "admins",
+      "counters",
+      "segmentationPublishes",
+      "storageUploads",
+      "adminUploads",
+      "wallDeletionJobs"
+    ]
+  }
 }

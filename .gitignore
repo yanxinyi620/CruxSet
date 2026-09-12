@@ -31,3 +31,6 @@ web/dist-local/
 
 # Local process state, private credentials and migration manifests
 .runtime/
+
+# Local UI audit screenshots and comparison gallery
+output/playwright/

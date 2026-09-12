@@ -1,11 +1,13 @@
 <view class="page create-page">
   <view class="preview-top"><view>CRUXSET</view><view class="preview-avatar"></view></view>
   <view class="page-title">创建</view>
-  <view class="page-lead">选择一个公开墙面，开始创建线路。</view>
-  <view class="section-label">设置线路</view>
+  <view class="page-lead">从墙面或线路开始创作。</view>
+  <block wx:if="{{isAdmin}}"><view class="action-row walls" bindtap="createWall"><view class="draft-symbol">＋</view><view class="action-body"><view class="action-title">新建墙面</view><view class="action-meta">上传墙面图片</view></view><view class="action-arrow">›</view></view><view class="action-row problems" bindtap="openDrafts"><view class="draft-symbol">□</view><view class="action-body"><view class="action-title">标注岩点</view><view class="action-meta">标注后可保存草稿或发布</view></view><view class="action-arrow">›</view></view></block>
+  <view wx:if="{{error}}" class="quiet-empty">{{error}}<button size="mini" bindtap="reload">重试</button></view>
   <view class="wall-row" bindtap="createProblem">
     <view class="route-visual">◇</view>
-    <view class="wall-copy"><view class="wall-name">新建线路</view><view class="wall-meta">选择一个公开 墙面 后开始设置</view></view>
+    <view class="wall-copy"><view class="wall-name">新建线路</view><view class="wall-meta">选择已发布墙面后定线</view></view>
     <view class="action-arrow">›</view>
   </view>
+  <view wx:if="{{isAdmin}}" class="quiet-empty">发布即公开并锁定。</view>
 </view>

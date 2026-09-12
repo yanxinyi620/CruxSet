@@ -1,0 +1,2 @@
+@import "../../me/walls/index.wxss";
+.cleanup{display:block;width:100%;margin:28rpx 0 0;color:#5240bb;background:#fff;border-color:#d8d2f4}
