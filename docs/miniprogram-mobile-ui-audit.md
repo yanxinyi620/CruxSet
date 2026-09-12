@@ -41,10 +41,26 @@
 
 源码已合入原项目 `/home/yanxi/code/project/CruxSet`。后续在原项目修改、测试并提交；Windows 目录仅存放生成后的调试代码。
 
-从原项目根目录同步 Windows 调试目录：
+仅在需要旧的备用编译目录时，从原项目根目录手动生成（直接源码调试不需要此步骤）：
 
 ```sh
 node scripts/build-wechat-preview.mjs /mnt/c/Users/yanxi/CruxSet-debug-20260911
 ```
 
 `output/playwright/` 是本地截图对照资料，不纳入 Git；`.runtime/` 是临时诊断与运行文件。
+
+## 直接从原项目调试（推荐）
+
+在 Windows 微信开发者工具中手动导入：
+
+```text
+\\wsl$\Ubuntu-24.04\home\yanxi\code\project\CruxSet\wechat
+```
+
+用户已确认该路径可手动导入。选择 `wechat` 目录，不是其下的 `miniprogram`。项目已启用 TypeScript 编译，AppID 为 `wx123fe6920af8c5a9`。
+
+这就是原项目源码，无需维护副本，也无需同步到旧 Windows 调试目录。源码修改后点击开发者工具“编译”，再启动真机调试；如果文件监听未自动触发，手动编译即可。
+
+验证范围：相同源码通过盘符别名的命令行预览编译；GUI 的 WSL 路径导入由用户确认。当前版本的命令行接口拒绝 UNC 路径，不代表手动导入界面也不支持。无需额外映射盘符或启动脚本。
+
+旧 `C:\Users\yanxi\CruxSet-debug-20260911` 目录仅作为备用，后续以原项目 `wechat` 为准。
