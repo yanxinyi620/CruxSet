@@ -4,6 +4,7 @@ const wall = { id:'w', name:'Wall', imageWidth:100, imageHeight:100, angleOption
 const problem = { id:'p', number:'001', wallId:'w', angle:20, grade:'V2', footRule:'all', holds:{start:['H1'], finish:['H2'], hand:[],foot:[],assist:[]} }
 const listProblems = vi.fn(async () => [problem, {...problem,id:'p2',angle:25,grade:'V5'}])
 vi.mock('../wechat/miniprogram/services/problems.js', () => ({getProblem:vi.fn(async () => problem), listProblems, saveProblem:vi.fn(), updateProblem:vi.fn()}))
+vi.mock('../wechat/miniprogram/services/browse-data.js', () => ({getProblem:vi.fn(async()=>problem),listProblems,getWall:vi.fn(async()=>wall)}))
 vi.mock('../wechat/miniprogram/services/walls.js', () => ({getWall:vi.fn(async () => wall)}))
 vi.mock('../wechat/miniprogram/services/users.js', () => ({currentUserId:()=>'u',ensureUser:async ()=>'u'}))
 let page, storage

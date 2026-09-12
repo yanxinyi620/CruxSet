@@ -2,9 +2,19 @@
 import { ReadCache } from './read-cache.js'
 import { cloudErrorMessage } from './errors.js'
 const reads = new ReadCache()
+const browseReads = new ReadCache(30_000, 100, {
+  staleTtl: 24 * 60 * 60 * 1000,
+  maxBytes: 2 * 1024 * 1024,
+  storage: {
+    read: () => wx.getStorageSync('cruxset:browse-cache:v1'),
+    write: rows => wx.setStorageSync('cruxset:browse-cache:v1', rows),
+  },
+})
+export const subscribeBrowseCache = listener => browseReads.subscribe(listener)
+const clearReads = (notify = false) => { reads.clear(); browseReads.clear(notify) }
 const readActions = new Set(['listBrowseWalls', 'listMyWalls', 'listAdminWalls', 'getWall', 'listProblems', 'listMyProblems', 'getProblem', 'getSession', 'listUsers'])
 const cacheKey = (user, action, data = {}) => JSON.stringify([user, action, Object.keys(data).sort().map(key => [key, data[key]])])
-export const invalidateReadCache = () => reads.clear()
+export const invalidateReadCache = () => clearReads(true)
 let session: Promise<string> | undefined
 let initializedUser: string | undefined
 export function normalizeCloudError(error: unknown): Error {
@@ -34,7 +44,7 @@ async function authenticatedCall<T>(name: string, data: Record<string, unknown> 
   try { return await invoke<T>(name, data) }
   catch (error) {
     if (/LOGIN_REQUIRED/.test(error?.errMsg || error?.message || '')) {
-      reads.clear()
+      clearReads(true)
       initializedUser = undefined
       await initializeUser()
       return invoke<T>(name, data).catch(error => { throw normalizeCloudError(error) })
@@ -43,21 +53,27 @@ async function authenticatedCall<T>(name: string, data: Record<string, unknown> 
   }
 }
 
-export async function call<T>(name: string, data: Record<string, unknown> = {}): Promise<T> {
+export async function call<T>(name: string, data: Record<string, unknown> = {}, browse = false): Promise<T> {
   const user = await initializeUser()
   if (name === 'wallManager' && readActions.has(data.action as string)) {
-    const action = data.action as string, args = data.data || {}, generation = reads.generation
-    return reads.read<T>(cacheKey(user, action, args), async () => {
+    const cache = browse && ['listBrowseWalls','getWall','listProblems','getProblem'].includes(data.action as string) ? browseReads : reads
+    const action = data.action as string, args = data.data || {}, generation = cache.generation
+    return cache.read<T>(cacheKey(user, action, args), async () => {
       const result = await authenticatedCall<T>(name, data)
-      if (generation === reads.generation && Array.isArray(result)) {
+      if (generation === cache.generation && Array.isArray(result)) {
         const target = ['listBrowseWalls','listMyWalls','listAdminWalls'].includes(action) ? 'getWall' : ['listProblems','listMyProblems'].includes(action) ? 'getProblem' : ''
-        if (target) result.forEach(item => reads.seed(cacheKey(user, target, {id:item.id}), item))
+        if (target) {
+          const previous = cache.peek(cacheKey(user, action, args)) || []
+          const ids = new Set(result.map(item => item.id))
+          previous.forEach(item => { if (!ids.has(item.id)) cache.forget(cacheKey(user, target, {id:item.id})) })
+        }
+        if (target) result.forEach(item => cache.seed(cacheKey(user, target, {id:item.id}), item))
       }
       return result
     })
   }
   const write = ['saveProblem','updateProblem','deleteProblem'].includes(name) || name === 'wallManager' || (name === 'adminWall' && data.action !== 'listDrafts')
-  if (write) reads.clear()
+  if (write) clearReads()
   try { return await authenticatedCall<T>(name, data) }
-  finally { if (write) reads.clear() }
+  finally { if (write) clearReads(true) }
 }
