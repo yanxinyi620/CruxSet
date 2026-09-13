@@ -76,7 +76,7 @@ export async function call<T>(name: string, data: Record<string, unknown> = {}, 
           const ids = new Set(result.map(item => item.id))
           previous.forEach(item => { if (!ids.has(item.id)) cache.forget(cacheKey(user, target, {id:item.id})) })
         }
-        if (target && action !== 'listBrowseWalls') result.forEach(item => cache.seed(cacheKey(user, target, {id:item.id}), item))
+        if (target && !['listBrowseWalls','listMyWalls','listAdminWalls'].includes(action)) result.forEach(item => cache.seed(cacheKey(user, target, {id:item.id}), item))
       }
       return result
     })

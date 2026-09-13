@@ -21,6 +21,15 @@ module.exports.makeSafeSession = makeSafeSession
 module.exports.validateDisplayName = validateDisplayName
 module.exports.withSafeSetterName = withSafeSetterName
 
+function managementWallSummary(wall) {
+  return {
+    id: wall.id, name: wall.name, wallNumber: wall.wallNumber,
+    ownerId: wall.ownerId, visibility: wall.visibility,
+    holdCount: Array.isArray(wall.holds) ? wall.holds.length : 0,
+    deleting: !!wall.deleting, createdAt: wall.createdAt, updatedAt: wall.updatedAt,
+  }
+}
+
 async function identity (db) {
   const { OPENID: openid } = cloud.getWXContext()
   const users = await db.collection('users').where({ openid }).limit(1).get()
@@ -72,10 +81,10 @@ exports.main = async event => {
       problemCount: wall.problemCount,
     }))
   }
-  if (action === 'listMyWalls') return (await all(db.collection('walls').where({ ownerId: actor.user.id }).orderBy('updatedAt', 'desc')))
+  if (action === 'listMyWalls') return (await all(db.collection('walls').where({ ownerId: actor.user.id }).orderBy('updatedAt', 'desc'))).map(managementWallSummary)
   if (action === 'listAdminWalls') {
     if (!actor.isAdmin) throw new Error('FORBIDDEN')
-    return (await all(db.collection('walls').orderBy('updatedAt', 'desc')))
+    return (await all(db.collection('walls').orderBy('updatedAt', 'desc'))).map(managementWallSummary)
   }
   if (action === 'getWall') return wallAccess(db, data.id, actor)
   if (action === 'listProblems') {

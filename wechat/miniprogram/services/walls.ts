@@ -1,10 +1,10 @@
 // @ts-nocheck
-import type { Wall, WallSummary } from '../domain/types.js'
+import type { Wall, WallSummary, ManagementWallSummary } from '../domain/types.js'
 import { call } from './cloud.js'
 export const wallManager=(action:string,data:Record<string,unknown>={})=>call<any>('wallManager',{action,data})
 export const listWalls=()=>wallManager('listBrowseWalls') as Promise<WallSummary[]>
-export const listMyWalls=()=>wallManager('listMyWalls') as Promise<Wall[]>
-export const listAdminWalls=()=>wallManager('listAdminWalls') as Promise<Wall[]>
+export const listMyWalls=()=>wallManager('listMyWalls') as Promise<ManagementWallSummary[]>
+export const listAdminWalls=()=>wallManager('listAdminWalls') as Promise<ManagementWallSummary[]>
 export const getWall=(id:string)=>wallManager('getWall',{id}) as Promise<Wall>
 export const deleteWall=(wallId:string)=>wallManager('deleteWall',{wallId}) as Promise<{ok:true;cleanupPending?:boolean;deletionPending?:boolean}>
 export const getWallImageUrl=(fileID:string)=>call<{url:string}>('getWallImageUrl',{fileID}).then(result=>result.url)

@@ -3,3 +3,5 @@ export interface User{id:string;openid:string;unionid?:string;displayName?:strin
 export interface Wall { wallNumber?: number; problemCount?: number }
 
 export interface WallSummary { id: string; name: string; wallNumber?: number; visibility: 'private' | 'public'; holdCount: number; problemCount: number }
+
+export interface ManagementWallSummary { id: string; name: string; wallNumber?: number; ownerId: string; visibility: 'private' | 'public'; holdCount: number; deleting: boolean; createdAt: number; updatedAt: number }

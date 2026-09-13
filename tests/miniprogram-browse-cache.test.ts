@@ -26,3 +26,12 @@ it('keeps the complete angle range after loading a legacy 20/45 wall',async()=>{
  context.selectAngle({detail:{value:'15'}});expect(context.data.angle).toBe(70)
  context.selectAngle({detail:{value:'0'}});expect(context.data.angle).toBeNull()
 })
+it.each(['listMyWalls','listAdminWalls'])('does not cache %s summaries as full wall detail',async action=>{
+ vi.stubGlobal('wx',{setStorageSync:vi.fn(),cloud:{callFunction:({name,data,success}:any)=>{
+ requests.push({name,...data})
+ success({result:name==='login'?{userId:'u'}:data.action==='getWall'?{id:'w',holds:[{id:'A'}]}:[{id:'w',holdCount:1}]})
+ }}})
+ const {call}=await import('../wechat/miniprogram/services/cloud.js')
+ await call('wallManager',{action})
+ expect(await call('wallManager',{action:'getWall',data:{id:'w'}})).toMatchObject({holds:[{id:'A'}]})
+})

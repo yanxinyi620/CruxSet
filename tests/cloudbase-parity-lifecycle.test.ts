@@ -181,3 +181,12 @@ it('returns compact browse summaries while preserving full wall detail',async()=
  expect(JSON.stringify(walls).length).toBeLessThan(1000)
  expect((await r.main({action:'getWall',data:{id:'w'}})).holds).toEqual(holds)
 })
+it.each(['listMyWalls','listAdminWalls'])('keeps management wall lists compact with ownership and deletion metadata: %s',async action=>{
+ const holds=Array.from({length:369},(_,i)=>({id:`H${i}`,polygon:Array.from({length:100},()=>[.123456789,.987654321])}))
+ const r=runtime('wallManager',{walls:[{id:'w',name:'Mine',ownerId:'u',wallNumber:5,visibility:'public',deleting:true,createdAt:1,updatedAt:2,holds},{id:'other',ownerId:'another',visibility:'private',holds}]})
+ const walls=await r.main({action})
+ expect(walls[0]).toMatchObject({id:'w',ownerId:'u',wallNumber:5,holdCount:369,deleting:true,createdAt:1,updatedAt:2})
+ expect(walls.every((w:any)=>!('holds' in w))).toBe(true)
+ expect(JSON.stringify(walls).length).toBeLessThan(2000)
+ expect(walls).toHaveLength(action==='listMyWalls'?1:2)
+})
