@@ -26,6 +26,6 @@
 
 `wallManager` 增加 `listUsers`（管理员，安全字段）、`inspectWallDeletion`、`retryCleanup`。`deleteWall` 允许所有者或管理员，删除前需明确确认包含所有关联线路。返回 `deletionPending` 表示墙面/线路尚未删完，列表保留“继续删除”；只有 `cleanupPending` 表示剩余图片清理。删除记录持久保存，重复调用可继续，不恢复墙面；公开浏览排除正在删除的墙面。管理员管理中心的清理按钮同时重试删除任务与回收过期孤立上传。
 
-新增 `adminUploads`、`wallDeletionJobs` 集合必须禁止客户端访问。`counters` 保存稳定编号；删除不回收编号。新建/编辑线路与墙面删除共享事务内墙面状态检查，阻止删除期间增加关联内容。实验台发布回执保留删除标记，旧请求重试不会恢复已删除墙面。
+新增 `adminUploads`、`wallDeletionJobs` 集合必须禁止客户端访问。墙面按现有最大墙面编号 +1，线路按同墙面现有最大序号 +1；清空后从 1 开始。`counters` 仅保留分配记录与事务并发锁，历史值不作为编号下限。新建/编辑线路与墙面删除共享事务内墙面状态检查，阻止删除期间增加关联内容。实验台发布回执保留删除标记，旧请求重试不会恢复已删除墙面。
 
 本地测试前执行 `npm ci --prefix wechat/cloudfunctions/adminWall` 安装函数自身的图片校验依赖。

@@ -21,12 +21,12 @@ async function wallNumberSeed (db) {
   const walls = await all(db.collection('walls'))
   return Math.max(0, ...walls.map(w => Number.isInteger(w.wallNumber) && w.wallNumber > 0 ? w.wallNumber : 0))
 }
-async function nextWallNumber (transaction, observedMax) {
-  // Scanning happens before the transaction. Every allocator writes this document,
-  // so concurrent initializers/retries cannot reuse a number from a stale scan.
+async function nextWallNumber (transaction, observedMax, db) {
+  // Read the shared lock before scanning. A concurrent allocator changes this
+  // document, forcing the transaction callback to retry and rescan current walls.
   const counter = await find(transaction, 'counters', 'wall_number')
-  const value = Math.max(counter?.value || 0, observedMax || 0) + 1
-  await transaction.collection('counters').doc('wall_number').set({ data: { id: 'wall_number', value } })
+  const value = (await wallNumberSeed(db)) + 1
+  await transaction.collection('counters').doc('wall_number').set({ data: { id: 'wall_number', value, revision: (counter?.revision || 0) + 1 } })
   return value
 }
 async function bootstrapWallNumbers (db) {
@@ -39,7 +39,7 @@ async function bootstrapWallNumbers (db) {
     await db.runTransaction(async transaction => {
       const wall = await find(transaction, 'walls', candidate.id || candidate._id)
       if (!wall || wall.deleting || Number.isInteger(wall.wallNumber) && wall.wallNumber > 0) return
-      const wallNumber = await nextWallNumber(transaction, observedMax)
+      const wallNumber = await nextWallNumber(transaction, observedMax, db)
       await transaction.collection('walls').doc(wall.id || wall._id).update({ data: { wallNumber } })
     })
   }

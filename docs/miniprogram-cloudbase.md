@@ -11,6 +11,7 @@
 1. 在微信开发者工具中导入 `wechat/`，不要导入仓库根目录。
 2. 创建 `users`、`walls`、`problems`、`admins`、`counters`、`segmentationPublishes`、`storageUploads`、`adminUploads`、`wallDeletionJobs` 集合，并导入 `config/cloudbase.collections.json` 和 `config/cloudbase.rules.json`。
 3. 部署 `login`、`adminWall`、`wallManager`、`saveProblem`、`updateProblem`、`deleteProblem`、`getWallImageUrl`、`storageUpload`、`segmentationPublish` 九个云函数。`storageUpload` 与 `adminWall` 必须安装各自 `package.json` 中的全部依赖。
+   - `wallManager` 的执行超时设为 **20 秒**，不要使用默认 3 秒；墙面列表涉及身份校验、墙面读取和线路计数，冷启动或数据库波动可能超过 3 秒。后续重新部署须保留此设置。2026-09-13 已在环境 `cloud1-d0g8toggn7735e61e` 更新。
 4. 将 Storage 设置为私有；通过 `getWallImageUrl` 发放墙图短期访问地址。
 5. 为 `storageUpload` 与 `segmentationPublish` 配置相同的签名密钥，并将两个 HTTP 路由设为 `POST`、关闭网关身份认证。
 

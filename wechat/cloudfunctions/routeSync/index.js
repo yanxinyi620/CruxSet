@@ -14,11 +14,19 @@ function createHandler({db,env=process.env,now=Date.now}) {
   if (!Number.isInteger(payload.timestamp) || Math.abs(Math.floor(now()/1000)-payload.timestamp)>300) fail('INVALID_TIMESTAMP')
   const expected=crypto.createHmac('sha256',secret).update(canonicalize(payload)).digest('hex')
   if (typeof signature !== 'string' || !/^[a-f0-9]{64}$/.test(signature) || !crypto.timingSafeEqual(Buffer.from(signature),Buffer.from(expected))) fail('INVALID_SIGNATURE')
-  if (!['snapshot','import'].includes(payload.action)) fail('INVALID_ACTION')
+  if (!['snapshot','import','publish-status'].includes(payload.action)) fail('INVALID_ACTION')
   const users=await db.collection('users').where({openid}).limit(2).get()
   if (users.data.length!==1) fail('OWNER_NOT_FOUND')
   const owner=users.data[0]
   if (!(await db.collection('admins').where({userId:owner.id}).limit(1).get()).data.length) fail('OWNER_NOT_ADMIN')
+  if (payload.action==='publish-status') {
+   if (typeof payload.publishRequestId!=='string' || !/^cloudflare:[\w-]{1,100}$/.test(payload.publishRequestId)) fail('INVALID_REQUEST_ID')
+   const receipt=await find(db,'segmentationPublishes','segmentation_'+hash(payload.publishRequestId))
+   if (!receipt) return {status:'pending'}
+   const wall=await find(db,'walls',receipt.wallId)
+   if (receipt.deleted || !wall || wall.deleting || await find(db,'wallDeletionJobs',receipt.wallId)) return {status:'deleted'}
+   return {status:'published',wallId:receipt.wallId}
+  }
   const selector=payload.selector
   if (!selector || !['experimentId','calibrationId','geometryHash'].every(k=>typeof selector[k]==='string' && selector[k])) fail('INVALID_SELECTOR')
   const candidates=(await all(db.collection('walls').where({'source.experimentId':selector.experimentId,'source.calibrationId':selector.calibrationId}))).filter(w=>!w.deleting && w.visibility==='public')
@@ -63,10 +71,10 @@ function createHandler({db,env=process.env,now=Date.now}) {
       return {status:'existing',added:false,id:duplicate.id||duplicate._id,number:duplicate.number}
      }
      const id=`problem_sync_${crypto.randomUUID()}`
-     const counterId=`routes_${wallId}`,counter=await find(tx,'counters',counterId)
-     const routeNumber=Math.max(counter?.value||0,observedRouteMax)+1
+     const counterId=`routes_${wallId}`
+     const routeNumber=observedRouteMax+1
      if (routeNumber>9999) fail('ROUTE_NUMBER_EXHAUSTED')
-     const wallNumber=wall.wallNumber || await nextWallNumber(tx,observedMax)
+     const wallNumber=wall.wallNumber || await nextWallNumber(tx,observedMax,db)
      if (!wall.wallNumber) await tx.collection('walls').doc(wallId).update({data:{wallNumber}})
      const number=`CS-${String(wallNumber).padStart(2,'0')}${String(routeNumber).padStart(4,'0')}`
      await tx.collection('counters').doc(counterId).set({data:{id:counterId,value:routeNumber}})

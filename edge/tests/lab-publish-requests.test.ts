@@ -235,7 +235,7 @@ it('validates CloudBase protocol, persists failures and safely retries one stabl
     }),
   )
   expect((await approvePublishRequest(f.env, r.id, 'admin')).status).toBe(
-    'failed',
+    'publishing',
   )
   expect((await f.create()).id).toBe(r.id)
   f.sqlite

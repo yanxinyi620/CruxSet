@@ -5,6 +5,7 @@
   "rules": [{ "type": "CompiledWasm", "globs": ["**/*.wasm"] }],
   "compatibility_date": "2026-09-08",
   "workers_dev": true,
+  "observability": { "enabled": true },
   "routes": [
     {
       "pattern": "api.cruxset.xinyilab.top",

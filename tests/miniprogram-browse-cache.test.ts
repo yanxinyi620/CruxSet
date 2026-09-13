@@ -4,14 +4,14 @@ beforeEach(() => {
  vi.resetModules(); requests=[]
  vi.stubGlobal('wx',{setStorageSync:vi.fn(),cloud:{callFunction:({name,data,success}:any)=>{
  requests.push({name,...data})
- const result=name==='login'?{userId:'u'}:data.action==='getWall'?{id:'w',name:'Wall',angleOptions:[20,45]}:data.action==='listBrowseWalls'?[{id:'w',name:'Wall'}]:data.action==='listProblems'?[{id:'p',wallId:'w',angle:20,grade:'V4',holds:{}}]:{id:'p'}
+ const result=name==='login'?{userId:'u'}:data.action==='getWall'?{id:'w',name:'Wall',angleOptions:[20,45]}:data.action==='listBrowseWalls'?[{id:'w',name:'Wall',holdCount:369,problemCount:12}]:data.action==='listProblems'?[{id:'p',wallId:'w',angle:20,grade:'V4',holds:{}}]:{id:'p'}
  success({result})
  }}})
 })
-it('reuses browse results for wall and route detail, including filtered navigation',async()=>{
+it('fetches full walls after summaries and reuses route detail, including filtered navigation',async()=>{
  const walls=await import('../wechat/miniprogram/services/walls.js');const routes=await import('../wechat/miniprogram/services/problems.js')
  await walls.listWalls();await walls.getWall('w');await routes.listProblems({wallId:'w'});await routes.getProblem('p');await routes.listProblems({wallId:'w',angle:20})
- expect(requests.map(r=>r.action||r.name)).toEqual(['login','listBrowseWalls','listProblems'])
+ expect(requests.map(r=>r.action||r.name)).toEqual(['login','listBrowseWalls','getWall','listProblems'])
  expect(await routes.listProblems({wallId:'w',angle:0})).toEqual([])
  await routes.updateProblem('p',{name:'changed'});await routes.listProblems({wallId:'w'})
  expect(requests.filter(r=>r.action==='listProblems')).toHaveLength(2)

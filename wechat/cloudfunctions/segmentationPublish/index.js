@@ -195,7 +195,7 @@ exports.main = async event => {
     }
     const now = Date.now()
     if (await find(transaction, 'wallDeletionJobs', wallId)) fail('WALL_DELETED')
-    const wallNumber = await nextWallNumber(transaction, observedMax)
+    const wallNumber = await nextWallNumber(transaction, observedMax, db)
     await transaction.collection('walls').doc(wallId).set({ data: {
       id: wallId,
       wallNumber,

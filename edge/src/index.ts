@@ -1,3 +1,4 @@
+import { reconcilePublishRequests } from './lab/publish-requests.js'
 import { syncWall, cloudbaseBridge } from './route-sync.js'
 import { quotaError } from './lab/quotas.js'
 import { canUseLab, adminUserView, updateLabAccess } from './lab-access.js'
@@ -81,8 +82,8 @@ async function createProblem(request: Request, db: D1Database, user: Record<stri
     const placeholders = uniqueIds.map(() => '?').join(',')
     const valid = await db.prepare(`SELECT id FROM holds WHERE wall_id=? AND id IN (${placeholders})`).bind(wallId, ...uniqueIds).all()
     if ((valid.results ?? []).length !== uniqueIds.length) return error(request, 'INVALID_INPUT', 'One or more holds are invalid', 400)
-    const count = await db.prepare('SELECT COUNT(*) AS count FROM problems WHERE wall_id=?').bind(wallId).first() as { count?: number } | null
-    const number = `CS-${String(Number(wall.wall_number ?? 0)).padStart(2, '0')}${String(Number(count?.count ?? 0) + 1).padStart(4, '0')}`
+    const maximum = await db.prepare("SELECT COALESCE(MAX(CAST(substr(number, -4) AS INTEGER)), 0) AS sequence FROM problems WHERE wall_id=? AND substr(number, -4) NOT GLOB '*[^0-9]*' AND length(number) >= 4").bind(wallId).first() as { sequence?: number } | null
+    const number = `CS-${String(Number(wall.wall_number ?? 0)).padStart(2, '0')}${String(Number(maximum?.sequence ?? 0) + 1).padStart(4, '0')}`
     const now = Date.now(), id = `problem_${crypto.randomUUID()}`
     const statements = [db.prepare('INSERT INTO problems (id,number,wall_id,name,description,angle,grade,foot_rule,created_by,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)').bind(id, number, wallId, body.name ? String(body.name) : null, body.description ? String(body.description) : null, angle, grade, footRule, user.id, now, now), ...assignments.map((item) => db.prepare('INSERT INTO problem_holds (problem_id,wall_id,hold_id,role) VALUES (?,?,?,?)').bind(id, wallId, item.id, item.role))]
     await db.batch(statements)
@@ -197,5 +198,5 @@ const worker: ExportedHandler<Env> = { async fetch(request, env) {
     if (quota) return error(request,quota.code,quota.message,429)
     throw cause
   }
-}, async scheduled(_event,env,ctx) { if(env.DB&&env.MEDIA)ctx.waitUntil(sweep({...env,DB:env.DB,MEDIA:env.MEDIA})) } }
+}, async scheduled(_event,env,ctx) { if(env.DB&&env.MEDIA)ctx.waitUntil(Promise.all([sweep({...env,DB:env.DB,MEDIA:env.MEDIA}),reconcilePublishRequests({...env,DB:env.DB,MEDIA:env.MEDIA})])) } }
 export default worker

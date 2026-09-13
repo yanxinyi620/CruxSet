@@ -7,7 +7,27 @@ import {
   type ReadyEnv,
   type Row,
 } from './common.js'
-import { normalizedHolds, publishCloudbase } from './cloudbase.js'
+import { normalizedHolds, publishCloudbase, queryPublishStatus } from './cloudbase.js'
+export async function reconcilePublishRequests(env: ReadyEnv, id?: string, applicantId?: string) {
+  if (!env.CRUXSET_CLOUDBASE_ROUTE_SYNC_URL) return
+  const rows = await env.DB.prepare(`SELECT * FROM lab_publish_requests WHERE status IN ('publishing','failed') ${id ? 'AND id=?' : ''} ${applicantId ? 'AND applicant_id=?' : ''} ORDER BY COALESCE(lease_until,0) LIMIT 10`)
+    .bind(...(id ? [id] : []), ...(applicantId ? [applicantId] : [])).all<Row>()
+  await Promise.all(rows.results.map(async row => {
+    try {
+      const result = await queryPublishStatus(env, row.id)
+      if (result.status === 'published') {
+        await env.DB.prepare("UPDATE lab_publish_requests SET status='published',result=?,error=NULL,lease_token=NULL,lease_until=NULL WHERE id=? AND status IN ('publishing','failed')")
+          .bind(JSON.stringify({wallId:result.wallId}),row.id).run()
+      } else if (result.status === 'deleted') {
+        await env.DB.prepare("UPDATE lab_publish_requests SET status='failed',error='目标墙面已删除，原申请不能重新发布。',lease_token=NULL,lease_until=? WHERE id=? AND status IN ('publishing','failed')")
+          .bind(Date.now()+60000,row.id).run()
+      } else if (Number(row.lease_until || 0) <= Date.now()) {
+        await env.DB.prepare("UPDATE lab_publish_requests SET status='failed',error='暂未查到成功回执，可重试发布；重试将复用原申请。',lease_token=NULL,lease_until=? WHERE id=? AND status IN ('publishing','failed') AND COALESCE(lease_until,0)<=?")
+          .bind(Date.now()+60000,row.id,Date.now()).run()
+      }
+    } catch { console.error('cloudbase_publish_reconcile_failed',{publishRequestId:`cloudflare:${row.id}`}) }
+  }))
+}
 export function requestView(r: Row) {
   return {
     id: r.id,
@@ -20,7 +40,7 @@ export function requestView(r: Row) {
     reason: r.reason ?? '',
     error: r.error ?? '',
     retryable:
-      r.status === 'failed' ||
+      (r.status === 'failed' && !String(r.error || '').includes('目标墙面已删除')) ||
       (r.status === 'publishing' && Number(r.lease_until) <= Date.now()),
     reviewerId: r.reviewer_id ?? null,
     reviewedAt: r.reviewed_at ? r.reviewed_at / 1000 : null,
@@ -97,6 +117,10 @@ export async function approvePublishRequest(
   id: string,
   reviewerId: string,
 ) {
+  await reconcilePublishRequests(env, id)
+  const prior = await env.DB.prepare('SELECT * FROM lab_publish_requests WHERE id=?').bind(id).first<Row>()
+  if (prior?.status === 'published') return prior
+  if (String(prior?.error || '').includes('目标墙面已删除')) fail('WALL_DELETED','目标墙面已删除，原申请不能重新发布。',409)
   const token = crypto.randomUUID(),
     now = Date.now()
   const row = await env.DB.prepare(
@@ -123,13 +147,13 @@ export async function approvePublishRequest(
       await new Response(image.body).arrayBuffer(),
     )
     await env.DB.prepare(
-      "UPDATE lab_publish_requests SET status='published',result=?,lease_token=NULL,lease_until=NULL WHERE id=? AND lease_token=?",
+      "UPDATE lab_publish_requests SET status='published',result=?,lease_token=NULL,lease_until=NULL WHERE id=? AND lease_token=? AND status='publishing'",
     )
       .bind(JSON.stringify(result), id, token)
       .run()
   } catch (error) {
     await env.DB.prepare(
-      "UPDATE lab_publish_requests SET status='failed',error=?,lease_token=NULL,lease_until=NULL WHERE id=? AND lease_token=?",
+      "UPDATE lab_publish_requests SET status='publishing',error=? WHERE id=? AND lease_token=? AND status='publishing'",
     )
       .bind(
         error instanceof Error && ['LabError', 'Error'].includes(error.name)
@@ -139,6 +163,7 @@ export async function approvePublishRequest(
         token,
       )
       .run()
+    await reconcilePublishRequests(env, id)
   }
   return (await env.DB.prepare('SELECT * FROM lab_publish_requests WHERE id=?')
     .bind(id)
@@ -152,6 +177,7 @@ export async function publishRequestRoutes(
 ): Promise<Response | null> {
   const admin = user.role === 'admin'
   if (path === '/publish-requests' && request.method === 'GET') {
+    await reconcilePublishRequests(env, undefined, admin ? undefined : user.id)
     const query = `SELECT r.*,u.display_name,a.email_normalized
       FROM lab_publish_requests r
       LEFT JOIN users u ON u.id=r.applicant_id

@@ -158,7 +158,7 @@ exports.main = async event => {
       }
       const upload = candidate ? await find(tx, 'adminUploads', candidate.id || candidate._id) : null
       if (!upload || upload.ownerId !== actor.id || upload.fileID !== data.imageFileId || upload.reclaiming || upload.expiresAt < Date.now() || upload.wallId || upload.imageWidth !== data.imageWidth || upload.imageHeight !== data.imageHeight) fail('INVALID_UPLOAD_RECEIPT')
-      const wallNumber = await nextWallNumber(tx, observedMax)
+      const wallNumber = await nextWallNumber(tx, observedMax, db)
       result = { id, wallNumber, name, imageFileId: upload.fileID, imageWidth: upload.imageWidth, imageHeight: upload.imageHeight, ownerId: actor.id, visibility: 'private', published: false, geometryType: 'circle', holds: [], angleOptions: angles, createdAt: Date.now(), updatedAt: Date.now() }
       await tx.collection('walls').doc(id).set({ data: result })
       await tx.collection('adminUploads').doc(upload.id).update({ data: { wallId: id } })

@@ -400,7 +400,7 @@
       let requestTargets = [], publishCapabilitiesReady = false, publishSaving = false;
       let requestsLoading = false, requestItems = [], reviewIsAdmin = false;
       const reviewingRequests = new Set();
-      const requestStateLabels = { pending: "待审核", publishing: "发布中", published: "已发布", rejected: "已拒绝", failed: "发布失败" };
+      const requestStateLabels = { pending: "待审核", publishing: "正在确认发布结果", published: "已发布", rejected: "已拒绝", failed: "发布失败" };
       function updatePublishIntent() {
         const needsReview = requestTargets.includes($("#publishTarget").value);
         $("#publishDescription").textContent = needsReview
@@ -487,7 +487,7 @@
         const stateClass = item.status === "published" ? "succeeded" : ["failed", "rejected"].includes(item.status) ? "failed" : item.status === "publishing" ? "running" : "pending";
         const result = item.result || {};
         const link = safeWallUrl(result.browseUrl) ? `<a href="${escapeText(result.browseUrl)}" target="_blank" rel="noopener">打开已发布墙面</a>` : result.wallId ? `<small class="request-detail">墙面编号：${escapeText(result.wallId)}</small>` : "";
-        const actions = isAdmin && (["pending", "failed"].includes(item.status) || item.retryable === true)
+        const actions = isAdmin && (item.status === "pending" || item.retryable === true)
           ? `<button class="publish" data-review-id="${id}" data-review-action="approve" ${busy ? "disabled" : ""}>${item.status === "pending" ? "通过并发布" : "重试发布"}</button>${item.status === "pending" ? `<button class="danger" data-review-id="${id}" data-review-action="reject" ${busy ? "disabled" : ""}>拒绝</button>` : ""}` : "";
         return `<tr><td>${escapeText(item.wallName)}</td>${isAdmin ? `<td>${escapeText(item.applicantName || "用户")}</td>` : ""}<td>${escapeText(publishTargetLabels[item.target] || item.target)}</td><td>${time(item.createdAt)}</td><td><span class="status ${stateClass}">${state}</span>${detail ? `<small class="request-detail">${escapeText(detail)}</small>` : ""}${link}</td><td><div class="request-actions"><a href="${escapeText(Lab.api(`/publish-requests/${encodeURIComponent(item.id)}/preview`))}" target="_blank" rel="noopener">查看墙面</a>${actions}</div></td></tr>`;
       }
@@ -724,7 +724,7 @@
       setInterval(() => {
         if (!pendingPublish && !pendingDelete && !pendingRejection && !$("#runModal").classList.contains("open")) {
           if (isCloud) load();
-          if (!reviewingRequests.size) loadPublishRequests();
+          loadPublishRequests();
         }
       }, 5000);
     </script>

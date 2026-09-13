@@ -9,7 +9,7 @@ function runtime(name: string, initial: Record<string, any[]> = {}) {
  function collection(name: string) {
   rows[name] ||= []
   let filter:any={}, offset=0, size=20
-  const q:any={where(f:any){filter=f;return q},orderBy(){return q},skip(n:number){offset=n;return q},limit(n:number){size=n;return q},async get(){return {data:rows[name].filter(x=>Object.entries(filter).every(([k,v])=>x[k]===v)).slice(offset,offset+size).map(x=>({...x}))}},doc(id:string){return {async get(){return {data:rows[name].find(x=>(x.id||x._id)===id)}},async set({data}:any){rows[name]=rows[name].filter(x=>(x.id||x._id)!==id);rows[name].push({...data,_id:id})},async update({data}:any){Object.assign(rows[name].find(x=>(x.id||x._id)===id),data)},async remove(){rows[name]=rows[name].filter(x=>(x.id||x._id)!==id)}}},async update({data}:any){for(const r of rows[name].filter(x=>Object.entries(filter).every(([k,v])=>x[k]===v)))Object.assign(r,data)}};return q
+  const q:any={async count(){return {total:rows[name].filter(x=>Object.entries(filter).every(([k,v])=>x[k]===v)).length}},where(f:any){filter=f;return q},orderBy(){return q},skip(n:number){offset=n;return q},limit(n:number){size=n;return q},async get(){return {data:rows[name].filter(x=>Object.entries(filter).every(([k,v])=>x[k]===v)).slice(offset,offset+size).map(x=>({...x}))}},doc(id:string){return {async get(){return {data:rows[name].find(x=>(x.id||x._id)===id)}},async set({data}:any){rows[name]=rows[name].filter(x=>(x.id||x._id)!==id);rows[name].push({...data,_id:id})},async update({data}:any){Object.assign(rows[name].find(x=>(x.id||x._id)===id),data)},async remove(){rows[name]=rows[name].filter(x=>(x.id||x._id)!==id)}}},async update({data}:any){for(const r of rows[name].filter(x=>Object.entries(filter).every(([k,v])=>x[k]===v)))Object.assign(r,data)}};return q
  }
  const transactionOperations:number[]=[]
  const makeTransaction=()=>{
@@ -122,9 +122,62 @@ it('saves and updates a route with a paginated legacy sequence using document-on
  expect(await r.main({wallId:'w',draft})).toMatchObject({number:'CS-070124'})
  const saved=r.rows.problems.find(p=>p.number==='CS-070124');const updating=runtime('updateProblem',{walls:r.rows.walls,problems:[saved]});expect(await updating.main({id:saved.id,draft:{...draft,name:'updated'}})).toMatchObject({number:'CS-070124'});expect(updating.rows.walls[0].routeRevision).toBe(2)
 })
-it('honors a counter advanced after the bootstrap scan',async()=>{
+it('uses existing walls rather than an old counter',async()=>{
  const r=runtime('adminWall',{walls:[{id:'old',wallNumber:50}],adminUploads:[{id:'upload',fileID:'cloud://image',ownerId:'u',imageWidth:100,imageHeight:100,expiresAt:Date.now()+100000}]})
  const base=r.db.runTransaction;let advanced=false;r.db.runTransaction=async(fn:any)=>{if(!advanced){r.rows.counters=[{id:'wall_number',value:200}];advanced=true}return base(fn)}
- expect((await r.main({action:'createWall',data:{name:'New',imageFileId:'cloud://image',imageWidth:100,imageHeight:100,requestId:'concurrent'}})).wallNumber).toBe(201)
+ expect((await r.main({action:'createWall',data:{name:'New',imageFileId:'cloud://image',imageWidth:100,imageHeight:100,requestId:'concurrent'}})).wallNumber).toBe(51)
  expect(r.rows.walls.find(w=>w.id==='old').wallNumber).toBe(50)
+})
+
+it('restarts wall numbering after all walls are removed',async()=>{
+ const r=runtime('adminWall',{counters:[{id:'wall_number',value:200}],adminUploads:[{id:'upload',fileID:'cloud://image',ownerId:'u',imageWidth:100,imageHeight:100,expiresAt:Date.now()+100000}]})
+ expect((await r.main({action:'createWall',data:{name:'New',imageFileId:'cloud://image',imageWidth:100,imageHeight:100,requestId:'reset'}})).wallNumber).toBe(1)
+})
+it.each([[[]],[[1,3]]])('allocates routes from existing numbers despite stale counters: %j',async(...args)=>{
+ const numbers=args[0] as number[]
+ const r=runtime('saveProblem',{walls:[{id:'w',wallNumber:7,visibility:'public',holds:[{id:'a'},{id:'b'}],angleOptions:[20]}],counters:[{id:'routes_w',value:200}],problems:numbers.map(n=>({id:`p${n}`,wallId:'w',number:`CS-07${String(n).padStart(4,'0')}`}))})
+ expect(await r.main({wallId:'w',draft:{angle:20,grade:'V2',holds:{start:['a'],finish:['b']}}})).toMatchObject({number:numbers.length?'CS-070004':'CS-070001'})
+})
+it('rescans current walls when a transaction callback is retried',async()=>{
+ const r=runtime('adminWall',{walls:[{id:'old',wallNumber:1}],adminUploads:[{id:'upload',fileID:'cloud://image',ownerId:'u',imageWidth:100,imageHeight:100,expiresAt:Date.now()+100000}]})
+ const base=r.db.runTransaction
+ r.db.runTransaction=async(fn:any)=>{
+  const snapshot=structuredClone(r.rows)
+  await base(fn)
+  for(const key of Object.keys(r.rows))delete r.rows[key]
+  Object.assign(r.rows,snapshot)
+  r.rows.walls.push({id:'concurrent',wallNumber:2})
+  r.rows.counters=[{id:'wall_number',value:2,revision:1}]
+  return base(fn)
+ }
+ expect((await r.main({action:'createWall',data:{name:'New',imageFileId:'cloud://image',imageWidth:100,imageHeight:100,requestId:'retry'}})).wallNumber).toBe(3)
+})
+it('rescans current routes when a transaction callback is retried',async()=>{
+ const r=runtime('saveProblem',{walls:[{id:'w',wallNumber:7,visibility:'public',holds:[{id:'a'},{id:'b'}],angleOptions:[20]}]})
+ const base=r.db.runTransaction
+ r.db.runTransaction=async(fn:any)=>{
+  const snapshot=structuredClone(r.rows)
+  await base(fn)
+  for(const key of Object.keys(r.rows))delete r.rows[key]
+  Object.assign(r.rows,snapshot)
+  r.rows.walls[0].routeRevision=1
+  r.rows.problems.push({id:'concurrent',wallId:'w',number:'CS-070001'})
+  return base(fn)
+ }
+ expect(await r.main({wallId:'w',draft:{angle:20,grade:'V2',holds:{start:['a'],finish:['b']}}})).toMatchObject({number:'CS-070002'})
+})
+
+it('includes all route counts in browse walls including zero and more than one page',async()=>{
+ const r=runtime('wallManager',{walls:[{id:'w',visibility:'public',holds:[{},{}]},{id:'empty',visibility:'public',holds:[{},{}]},{id:'private',visibility:'private',holds:[{},{}]}],problems:[...Array.from({length:123},(_,i)=>({id:`p${i}`,wallId:'w'})),{id:'hidden',wallId:'private'}]})
+ const walls=await r.main({action:'listBrowseWalls'})
+ expect(walls.map((w:any)=>({id:w.id,problemCount:w.problemCount}))).toEqual([{id:'w',problemCount:123},{id:'empty',problemCount:0}])
+})
+it('returns compact browse summaries while preserving full wall detail',async()=>{
+ const holds=Array.from({length:369},(_,i)=>({id:`H${i}`,polygon:Array.from({length:100},()=>[.123456789,.987654321])}))
+ const r=runtime('wallManager',{walls:[{id:'w',name:'Wall',visibility:'public',holds}]})
+ const walls=await r.main({action:'listBrowseWalls'})
+ expect(walls[0]).toMatchObject({id:'w',holdCount:369,problemCount:0})
+ expect(walls[0]).not.toHaveProperty('holds')
+ expect(JSON.stringify(walls).length).toBeLessThan(1000)
+ expect((await r.main({action:'getWall',data:{id:'w'}})).holds).toEqual(holds)
 })

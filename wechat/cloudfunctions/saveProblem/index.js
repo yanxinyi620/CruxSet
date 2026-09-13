@@ -27,21 +27,20 @@ exports.main = async event => {
   const now = Date.now()
   let number
   const observedMax = await bootstrapWallNumbers(db)
-  const problems = await all(db.collection('problems').where({ wallId }))
-  const observedRouteMax = Math.max(0, ...problems.map(item => Number(String(item.number || '').slice(-4))).filter(Number.isInteger))
   await db.runTransaction(async transaction => {
     const currentWall = await find(transaction, 'walls', wallId)
     if (!currentWall || currentWall.deleting || currentWall.visibility !== 'public') throw new Error('WALL_NOT_ROUTABLE')
+    const problems = await all(db.collection('problems').where({ wallId }))
+    const observedRouteMax = Math.max(0, ...problems.map(item => Number(String(item.number || '').slice(-4))).filter(Number.isInteger))
     let targetWallNumber = currentWall.wallNumber
     if (!targetWallNumber) {
-      targetWallNumber = await nextWallNumber(transaction, observedMax)
+      targetWallNumber = await nextWallNumber(transaction, observedMax, db)
       await transaction.collection('walls').doc(wallId).update({ data: { wallNumber: targetWallNumber } })
     }
     // Both deletion and route writes change this document, creating a transaction conflict.
     await transaction.collection('walls').doc(wallId).update({ data: { routeRevision: (currentWall.routeRevision || 0) + 1 } })
     const counterId = `routes_${wallId}`
-    const counter = await find(transaction, 'counters', counterId)
-    const routeNumber = Math.max(counter?.value || 0, observedRouteMax) + 1
+    const routeNumber = observedRouteMax + 1
     if (routeNumber > 9999) throw new Error('ROUTE_NUMBER_EXHAUSTED')
     await transaction.collection('counters').doc(counterId).set({ data: { id: counterId, value: routeNumber } })
     number = `CS-${String(targetWallNumber).padStart(2, '0')}${String(routeNumber).padStart(4, '0')}`

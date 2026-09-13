@@ -57,7 +57,21 @@ exports.main = async event => {
     await db.collection('users').where({ id: actor.user.id }).update({ data: { displayName, updatedAt } })
     return makeSafeSession({ ...actor.user, displayName }, actor.isAdmin)
   }
-  if (action === 'listBrowseWalls') return (await all(db.collection('walls').where({ visibility: 'public' }).orderBy('name', 'asc'))).filter(wall => !wall.deleting && Array.isArray(wall.holds) && wall.holds.length >= 2)
+  if (action === 'listBrowseWalls') {
+    const walls = (await all(db.collection('walls').where({ visibility: 'public' }).orderBy('name', 'asc'))).filter(wall => !wall.deleting && Array.isArray(wall.holds) && wall.holds.length >= 2)
+    // Count in the database so pagination never truncates the displayed total.
+    for (let offset = 0; offset < walls.length; offset += 10) {
+      await Promise.all(walls.slice(offset, offset + 10).map(async wall => {
+        const result = await db.collection('problems').where({ wallId: wall.id }).count()
+        wall.problemCount = result.total
+      }))
+    }
+    return walls.map(wall => ({
+      id: wall.id, name: wall.name, wallNumber: wall.wallNumber,
+      visibility: wall.visibility, holdCount: wall.holds.length,
+      problemCount: wall.problemCount,
+    }))
+  }
   if (action === 'listMyWalls') return (await all(db.collection('walls').where({ ownerId: actor.user.id }).orderBy('updatedAt', 'desc')))
   if (action === 'listAdminWalls') {
     if (!actor.isAdmin) throw new Error('FORBIDDEN')

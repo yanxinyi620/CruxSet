@@ -69,3 +69,20 @@ it('formats HTTP errors without internal details while keeping non-HTTP failures
  expect(unknown.body).not.toContain('secret')
  await expect(httpAdapter(async()=>{throw new Error('INVALID_SIGNATURE')})({})).rejects.toThrow('INVALID_SIGNATURE')
 })
+
+it('restarts imported route numbering after routes are cleared',async()=>{
+ const {db,tables}=database(),handler=createHandler({db,env,now:()=>1000})
+ tables.counters.push({id:'routes_wall-a',value:200})
+ expect(await handler(sign({action:'import',selector,route:fixture.wire}))).toMatchObject({number:'CS-010001'})
+})
+it('queries signed publication receipts without restoring deleted walls',async()=>{
+ const {db,tables}=database(),handler=createHandler({db,env,now:()=>1000})
+ tables.segmentationPublishes=[];tables.wallDeletionJobs=[]
+ const request=sign({action:'publish-status',publishRequestId:'cloudflare:test'})
+ expect(await handler(request)).toEqual({status:'pending'})
+ const {createHash}=require('node:crypto')
+ tables.segmentationPublishes.push({id:'segmentation_'+createHash('sha256').update('cloudflare:test').digest('hex'),wallId:'wall-a'})
+ expect(await handler(request)).toEqual({status:'published',wallId:'wall-a'})
+ tables.walls=[]
+ expect(await handler(request)).toEqual({status:'deleted'})
+})

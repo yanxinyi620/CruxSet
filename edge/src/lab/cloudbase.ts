@@ -185,9 +185,31 @@ export async function publishCloudbase(
     owner = env.CRUXSET_CLOUDBASE_OWNER_OPENID
   if (!endpoint || !storage || !secret || !owner)
     fail('NOT_CONFIGURED', 'CloudBase 发布服务尚未配置。', 503)
-  const send = async (url: string, init: RequestInit) => {
-    const r = await fetch(url, { ...init, signal: AbortSignal.timeout(60000) })
-    if (!r.ok) throw new Error('CloudBase 服务请求失败，请管理员重试。')
+  const safeCode = (value: unknown) => typeof value === 'string' && /^[A-Za-z0-9_.:-]{1,100}$/.test(value) ? value : undefined
+  const send = async (stage: string, url: string, init: RequestInit) => {
+    const started = Date.now()
+    let r: Response
+    try {
+      r = await fetch(url, { ...init, signal: AbortSignal.timeout(60000) })
+    } catch (error) {
+      console.error('cloudbase_publish_stage', { publishRequestId: snapshot.publishRequestId, stage, elapsedMs: Date.now() - started, code: error instanceof Error ? safeCode(error.name) : 'NETWORK_ERROR' })
+      throw new Error(`CloudBase 请求中断（${stage}），请管理员核对发布结果后重试。`)
+    }
+    let code: string | undefined, requestId = safeCode(r.headers.get('x-request-id') || r.headers.get('x-cos-request-id') || r.headers.get('x-tencent-requestid'))
+    if (!r.ok) {
+      // Do not log response messages, URLs, or upload credentials.
+      try {
+        const data = await r.clone().json() as Row
+        code = safeCode(data.code || data.Code)
+        requestId ||= safeCode(data.requestId || data.RequestId)
+      } catch { /* Non-JSON error bodies are deliberately omitted. */ }
+    }
+    const diagnostic = { publishRequestId: snapshot.publishRequestId, stage, status: r.status, elapsedMs: Date.now() - started, code, requestId }
+    if (!r.ok) {
+      console.error('cloudbase_publish_stage', diagnostic)
+      throw new Error(`CloudBase 服务请求失败（${stage}，HTTP ${r.status}${code ? '，' + code : ''}${requestId ? '，请求 ' + requestId : ''}），请管理员核对发布结果后重试。`)
+    }
+    console.log('cloudbase_publish_stage', diagnostic)
     return r
   }
   const upload = async (
@@ -205,7 +227,7 @@ export async function publishCloudbase(
       ...(purpose ? { purpose } : {}),
     }
     const grant = (await (
-      await send(storage, {
+      await send(purpose ? 'payload_authorization' : 'image_authorization', storage, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -227,7 +249,7 @@ export async function publishCloudbase(
       !grant.cloudPath
     )
       throw new Error('CloudBase 上传授权无效。')
-    await send(url, {
+    await send(purpose ? 'payload_upload' : 'image_upload', url, {
       method: 'PUT',
       headers: {
         Signature: grant.authorization,
@@ -265,7 +287,7 @@ export async function publishCloudbase(
     'segmentation-payload',
   )
   const result = (await (
-    await send(endpoint, {
+    await send('wall_publish', endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ payloadFileId }),
@@ -279,4 +301,18 @@ export async function publishCloudbase(
       ? { browseUrl: result.browseUrl }
       : {}),
   }
+}
+
+export async function queryPublishStatus(env: ReadyEnv, id: string): Promise<Row> {
+  if (!env.CRUXSET_CLOUDBASE_ROUTE_SYNC_URL || !env.CRUXSET_CLOUDBASE_SIGNING_KEY) throw new Error('发布结果查询尚未配置。')
+  const payload = {action: 'publish-status', publishRequestId: `cloudflare:${id}`, timestamp: Math.floor(Date.now()/1000)}
+  const response = await fetch(env.CRUXSET_CLOUDBASE_ROUTE_SYNC_URL, {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({...payload, signature: await signature(payload, env.CRUXSET_CLOUDBASE_SIGNING_KEY)}),
+    signal: AbortSignal.timeout(10000),
+  })
+  if (!response.ok) throw new Error('发布结果查询暂不可用。')
+  const result = await response.json() as Row
+  if (!['pending','published','deleted'].includes(result.status) || result.status === 'published' && (typeof result.wallId !== 'string' || !result.wallId)) throw new Error('发布回执无效。')
+  return result
 }

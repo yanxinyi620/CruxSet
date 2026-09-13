@@ -20,7 +20,7 @@ it('evicts removed detail records after background list refresh and clears persi
  const api=await import('../wechat/miniprogram/services/browse-data.js');const cloud=await import('../wechat/miniprogram/services/cloud.js')
  await api.listProblems({wallId:'w'});expect((await api.getProblem('p')).id).toBe('p');await vi.advanceTimersByTimeAsync(30001)
  routes=[];expect(await api.listProblems({wallId:'w'})).toHaveLength(1);await vi.advanceTimersByTimeAsync(1)
- await expect(api.getProblem('p')).rejects.toThrow();await cloud.call('updateProblem',{id:'p'});expect(storage.get('cruxset:browse-cache:v1')).toEqual([])
+ await expect(api.getProblem('p')).rejects.toThrow();await cloud.call('updateProblem',{id:'p'});expect(storage.get('cruxset:browse-cache:v2')).toEqual([])
 })
 it('updates a visible page in background and does not update it while hidden',async()=>{
  let definition:any;vi.stubGlobal('Page',(p:any)=>definition=p)

@@ -6,8 +6,8 @@ const browseReads = new ReadCache(30_000, 100, {
   staleTtl: 24 * 60 * 60 * 1000,
   maxBytes: 2 * 1024 * 1024,
   storage: {
-    read: () => wx.getStorageSync('cruxset:browse-cache:v1'),
-    write: rows => wx.setStorageSync('cruxset:browse-cache:v1', rows),
+    read: () => wx.getStorageSync('cruxset:browse-cache:v2'),
+    write: rows => wx.setStorageSync('cruxset:browse-cache:v2', rows),
   },
 })
 export const subscribeBrowseCache = listener => browseReads.subscribe(listener)
@@ -25,7 +25,16 @@ export function normalizeCloudError(error: unknown): Error {
 function invoke<T>(name: string, data: Record<string, unknown> = {}): Promise<T> {
   return new Promise((resolve, reject) => {
     if (!wx.cloud) return reject(normalizeCloudError(new Error('CLOUD_NOT_CONFIGURED')))
-    wx.cloud.callFunction({ name, data, success: result => resolve(result.result as T), fail: reject })
+    wx.cloud.callFunction({ name, data, success: result => resolve(result.result as T), fail: error => {
+      console.error('[CruxSet cloud call failed]', {
+        functionName: name,
+        action: typeof data.action === 'string' ? data.action : '',
+        code: error?.errCode ?? error?.code,
+        message: error?.errMsg || error?.message || String(error),
+        requestId: error?.requestId || error?.requestID || '',
+      })
+      reject(error)
+    } })
   })
 }
 export function initializeUser(): Promise<string> {
@@ -67,7 +76,7 @@ export async function call<T>(name: string, data: Record<string, unknown> = {}, 
           const ids = new Set(result.map(item => item.id))
           previous.forEach(item => { if (!ids.has(item.id)) cache.forget(cacheKey(user, target, {id:item.id})) })
         }
-        if (target) result.forEach(item => cache.seed(cacheKey(user, target, {id:item.id}), item))
+        if (target && action !== 'listBrowseWalls') result.forEach(item => cache.seed(cacheKey(user, target, {id:item.id}), item))
       }
       return result
     })
