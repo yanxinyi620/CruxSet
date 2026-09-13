@@ -46,3 +46,15 @@ describe('online business API', () => {
     expect(body.walls[0]).toMatchObject({visibility:'public',published:true,ownerId:'u'})
   })
 })
+it.each(['admin','user','owner'])('wall deletion honors administrator and owner access: %s',async role=>{
+ const {sqlite,call}=setup()
+ sqlite.exec("INSERT INTO users VALUES ('owner','Owner',1,1),('actor','Actor',1,1); INSERT INTO admins(user_id,role,created_at,updated_at) VALUES ('owner','user',1,1)")
+ sqlite.prepare('INSERT INTO admins(user_id,role,created_at,updated_at) VALUES (?,?,1,1)').run('actor',role==='admin'?'admin':'user')
+ const actor=role==='owner'?'owner':'actor'
+ const hash=[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode('delete-session')))].map(x=>x.toString(16).padStart(2,'0')).join('')
+ sqlite.prepare('INSERT INTO sessions VALUES (?,?,?,?)').run(hash,actor,Date.now()+60000,Date.now())
+ sqlite.exec("INSERT INTO walls VALUES ('wall',5,'Wall','','image',100,100,'circle','[20]','owner','public',1,1,1); INSERT INTO holds (wall_id,id,x,y,radius,kind) VALUES ('wall','A',.1,.1,.1,'hold'); INSERT INTO problems VALUES ('p','CS-050001','wall',NULL,NULL,20,'V2','feet_follow','owner',1,1); INSERT INTO problem_holds VALUES ('p','wall','A','start')")
+ const result=await call('/walls/wall','DELETE',undefined,'cruxset_session=delete-session')
+ expect(result.status).toBe(role==='user'?404:200)
+ for(const table of ['walls','holds','problems','problem_holds'])expect(sqlite.prepare(`SELECT count(*) n FROM ${table}`).get().n).toBe(role==='user'?1:0)
+})
