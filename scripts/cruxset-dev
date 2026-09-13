@@ -20,7 +20,7 @@ read_env_value() {
 
 load_cloudbase_env() {
   local key value
-  for key in CRUXSET_CLOUDBASE_STORAGE_URL CRUXSET_CLOUDBASE_FUNCTION_URL CRUXSET_CLOUDBASE_SIGNING_KEY CRUXSET_CLOUDBASE_OWNER_OPENID; do
+  for key in CRUXSET_CLOUDBASE_ROUTE_SYNC_URL CRUXSET_CLOUDBASE_STORAGE_URL CRUXSET_CLOUDBASE_FUNCTION_URL CRUXSET_CLOUDBASE_SIGNING_KEY CRUXSET_CLOUDBASE_OWNER_OPENID; do
     [[ -n "${!key:-}" ]] && continue
     value="$(read_env_value "$key")"
     if [[ -n "$value" ]]; then export "$key=$value"; fi

@@ -1,0 +1,17 @@
+# Admin route sync implementation plan
+
+**Goal:** Local and Cloudflare Web administrators can inspect and fill missing routes in both directions with CloudBase, from each wall's management actions. Imports belong to the receiving administrator. No updates or deletion propagation.
+
+**Architecture:** Signed server-to-server CloudBase bridge; Web admin-only preview/execute endpoints. Match an existing published wall by segmentation provenance, verify canonical geometry, and translate hold references using geometry fingerprints. Do not guess using wall names. Unsupported/mismatched walls fail with actionable guidance. Route equality includes wall identity/version, role sets, angle, foot rule and grade, excluding metadata and ownership. Transport routes in bounded pages and import individually, so partial failures are retryable.
+
+**Fingerprint contract v1:** Canonical compact JSON arrays; normalized coordinates quantized with floor(x * 1e6 + .5), polygon closure removed, lexicographically minimal cyclic rotation across both directions; polygon kind included, derived center/radius excluded. Circle holds use quantized center/radius. Hold fingerprint SHA256 of ["hold-v1",kind,shape]. Geometry SHA256 of ["wall-geometry-v1",sorted hold hashes]; reject duplicate hold IDs or fingerprints. Route fingerprint SHA256 of ["route-v1",geometryHash,angle,grade,footRule, role-hash arrays in start/foot/hand/assist/finish order]. Geometry hash is scoped by a provenance-verified target wall; it alone is not proof of physical wall identity.
+
+**Bridge contract:** Signed JSON with integer timestamp and HMAC-SHA256 over canonical sorted-key JSON (signature omitted). Separate CRUXSET_CLOUDBASE_ROUTE_SYNC_URL and existing signing key/owner OpenID. Actions snapshot/import. Selector {experimentId,calibrationId,geometryHash}; optional wallId allowed only with provenance verification. Snapshot uses numeric offset and limit 20, returns {wall:{id,name,wallNumber,geometryHash},routes:[{fingerprint,angle,grade,footRule,holds:{role:[hash]},name,description}],invalid:[{id,message}],nextOffset}. Import accepts one wire route, resolves hashes, validates and transactionally checks existing routes then adds under configured admin. Same ID imported concurrently must not create duplicates. Missing provenance is a safe error.
+
+- [x] Implement shared JS fingerprint helpers + CloudBase bridge with tests for hash invariance, validation, authentication, wall matching, import idempotence and admin ownership.
+- [x] Implement matching Python fingerprints with shared fixtures, local administrator preview/execute orchestration, transactional insertion and tests.
+- [x] Implement Cloudflare adapter and endpoints, recover provenance from lab records/publish receipts and retain it for new external publishes; test permissions, dedupe and retries.
+- [x] Add reusable Web sync dialog and per-wall admin buttons; preview differences and explicit execution with partial failure counts. Build both Web modes.
+- [x] Run focused regression tests, type checks and review; document deployment configuration and actual validation. Do not change live data during verification.
+
+Validation: 365 Vitest tests and 90 Python tests pass; both Web builds, TypeScript checks and Worker dry-run pass. Browser tested the admin wall action, preview counts, successful completion and 390px viewport using mocked bridge responses. Code review findings fixed; no live sync/deployment executed.

@@ -90,6 +90,7 @@ export async function publishCalibration(
       c.id,
     ),
     ...holds,
+    env.DB.prepare('INSERT OR IGNORE INTO wall_sync_sources (wall_id,experiment_id,calibration_id) SELECT ?,?,? WHERE EXISTS (SELECT 1 FROM walls WHERE id=?)').bind(id,e.id,c.id,id),
     env.DB.prepare(
       'UPDATE lab_calibrations SET publish=? WHERE id=? AND publish IS NULL AND deleted_at IS NULL AND EXISTS (SELECT 1 FROM walls WHERE id=?)',
     ).bind(JSON.stringify(result), c.id, id),

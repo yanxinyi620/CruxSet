@@ -10,6 +10,7 @@ from app.api.auth import router as auth_router
 from app.api.creator import router as creator_router
 from app.api.media import router as media_router
 from app.api.lab import router as lab_router
+from app.api.route_sync import router as route_sync_router
 from app.auth.rate_limit import LoginRateLimiter
 from app.repositories.sqlite import SQLiteRepository
 from app.seed import seed_demo_workspace
@@ -38,6 +39,7 @@ app.include_router(auth_router)
 app.include_router(creator_router)
 app.include_router(media_router)
 app.include_router(lab_router)
+app.include_router(route_sync_router)
 
 
 @app.get("/healthz")

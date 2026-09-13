@@ -1,3 +1,4 @@
+import { openRouteSync } from './route-sync.js';
 import "./styles/tokens.css";
 import "./styles/base.css";
 import "./styles/device.css";
@@ -782,7 +783,7 @@ const render = async () => {
           const owner = usersById.get(wall.ownerId);
           const number = (wall as Wall & { wallNumber?: number }).wallNumber;
           const status = wall.visibility === "public" ? "公开" : "草稿";
-          return `<article class="admin-card"><div class="admin-card-head"><h2>${number ? `#${number}　` : ""}${h(wall.name)}</h2><small class="admin-status ${wall.visibility === "private" ? "draft" : ""}">${status}</small></div><p>创建者：${h(owner?.name || "未知用户")}<br>创建于 ${h(adminDate(wall.createdAt))}</p><button class="admin-delete" data-admin-delete-wall="${h(wall.id)}">删除墙面</button></article>`;
+          return `<article class="admin-card"><div class="admin-card-head"><h2>${number ? `#${number}　` : ""}${h(wall.name)}</h2><small class="admin-status ${wall.visibility === "private" ? "draft" : ""}">${status}</small></div><p>创建者：${h(owner?.name || "未知用户")}<br>创建于 ${h(adminDate(wall.createdAt))}</p><div class="admin-wall-actions"><button class="admin-delete" data-admin-delete-wall="${h(wall.id)}">删除墙面</button>${wall.visibility === "public" ? `<button class="wall-sync-button" data-sync-wall="${h(wall.id)}">同步线路</button>` : ""}</div></article>`;
         }).join("") || '<p class="admin-empty">暂无墙面。</p>';
         const userCards = adminUsers.map((user) => {
           const card = adminUserCard(user);
@@ -1055,6 +1056,13 @@ const render = async () => {
   root.querySelectorAll<HTMLButtonElement>("[data-edit-problem]").forEach((b) => b.onclick = () => {
     const problem = problems.find((item) => item.id === b.dataset.editProblem);
     if (problem) void openProblemEditor(problem.wallId, problem.id, problem);
+  });
+  root.querySelectorAll<HTMLButtonElement>('[data-sync-wall]').forEach(button => {
+    button.onclick = () => {
+      if (!isAdmin || panel !== "admin-management") return;
+      const wall = adminWalls.find(w => w.id === button.dataset.syncWall);
+      if (wall) openRouteSync(wall, action => api.syncRoutes(wall.id, action), async () => { await refreshSession(); adminLoaded = false; await render(); });
+    };
   });
   root.querySelectorAll<HTMLButtonElement>("[data-delete-wall]").forEach(
     (b) =>

@@ -74,3 +74,9 @@ class MemoryRepository:
 
     def count_problems_for_wall(self, wall_id: str) -> int:
         return sum(problem.get("wallId") == wall_id for problem in self._problems.values())
+
+    def import_synced_problem(self, wall_id, wire, admin_id, expected_geometry):
+        from app.route_sync import prepare_import
+        result=prepare_import(self.find_wall(wall_id),[p for p in self.list_problems() if p.get('wallId')==wall_id],wire,admin_id,expected_geometry)
+        if result: self.insert_problem(result)
+        return bool(result)

@@ -99,3 +99,10 @@ button.problem-row strong { color: #9a9cb2; font-size: 15px; margin-left: auto; 
 .route-fullscreen-preview { position:fixed; z-index:30; inset:0; display:grid; place-items:center; background:#121126; }
 .route-fullscreen-preview #route-fullscreen-canvas { width:100%; max-height:100dvh; }
 .route-fullscreen-close { position:absolute; z-index:1; top:calc(12px + env(safe-area-inset-top)); right:14px; width:36px; height:36px; border:0; border-radius:50%; background:#ffffffdd; color:#262143; font-size:26px; line-height:1; }
+
+.admin-wall-actions{display:flex;align-items:center;gap:12px}.wall-sync-button{margin:13px 0 0 auto;color:#5240bb;background:#f3f0ff;border:1px solid #d8d2f4;border-radius:10px;padding:7px 10px;font-size:12px;font-weight:800;cursor:pointer}
+.route-sync-dialog{width:min(520px,calc(100vw - 40px));max-height:85vh;overflow:auto;box-sizing:border-box;border:1px solid #e3e2f1;border-radius:24px;padding:28px;color:#28214b;background:#fff}
+.route-sync-dialog::backdrop{background:rgba(28,22,52,.4)}
+.route-sync-dialog h2{margin:0 0 12px}.route-sync-wall{font-weight:600;overflow-wrap:anywhere}.route-sync-note{font-size:14px;line-height:1.7;color:#6f7187}
+.route-sync-counts{display:flex;gap:12px;margin:20px 0}.route-sync-counts span{flex:1;text-align:center;background:#f8f7fc;border-radius:12px;padding:12px 4px;font-size:13px}.route-sync-counts b{display:block;font-size:26px;margin-top:6px}
+.route-sync-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:24px}.route-sync-actions button{padding:10px 14px;border:1px solid #d8d2f4;border-radius:12px;background:#fff;color:#5240bb;cursor:pointer}.route-sync-actions [data-sync-run]{background:#6651cf;color:#fff}.route-sync-actions button:disabled{opacity:.45;cursor:default}.route-sync-warning{color:#a34835;overflow-wrap:anywhere}

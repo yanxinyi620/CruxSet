@@ -80,3 +80,21 @@ class SQLiteRepository:
             self._connection.commit()
     def count_problems_for_wall(self, wall_id: str) -> int:
         return sum(problem.get("wallId") == wall_id for problem in self.list_problems())
+
+    def import_synced_problem(self, wall_id, wire, admin_id, expected_geometry):
+        from app.route_sync import prepare_import
+        with self._lock:
+            self._connection.execute('BEGIN IMMEDIATE')
+            try:
+                row=self._connection.execute("SELECT body FROM documents WHERE collection_name='walls' AND document_id=?",(wall_id,)).fetchone()
+                wall=json.loads(row[0]) if row else None
+                rows=self._connection.execute("SELECT body FROM documents WHERE collection_name='problems'").fetchall()
+                problems=[p for r in rows if (p:=json.loads(r[0])).get('wallId')==wall_id]
+                result=prepare_import(wall,problems,wire,admin_id,expected_geometry)
+                if result:
+                    self._connection.execute("INSERT INTO documents VALUES ('problems',?,?)",(result['id'],json.dumps(result,ensure_ascii=False,separators=(',',':'))))
+                self._connection.commit()
+                return bool(result)
+            except Exception:
+                self._connection.rollback()
+                raise

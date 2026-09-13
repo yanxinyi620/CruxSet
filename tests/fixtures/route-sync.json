@@ -1,0 +1,97 @@
+{
+  "wall": {
+    "id": "wall-a",
+    "angleOptions": [
+      20,
+      30
+    ],
+    "holds": [
+      {
+        "id": "H001",
+        "kind": "hold",
+        "polygon": [
+          [
+            0.1,
+            0.1
+          ],
+          [
+            0.3,
+            0.1
+          ],
+          [
+            0.2,
+            0.3
+          ]
+        ]
+      },
+      {
+        "id": "H002",
+        "kind": "hold",
+        "x": 0.7,
+        "y": 0.8,
+        "radius": 0.03
+      },
+      {
+        "id": "H003",
+        "kind": "volume",
+        "x": 0.4,
+        "y": 0.5,
+        "radius": 0.04
+      }
+    ]
+  },
+  "problem": {
+    "name": "Fixture 路线",
+    "description": "Ignored prose",
+    "angle": 20,
+    "grade": "V2",
+    "footRule": "specified",
+    "holds": {
+      "start": [
+        "H001"
+      ],
+      "foot": [
+        "H003"
+      ],
+      "hand": [],
+      "assist": [],
+      "finish": [
+        "H002"
+      ]
+    }
+  },
+  "geometry": {
+    "geometryHash": "4ea3ef460510cf710e7a121c3c38e0746ce0744b8a4fe721b46c9eb0e5011708",
+    "idToHash": {
+      "H001": "36649fe69bdcba50495abda6419f573a7371c2f9bf6ff93c5e7c16a65c9d7463",
+      "H002": "b6739c2bacbfa896afc45d4221ae87750f673ad3322819685823f17036eb7de2",
+      "H003": "d8b42a6625c69a526ea7a90d9061beee949bf3cc090bbba4318734fdcc0589c4"
+    },
+    "hashToId": {
+      "36649fe69bdcba50495abda6419f573a7371c2f9bf6ff93c5e7c16a65c9d7463": "H001",
+      "b6739c2bacbfa896afc45d4221ae87750f673ad3322819685823f17036eb7de2": "H002",
+      "d8b42a6625c69a526ea7a90d9061beee949bf3cc090bbba4318734fdcc0589c4": "H003"
+    }
+  },
+  "wire": {
+    "fingerprint": "47bb89d942c6a3959a7ef007f730ef7e90161152613857995ab54096cc525036",
+    "angle": 20,
+    "grade": "V2",
+    "footRule": "specified",
+    "name": "Fixture 路线",
+    "description": "Ignored prose",
+    "holds": {
+      "start": [
+        "36649fe69bdcba50495abda6419f573a7371c2f9bf6ff93c5e7c16a65c9d7463"
+      ],
+      "foot": [
+        "d8b42a6625c69a526ea7a90d9061beee949bf3cc090bbba4318734fdcc0589c4"
+      ],
+      "hand": [],
+      "assist": [],
+      "finish": [
+        "b6739c2bacbfa896afc45d4221ae87750f673ad3322819685823f17036eb7de2"
+      ]
+    }
+  }
+}
