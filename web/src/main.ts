@@ -801,7 +801,7 @@ const render = async () => {
     panel === "admin-management"
       ? adminManagement
       : panel === "profile"
-      ? `${back}<div class="profile-card"><small>个人资料</small><div class="profile-name-row"><h1>${h(profileName || profileEmail.split("@", 1)[0] || "用户")}</h1><button data-save-profile>修改</button></div><p>${h(profileEmail)}</p></div><button class="profile-logout" data-logout>退出登录</button>`
+      ? `${back}<div class="profile-card"><small>个人资料</small><div class="profile-name-row"><h1>${h(profileName || profileEmail.split("@", 1)[0] || "用户")}</h1><button data-save-profile>修改</button></div><p>${h(profileEmail)}</p></div><button class="profile-logout" data-logout>退出登录</button><button class="profile-contact" data-contact-admin aria-expanded="false" aria-controls="profile-contact-panel">联系管理员</button><section id="profile-contact-panel" class="profile-contact-panel" hidden><h2>反馈与建议</h2><p class="contact-email">yanxinyi620@163.com</p><button data-copy-contact>复制邮箱</button><p data-contact-status role="status"></p></section>`
       : panel === "my-walls" && access().manageOwnWalls
       ? `${back}<h1>我的墙面</h1>${managementError ? `<p class="editor-toast">${h(managementError)}</p>` : ""}${cards || '<p class="lead">暂无自己创建的墙面。</p>'}`
       : panel === "my-problems"
@@ -906,6 +906,21 @@ const render = async () => {
     profileName = "";
     await refreshSession();
     store.navigate({ name: "browse" }, { replace: true });
+  });
+  root.querySelector<HTMLButtonElement>("[data-contact-admin]")?.addEventListener("click", (event) => {
+    const button = event.currentTarget as HTMLButtonElement;
+    const panel = root.querySelector<HTMLElement>("#profile-contact-panel")!;
+    panel.hidden = !panel.hidden;
+    button.setAttribute("aria-expanded", String(!panel.hidden));
+  });
+  root.querySelector<HTMLButtonElement>("[data-copy-contact]")?.addEventListener("click", async () => {
+    const status = root.querySelector<HTMLElement>("[data-contact-status]")!;
+    try {
+      await navigator.clipboard.writeText("yanxinyi620@163.com");
+      status.textContent = "邮箱已复制";
+    } catch {
+      status.textContent = "自动复制失败，请长按或选中邮箱手动复制。";
+    }
   });
   root.querySelector<HTMLButtonElement>("[data-save-profile]")?.addEventListener("click", async () => { const dialog = document.createElement("dialog"); dialog.className = "profile-name-dialog"; dialog.innerHTML = `<h2 tabindex="-1">修改用户名称</h2><input value="${h(profileName || profileEmail.split("@", 1)[0] || "")}" maxlength="40" autocomplete="off" autocapitalize="off" spellcheck="false"><div class="profile-name-actions"><button data-profile-confirm>保存</button><button data-profile-cancel>取消</button></div>`; document.body.append(dialog); dialog.showModal(); (dialog.querySelector("h2") as HTMLElement).focus(); dialog.querySelector("[data-profile-cancel]")!.addEventListener("click", () => dialog.close()); dialog.querySelector("[data-profile-confirm]")!.addEventListener("click", async () => { const value = (dialog.querySelector("input") as HTMLInputElement).value.trim(); try { const result = await api.updateProfile(value); profileName = result.user.displayName || ""; dialog.close(); dialog.remove(); await refreshSession(); await render(); } catch (error) { managementError = `保存用户名称失败：${(error as Error).message}`; dialog.close(); dialog.remove(); await render(); } }); dialog.addEventListener("close", () => dialog.remove(), { once: true }); });
   root.querySelectorAll<HTMLButtonElement>("[data-admin-tab]").forEach((button) => button.onclick = () => {

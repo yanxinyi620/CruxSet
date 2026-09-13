@@ -52,3 +52,11 @@ h1 { letter-spacing: 2px; }
 .profile-name-dialog input + input { margin-top:9px; }
 .profile-name-actions { display:flex; gap:8px; margin-top:12px; }
 .profile-name-actions button { flex:1; }
+
+.profile-contact { width:100%; min-height:44px; margin-top:14px; padding:12px 16px; border:1px solid #d8d2f4; border-radius:13px; background:#fff; color:#5240bb; font-size:14px; font-weight:700; }
+.profile-contact-panel { margin-top:12px; padding:20px; border:1px solid #e3e2f1; border-radius:18px; background:#fff; }
+.profile-contact-panel h2 { margin:0 0 12px; font-size:16px; }
+.profile-contact-panel .contact-email { overflow-wrap:anywhere; user-select:text; font-size:16px; }
+.profile-contact-panel button { min-height:44px; padding:10px 16px; border:1px solid #d8d2f4; border-radius:12px; background:#f0edff; color:#5240bb; }
+.profile-contact-panel [role="status"] { margin:12px 0 0; color:#6f7187; font-size:13px; }
+.profile-contact-panel [role="status"]:empty { display:none; }
