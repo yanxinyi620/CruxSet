@@ -1,2 +1,10 @@
 @import "../../me/walls/index.wxss";
-.cleanup{display:block;width:100%;margin:28rpx 0 0;color:#5240bb;background:#fff;border-color:#d8d2f4}
+/* 管理中心使用独立的竖向卡片，覆盖我的墙面横向列表布局。 */
+.management-page .management-card{display:block;margin-top:20rpx;padding:28rpx;border-radius:34rpx}
+.management-page .card-head{display:flex;flex-wrap:nowrap;align-items:flex-start;gap:16rpx;margin-bottom:14rpx}
+.management-page .wall-name{flex:1;flex-basis:auto;min-width:0;font-size:31rpx;line-height:1.4;overflow-wrap:anywhere;word-break:normal}
+.management-page .status{flex:none;padding:6rpx 12rpx;font-size:21rpx;line-height:1.4}
+.management-page .management-card .muted{margin-top:4rpx;font-size:23rpx;line-height:1.7;overflow-wrap:anywhere;word-break:normal}
+.management-page .management-card .delete{display:inline-block;margin:24rpx 0 0;padding:14rpx 20rpx;min-height:64rpx;font-size:23rpx;font-weight:500}
+.management-page .user-id{margin-top:4rpx;font-size:23rpx;line-height:1.7;overflow-wrap:anywhere;word-break:normal}
+.cleanup{display:block;width:100%;margin:28rpx 0 0;padding:16rpx 20rpx;font-size:23rpx;line-height:1.5;color:#5240bb;background:#fff;border-color:#d8d2f4}

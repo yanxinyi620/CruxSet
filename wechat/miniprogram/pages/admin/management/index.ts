@@ -3,7 +3,7 @@ import { currentUserIsAdmin, listUsers } from '../../../services/users.js'
 import { listAdminWalls, retryCleanup, reclaimUploads } from '../../../services/walls.js'
 import { cloudErrorMessage } from '../../../services/errors.js'
 import { confirmWallDeletion } from '../../../services/wall-deletion.js'
-const date = value => {const d=new Date(value);return Number.isNaN(d.getTime())?'—':`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
+const date = value => {const d=new Date(value);return Number.isNaN(d.getTime())?'—':`${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`}
 Page({
   data:{tab:'walls',walls:[],users:[],loading:true,allowed:false,error:'',notice:'',deleting:'',cleaning:false},
   onShow(){return this.reload()},
