@@ -201,10 +201,19 @@ export async function publishRequestRoutes(
   if (!r || (!admin && r.applicant_id !== user.id))
     fail('NOT_FOUND', '发布申请不存在。', 404)
   if (request.method === 'DELETE' && !m[2]) {
-    const deleted = await env.DB.prepare(
-      "UPDATE lab_publish_requests SET deleted_at=? WHERE id=? AND deleted_at IS NULL AND status IN ('published','rejected') RETURNING id",
-    ).bind(Date.now(), r.id).first<Row>()
-    if (!deleted) fail('CONFLICT', '仅已发布或已拒绝的申请可以删除。', 409)
+    const now = Date.now()
+    const [deleted] = await env.DB.batch([
+      env.DB.prepare(
+        "UPDATE lab_publish_requests SET deleted_at=? WHERE id=? AND deleted_at IS NULL AND status IN ('published','rejected') RETURNING id",
+      ).bind(now, r.id),
+      env.DB.prepare(
+        "INSERT OR IGNORE INTO lab_gc(prefix,created_at) SELECT snapshot_key,? FROM lab_publish_requests WHERE id=? AND deleted_at IS NOT NULL AND status IN ('published','rejected')",
+      ).bind(now, r.id),
+    ])
+    if (!deleted.results.length) fail('CONFLICT', '仅已发布或已拒绝的申请可以删除。', 409)
+    try {
+      await env.MEDIA.delete([r.snapshot_key + 'display.webp', r.snapshot_key + 'snapshot.json'])
+    } catch { /* The durable cleanup entry lets the scheduled sweep retry. */ }
     return new Response(null, {status: 204})
   }
   if (request.method === 'GET' && m[2] === 'image')

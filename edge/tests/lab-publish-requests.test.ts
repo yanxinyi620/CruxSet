@@ -419,3 +419,38 @@ it.each(['pending','publishing','failed'])('does not delete %s publication reque
   expect(response.status).toBe(409)
   expect((await (await f.call('/publish-requests')).json() as any).items).toHaveLength(1)
 })
+
+import { sweep } from '../src/lab/tasks.js'
+it.each([false, true])('cleans deleted application snapshots with durable retry (storage failure: %s)', async storageFailure => {
+  const f = fixture(), row = await f.create()
+  const prefix = row.snapshot_key
+  f.objects.set('lab-publish-requests/unrelated/display.webp', 'keep')
+  f.sqlite.prepare("UPDATE lab_publish_requests SET status='published',result=? WHERE id=?").run(JSON.stringify({wallId:'keep-wall'}), row.id)
+  const originalDelete = f.env.MEDIA.delete.bind(f.env.MEDIA)
+  if (storageFailure) f.env.MEDIA.delete = async () => { throw new Error('R2 unavailable') }
+  const remote = vi.fn()
+  vi.stubGlobal('fetch', remote)
+  const response = await handleLab(new Request(`https://example.test/api/v1/segmentation-lab/publish-requests/${row.id}`, {method:'DELETE',headers:{Origin:'https://example.test'}}), f.env, f.user)
+  expect(response.status).toBe(204)
+  expect(f.sqlite.prepare('SELECT prefix FROM lab_gc WHERE prefix=?').get(prefix)).toBeTruthy()
+  expect(f.objects.has(prefix + 'display.webp')).toBe(storageFailure)
+  f.env.MEDIA.delete = originalDelete
+  f.env.MEDIA.list = async ({prefix}: any) => ({objects:[...f.objects.keys()].filter(k=>k.startsWith(prefix)).map(key=>({key})),truncated:false}) as any
+  await sweep(f.env)
+  expect(f.objects.has(prefix + 'display.webp')).toBe(false)
+  expect(f.objects.has(prefix + 'snapshot.json')).toBe(false)
+  expect(f.objects.has('lab-publish-requests/unrelated/display.webp')).toBe(true)
+  expect(f.objects.has('display')).toBe(true)
+  expect(f.sqlite.prepare('SELECT result FROM lab_publish_requests WHERE id=?').get(row.id).result).toBe(JSON.stringify({wallId:'keep-wall'}))
+  expect(remote).not.toHaveBeenCalled()
+})
+
+it('rolls back application deletion when the cleanup queue cannot be persisted', async () => {
+  const f = fixture(), row = await f.create()
+  f.sqlite.prepare("UPDATE lab_publish_requests SET status='rejected' WHERE id=?").run(row.id)
+  f.sqlite.exec("CREATE TRIGGER reject_gc BEFORE INSERT ON lab_gc BEGIN SELECT RAISE(ABORT,'queue unavailable'); END")
+  await handleLab(new Request(`https://example.test/api/v1/segmentation-lab/publish-requests/${row.id}`, {method:'DELETE',headers:{Origin:'https://example.test'}}), f.env, f.user).catch(() => undefined)
+  expect(f.sqlite.prepare('SELECT deleted_at FROM lab_publish_requests WHERE id=?').get(row.id).deleted_at).toBeNull()
+  expect(f.objects.has(row.snapshot_key + 'display.webp')).toBe(true)
+  expect(f.objects.has(row.snapshot_key + 'snapshot.json')).toBe(true)
+})
