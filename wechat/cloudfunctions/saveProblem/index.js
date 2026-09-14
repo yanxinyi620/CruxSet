@@ -15,7 +15,7 @@ exports.main = async event => {
   validateRouteMetadata(draft)
   const wall = (await db.collection('walls').doc(wallId).get()).data
   if (!wall || wall.deleting || wall.visibility !== 'public' || !Array.isArray(wall.holds) || wall.holds.length < 2) throw new Error('WALL_NOT_ROUTABLE')
-  if (!Array.isArray(wall.angleOptions) || !wall.angleOptions.includes(draft.angle) || !validGrades.has(draft.grade)) throw new Error('INVALID_ROUTE_METADATA')
+  if (!Number.isInteger(draft.angle) || draft.angle < 0 || draft.angle > 70 || draft.angle % 5 !== 0 || !validGrades.has(draft.grade)) throw new Error('INVALID_ROUTE_METADATA')
   const footRule = draft.footRule || 'feet_follow'
   if (!['feet_follow', 'specified', 'all'].includes(footRule)) throw new Error('INVALID_FOOT_RULE')
   const holds = Object.fromEntries(roles.map(role => [role, [...(draft.holds?.[role] || [])]]))

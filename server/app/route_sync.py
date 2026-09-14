@@ -53,7 +53,7 @@ def geometry(wall):
 def export_route(wall, problem, prepared=None):
     geo = prepared or geometry(wall)
     angle, grade, rule = problem.get('angle'), problem.get('grade'), problem.get('footRule') or 'feet_follow'
-    if isinstance(angle,bool) or not isinstance(angle,(int,float)) or angle not in wall.get('angleOptions',[]) or angle not in (20,25,30,35,40,45) or grade not in [f'V{i}' for i in range(17)] or rule not in ('feet_follow','specified','all'):
+    if isinstance(angle,bool) or not isinstance(angle,(int,float)) or angle not in range(0, 71, 5) or grade not in [f'V{i}' for i in range(17)] or rule not in ('feet_follow','specified','all'):
         raise ValueError('INVALID_ROUTE_METADATA')
     assignments = problem.get('holds', {})
     if not isinstance(assignments,dict) or any(k not in ROLES for k in assignments): raise ValueError('INVALID_ROUTE_HOLDS')

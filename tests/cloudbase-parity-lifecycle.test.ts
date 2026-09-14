@@ -190,3 +190,21 @@ it.each(['listMyWalls','listAdminWalls'])('keeps management wall lists compact w
  expect(JSON.stringify(walls).length).toBeLessThan(2000)
  expect(walls).toHaveLength(action==='listMyWalls'?1:2)
 })
+
+it.each(Array.from({length:15},(_,i)=>i*5))('creates and edits angle %s on a legacy wall', async angle=>{
+ const r=runtime('saveProblem',{walls:[{id:'w',wallNumber:7,visibility:'public',holds:[{id:'a'},{id:'b'}],angleOptions:[20]}]})
+ const draft={angle,grade:'V1',holds:{start:['a'],finish:['b'],hand:[],foot:[],assist:[]}}
+ const saved=await r.main({wallId:'w',draft})
+ expect(r.rows.problems[0].angle).toBe(angle)
+ const update=runtime('updateProblem',{walls:r.rows.walls,problems:r.rows.problems})
+ expect(await update.main({id:saved.id,draft})).toEqual(saved)
+ expect(update.rows.problems[0].angle).toBe(angle)
+})
+it.each([-5,3,75,NaN,'20',null])('rejects invalid angle %s on create and edit', async angle=>{
+ const wall={id:'w',wallNumber:7,visibility:'public',holds:[{id:'a'},{id:'b'}],angleOptions:[angle]}
+ const draft={angle,grade:'V1',holds:{start:['a'],finish:['b'],hand:[],foot:[],assist:[]}}
+ const r=runtime('saveProblem',{walls:[wall]})
+ await expect(r.main({wallId:'w',draft})).rejects.toThrow('INVALID_ROUTE_METADATA')
+ const update=runtime('updateProblem',{walls:[wall],problems:[{id:'p',wallId:'w',createdBy:'u'}]})
+ await expect(update.main({id:'p',draft})).rejects.toThrow('INVALID_ROUTE_METADATA')
+})

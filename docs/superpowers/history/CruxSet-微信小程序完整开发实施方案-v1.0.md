@@ -492,14 +492,7 @@ Wall 表示：
 
   "description": "",
 
-  "angleOptions": [
-    20,
-    25,
-    30,
-    35,
-    40,
-    45
-  ],
+  "angleOptions": [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70],
 
   "createdAt": 0,
   "updatedAt": 0

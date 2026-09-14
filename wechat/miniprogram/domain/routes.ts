@@ -1,3 +1,4 @@
+import { routeAngles } from './angles.js'
 import type { FootRule, Grade, HoldRole, Problem, ProblemHolds, Wall } from './types.js'
 
 const roles: HoldRole[] = ['start', 'foot', 'hand', 'assist', 'finish']
@@ -7,7 +8,7 @@ const grades = new Set(Array.from({ length: 17 }, (_, i) => `V${i}`))
 export interface ProblemDraft { id:string; number:string; wallId:string; name?:string; description?:string; angle:number; grade:string; footRule?:string; holds:Partial<ProblemHolds>; createdBy:string; now?:number }
 export function createProblem(draft:ProblemDraft,wall:Wall):Problem {
   if(draft.wallId!==wall.id) throw new Error('wall mismatch')
-  if(!wall.angleOptions.includes(draft.angle)) throw new Error('invalid angle')
+  if(!routeAngles.includes(draft.angle)) throw new Error('invalid angle')
   if(!grades.has(draft.grade)) throw new Error('invalid grade')
   const footRule=draft.footRule??'feet_follow'; if(!footRules.includes(footRule as FootRule)) throw new Error('invalid foot rule')
   if((draft.description?.length??0)>500) throw new Error('description too long')

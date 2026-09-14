@@ -26,7 +26,7 @@ class WallInput(BaseModel):
     displayImageFileId: str | None = None
     imageWidth: int = Field(gt=0)
     imageHeight: int = Field(gt=0)
-    angleOptions: list[int] = Field(default_factory=lambda: [20, 25, 30, 35, 40, 45])
+    angleOptions: list[int] = Field(default_factory=lambda: [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70])
 
 
 class HoldsInput(BaseModel):
@@ -168,7 +168,7 @@ async def publish_segmentation_wall(request: Request, image: UploadFile = File(.
     media = store_image(content, image.content_type or "", int(os.environ.get("SEGMENTATION_MAX_UPLOAD_BYTES", "52428800")))
     display_media = store_image(await display_image.read(), display_image.content_type or "", int(os.environ.get("SEGMENTATION_MAX_UPLOAD_BYTES", "52428800"))) if display_image else None
     now = _now()
-    wall = {"id": _id("wall"), "wallNumber": _next_wall_number(request), "name": name, "description": str(payload.get("description", "")), "imageFileId": media["id"], "imageWidth": width, "imageHeight": height, "geometryType": "polygon", "holds": holds, "published": True, "angleOptions": payload.get("angleOptions", [20, 25, 30, 35, 40, 45]), "ownerId": owner_id, "visibility": "public", "source": {"type": "segmentation_lab", "experimentId": experiment_id, "calibrationId": calibration_id, "publishRequestId": request_id}, "createdAt": now, "updatedAt": now}
+    wall = {"id": _id("wall"), "wallNumber": _next_wall_number(request), "name": name, "description": str(payload.get("description", "")), "imageFileId": media["id"], "imageWidth": width, "imageHeight": height, "geometryType": "polygon", "holds": holds, "published": True, "angleOptions": payload.get("angleOptions", [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70]), "ownerId": owner_id, "visibility": "public", "source": {"type": "segmentation_lab", "experimentId": experiment_id, "calibrationId": calibration_id, "publishRequestId": request_id}, "createdAt": now, "updatedAt": now}
     if display_media:
         wall["displayImageFileId"] = display_media["id"]
     _repo(request).insert_wall(wall)

@@ -14,7 +14,7 @@ it('retains INVALID_WALL_HOLDS for malformed legacy hold-only updates', () => {
 it('rejects invalid generic Wall metadata before persistence', () => {
   expect(() => validateWallUpdate(wall, { angleOptions: [] }, 'updateWall')).toThrow('INVALID_WALL_DATA')
   expect(() => validateWallUpdate(wall, { angleOptions: [20, Number.NaN] }, 'updateWall')).toThrow('INVALID_WALL_DATA')
-  expect(() => validateWallUpdate(wall, { angleOptions: [15] }, 'updateWall')).toThrow('INVALID_WALL_DATA')
+  expect(() => validateWallUpdate(wall, { angleOptions: [17] }, 'updateWall')).toThrow('INVALID_WALL_DATA')
   expect(() => validateWallUpdate(wall, { description: 3 }, 'updateWall')).toThrow('INVALID_WALL_DATA')
   expect(() => validateWallUpdate(wall, { imageFileId: false }, 'updateWall')).toThrow('INVALID_WALL_DATA')
 })

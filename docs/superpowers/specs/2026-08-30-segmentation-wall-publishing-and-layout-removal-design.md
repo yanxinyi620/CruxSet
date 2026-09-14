@@ -204,7 +204,7 @@ Authorization: Bearer <local-publish-key>
   "description": "由 Spraywall Lab 发布",
   "imageWidth": 3837,
   "imageHeight": 2737,
-  "angleOptions": [0],
+  "angleOptions": [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70],
   "holds": [
     {
       "sourceId": "candidate-0092",

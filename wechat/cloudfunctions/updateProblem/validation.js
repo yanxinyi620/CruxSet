@@ -7,7 +7,7 @@ function fail (code) { throw new Error(code) }
 function validateProblemUpdate (existing, wall, draft, actorId) {
   if (!existing || existing.createdBy !== actorId) fail('FORBIDDEN')
   if (!wall || wall.visibility !== 'public' || !Array.isArray(wall.holds) || wall.holds.length < 2) fail('WALL_NOT_ROUTABLE')
-  if (!draft || !Array.isArray(wall.angleOptions) || !wall.angleOptions.includes(draft.angle) || !validGrades.has(draft.grade) || (draft.description !== undefined && (typeof draft.description !== 'string' || draft.description.length > 500))) fail('INVALID_ROUTE_METADATA')
+  if (!draft || !Number.isInteger(draft.angle) || draft.angle < 0 || draft.angle > 70 || draft.angle % 5 !== 0 || !validGrades.has(draft.grade) || (draft.description !== undefined && (typeof draft.description !== 'string' || draft.description.length > 500))) fail('INVALID_ROUTE_METADATA')
   if (draft.name !== undefined && (typeof draft.name !== 'string' || draft.name.length > 80)) fail('INVALID_ROUTE_METADATA')
   const footRule = draft.footRule || 'feet_follow'
   if (!['feet_follow', 'specified', 'all'].includes(footRule)) fail('INVALID_FOOT_RULE')

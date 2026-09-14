@@ -275,7 +275,7 @@ export async function publishCloudbase(
     ownerOpenid: owner,
     timestamp: Math.floor(Date.now() / 1000),
     description: '',
-    angleOptions: [20, 25, 30, 35, 40, 45],
+    angleOptions: [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70],
     geometryType: 'polygon',
     visibility: 'public',
   }

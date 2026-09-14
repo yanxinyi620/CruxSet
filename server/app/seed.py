@@ -14,14 +14,14 @@ def seed_demo_workspace(repository) -> None:
         "id": "wall_demo", "name": "日坛 Spraywall", "description": "CruxSet 本地测试墙面",
         "imageFileId": "/assets/mock/ritan-spraywall-0822.jpg", "imageWidth": 4096, "imageHeight": 3072,
         "geometryType": "circle", "holds": holds, "published": True,
-        "angleOptions": [20, 25, 30, 35, 40, 45], "ownerId": "usr_local_demo",
+        "angleOptions": [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70], "ownerId": "usr_local_demo",
         "visibility": "public", "createdAt": 0, "updatedAt": 0,
     }
     private: Document = {
         "id": "wall_demo_draft", "name": "日坛 Spraywall 草稿", "description": "CruxSet 本地标注草稿",
         "imageFileId": "/assets/mock/ritan-spraywall-0822.jpg", "imageWidth": 4096, "imageHeight": 3072,
         "geometryType": "circle", "holds": [], "published": False,
-        "angleOptions": [20, 25, 30, 35, 40, 45], "ownerId": "usr_local_demo",
+        "angleOptions": [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70], "ownerId": "usr_local_demo",
         "visibility": "private", "createdAt": 1, "updatedAt": 1,
     }
     repository.insert_wall(public)

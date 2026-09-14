@@ -4,7 +4,7 @@ import { browseProblems, routeContextQuery } from '../../domain/browse.js'
 import { listProblems } from '../../services/browse-data.js'
 import { getWall } from '../../services/browse-data.js'
 const grades = ['全部', ...Array.from({ length: 17 }, (_, i) => `V${i}`)]
-const routeAngles = Array.from({ length: 15 }, (_, i) => i * 5)
+import { routeAngles } from '../../domain/angles.js'
 Page(browsePage({
   data: { wallId:'', wallName:'', angles:[null,...routeAngles], angleLabels:['全部',...routeAngles.map(angle=>`${angle}°`)], angleIndex:0, gradeIndex:0, grades, angle:null, grade:'全部', problems:[], loading:true, error:'' },
   async onLoad(options) {

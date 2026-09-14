@@ -13,7 +13,7 @@ try {
 if (cloud) cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 
 const HOLD_KINDS = new Set(['hold', 'volume'])
-const ANGLES = new Set([20, 25, 30, 35, 40, 45])
+const ANGLES = new Set([0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70])
 const SIGNATURE_MAX_AGE_SECONDS = 300
 const MAX_PAYLOAD_FILE_BYTES = 5 * 1024 * 1024
 
@@ -82,7 +82,7 @@ const validatePayload = payload => {
   if (!Number.isInteger(payload.imageWidth) || payload.imageWidth <= 0 || !Number.isInteger(payload.imageHeight) || payload.imageHeight <= 0 || !payload.publishRequestId || !payload.sourceExperimentId || !payload.sourceCalibrationId || !payload.wallName) fail('INVALID_METADATA')
   if (!payload.imageFileId.startsWith('cloud://') || !payload.ownerOpenid || !Array.isArray(payload.holds) || !payload.holds.length) fail('INVALID_METADATA')
   if (payload.ownerId !== undefined || payload.description !== undefined && typeof payload.description !== 'string' || (payload.description || '').length > 500) fail('INVALID_METADATA')
-  const angles = payload.angleOptions || [20, 25, 30, 35, 40, 45]
+  const angles = payload.angleOptions || [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70]
   if (!Array.isArray(angles) || !angles.length || angles.some(angle => !Number.isFinite(angle) || !ANGLES.has(angle))) fail('INVALID_METADATA')
   const ids = new Set()
   const sourceIds = new Set()

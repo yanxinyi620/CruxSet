@@ -27,7 +27,7 @@ from .experiments import ExperimentStore
 
 
 SUPPORTED_HOLD_KINDS = {"hold", "volume"}
-SUPPORTED_ANGLES = {20, 25, 30, 35, 40, 45}
+SUPPORTED_ANGLES = set(range(0, 71, 5))
 MIN_POLYGON_AREA = 1e-6
 TOP_EDGE_TOLERANCE_PIXELS = 4.0
 REQUIRED_METADATA = {

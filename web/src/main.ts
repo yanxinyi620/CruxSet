@@ -222,7 +222,7 @@ const footLabels: Record<FootRule, string> = {
   all: "全墙脚点",
 };
 const grades: Grade[] = Array.from({ length: 17 }, (_, index) => `V${index}` as Grade);
-const routeAngles = Array.from({ length: 15 }, (_, index) => index * 5);
+import { routeAngles } from '../../wechat/miniprogram/domain/angles.js';
 
 type ProblemCtx = {
   wall: Wall;

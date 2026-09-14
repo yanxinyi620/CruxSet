@@ -104,3 +104,9 @@ def test_concurrent_sqlite_connections_only_insert_once(tmp_path):
         assert sorted(f.result() for f in futures)==[False,True]
     assert len(a.list_problems())==1
     a.close();b.close()
+
+
+@pytest.mark.parametrize('angle', range(0, 71, 5))
+def test_standard_angles_round_trip_on_legacy_walls(angle):
+    route = {**problem(), 'angle': angle}
+    assert import_route(wall(), export_route(wall(), route))['angle'] == angle

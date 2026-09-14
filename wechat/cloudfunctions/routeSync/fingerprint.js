@@ -33,7 +33,7 @@ async function geometry(wall, hash) {
   return {geometryHash:fingerprint,idToHash:byId,hashToId:byFingerprint}
 }
 function metadata(wall, route) {
-  if (!route || typeof route.angle !== 'number' || ![20,25,30,35,40,45].includes(route.angle) || !wall.angleOptions?.includes(route.angle) || !/^V(?:[0-9]|1[0-6])$/.test(route.grade)) fail('INVALID_ROUTE_METADATA')
+  if (!route || !Number.isInteger(route.angle) || route.angle < 0 || route.angle > 70 || route.angle % 5 !== 0 || !/^V(?:[0-9]|1[0-6])$/.test(route.grade)) fail('INVALID_ROUTE_METADATA')
   for (const [key,max] of [['name',80],['description',500]]) if (route[key] != null && (typeof route[key] !== 'string' || route[key].length > max)) fail('INVALID_ROUTE_METADATA')
   if (!route.holds || typeof route.holds !== 'object' || Array.isArray(route.holds) || Object.keys(route.holds).some(key=>!roles.includes(key))) fail('INVALID_ROUTE_HOLDS')
   const footRule = route.footRule || 'feet_follow'

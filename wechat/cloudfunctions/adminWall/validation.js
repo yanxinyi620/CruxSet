@@ -1,4 +1,4 @@
-const supportedAngles = new Set([20, 25, 30, 35, 40, 45])
+const supportedAngles = new Set([0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70])
 const holdKinds = new Set(['hold', 'volume'])
 const normalized = value => Number.isFinite(value) && value >= 0 && value <= 1
 

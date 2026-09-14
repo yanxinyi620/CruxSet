@@ -145,8 +145,8 @@ exports.main = async event => {
   if (action === 'createWall') {
     const id = `wall_admin_${requestKey(actor.id, data.requestId)}`
     const name = typeof data.name === 'string' ? data.name.trim() : ''
-    const angles = data.angleOptions || [20, 25, 30, 35, 40, 45]
-    if (!name || name.length > 80 || !Array.isArray(angles) || !angles.length || angles.some(a => ![20,25,30,35,40,45].includes(a))) fail('INVALID_INPUT')
+    const angles = data.angleOptions || [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70]
+    if (!name || name.length > 80 || !Array.isArray(angles) || !angles.length || angles.some(a => ![0,5,10,15,20,25,30,35,40,45,50,55,60,65,70].includes(a))) fail('INVALID_INPUT')
     const observedMax = await bootstrapWallNumbers(db)
     const candidate = (await db.collection('adminUploads').where({ fileID: data.imageFileId, ownerId: actor.id }).limit(1).get()).data[0]
     await db.runTransaction(async tx => {

@@ -29,3 +29,13 @@ it('editor retains name, description, role and geometry in a user-scoped draft',
  expect(entry?.[0]).toContain('u:')
  expect(entry?.[1]).toMatchObject({name:'Route',description:'Note',role:'finish'})
 })
+
+it.each([{wallId:'w'}, {problemId:'p'}])('offers every standard angle on old walls in editor %j', async options => {
+ await import('../wechat/miniprogram/pages/problem/editor/index.js')
+ await page.onLoad(options)
+ expect(page.data.angles).toEqual(Array.from({length:15},(_,i)=>i*5))
+ expect(page.data.angle).toBe(options.problemId ? 20 : 0)
+ expect(page.data.angleIndex).toBe(options.problemId ? 4 : 0)
+ page.selectAngle({detail:{value:14}})
+ expect(page.data.angle).toBe(70)
+})

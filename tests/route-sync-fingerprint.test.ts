@@ -41,3 +41,8 @@ it('supports published polygons above 256 vertices with stable rotation hashes',
  const rotated={...large,holds:[{...large.holds[0],polygon:[...polygon.slice(200),...polygon.slice(0,200)].reverse()},wall.holds[1]]}
  expect((await core.geometry(large,hash)).geometryHash).toBe((await core.geometry(rotated,hash)).geometryHash)
 })
+
+it.each(Array.from({length:15},(_,i)=>i*5))('round-trips angle %s through sync with legacy wall options',async angle=>{
+ const wire=await core.exportRoute(wall,{...route,angle},hash)
+ expect((await core.importRoute(wall,wire,hash)).angle).toBe(angle)
+})
