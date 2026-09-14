@@ -1,5 +1,5 @@
 import type { Hold, HoldRole, Point, ViewTransform } from "../../wechat/miniprogram/domain/types.js"
-import { clampTransform, screenToImage, zoomAroundAnchor } from "../../wechat/miniprogram/domain/transform.js"
+import { fitImageTransform, clampTransform, screenToImage, zoomAroundAnchor } from "../../wechat/miniprogram/domain/transform.js"
 import { circleHitTest, nearestHold, polygonHitTest } from "../../wechat/miniprogram/domain/geometry.js"
 import { loadCachedImage } from "./image-cache.js"
 
@@ -20,6 +20,7 @@ export interface WallCanvasOptions {
   polygonCoordinates?: 'normalized' | 'pixels'
   viewportHeight?: number
   initialTransform?: ViewTransform
+  fitCover?: boolean
   fitContain?: boolean
   dimImage?: boolean
   holds: Hold[]
@@ -84,9 +85,11 @@ export class WallCanvasView {
     const dpr = Math.max(window.devicePixelRatio || 1, 1)
     this.viewportWidth = width
     this.viewportHeight = canvasHeight
-    const fitScale = opts.fitContain ? Math.min(width, canvasHeight / this.aspect) : canvasHeight / this.aspect
+    const fitScale = opts.fitCover || opts.fitContain
+      ? fitImageTransform(width, canvasHeight, 1, this.aspect, opts.fitCover ? "cover" : "contain").scale
+      : canvasHeight / this.aspect
     this.scale = this.minScale = fitScale
-    this.maxScale = width * 5
+    this.maxScale = Math.max(width, fitScale) * 5
     this.canvas.width = Math.round(width * dpr)
     this.canvas.height = Math.round(canvasHeight * dpr)
     this.canvas.style.width = width + "px"

@@ -3,3 +3,8 @@ export const imageToScreen=([x,y]:Point,t:ViewTransform):Point=>[x*t.scale+t.off
 export const screenToImage=([x,y]:Point,t:ViewTransform):Point=>[(x-t.offsetX)/t.scale,(y-t.offsetY)/t.scale]
 export const clampTransform=(t:ViewTransform,viewportWidth:number,viewportHeight:number,imageWidth:number,imageHeight:number):ViewTransform=>{const width=imageWidth*t.scale,height=imageHeight*t.scale,minX=Math.min(0,viewportWidth-width),minY=Math.min(0,viewportHeight-height),centerX=(viewportWidth-width)/2,centerY=(viewportHeight-height)/2;return{...t,offsetX:width<viewportWidth?centerX:Math.max(minX,Math.min(0,t.offsetX)),offsetY:height<viewportHeight?centerY:Math.max(minY,Math.min(0,t.offsetY))}}
 export function zoomAroundAnchor(t:ViewTransform,nextScale:number,anchor:Point):ViewTransform{const image=screenToImage(anchor,t);return{scale:nextScale,offsetX:anchor[0]-image[0]*nextScale,offsetY:anchor[1]-image[1]*nextScale}}
+
+export function fitImageTransform(viewportWidth:number, viewportHeight:number, imageWidth:number, imageHeight:number, mode:'contain'|'cover'):ViewTransform {
+  const scale = (mode === 'cover' ? Math.max : Math.min)(viewportWidth/imageWidth, viewportHeight/imageHeight)
+  return {scale, offsetX:(viewportWidth-imageWidth*scale)/2, offsetY:(viewportHeight-imageHeight*scale)/2}
+}
