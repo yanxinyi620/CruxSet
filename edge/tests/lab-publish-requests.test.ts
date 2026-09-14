@@ -394,3 +394,28 @@ it('accepts a valid concave polygon when creating an immutable request', async (
   )
   expect((await f.create()).status).toBe('pending')
 })
+
+it.each(['published','rejected'])('allows owner/admin deletion of %s requests globally while retaining publication receipts', async status => {
+  for (const actor of ['user','admin'] as const) {
+    const f=fixture(), row=await f.create()
+    f.sqlite.prepare('UPDATE lab_publish_requests SET status=?,result=? WHERE id=?').run(status,JSON.stringify({wallId:'keep-wall'}),row.id)
+    const remove=(u=f[actor])=>handleLab(new Request(`https://example.test/api/v1/segmentation-lab/publish-requests/${row.id}`,{method:'DELETE',headers:{Origin:'https://example.test'}}),f.env,u)
+    expect((await remove({...f.user,id:'stranger'})).status).toBe(404)
+    expect((await remove()).status).toBe(204)
+    for (const u of [f.user,f.admin]) {
+      expect((await (await f.call('/publish-requests',u)).json() as any).items).toEqual([])
+      expect((await f.call(`/publish-requests/${row.id}/preview`,u)).status).toBe(404)
+      expect((await f.call(`/publish-requests/${row.id}/approve`,u,{})).status).toBe(404)
+    }
+    const receipt=f.sqlite.prepare('SELECT * FROM lab_publish_requests WHERE id=?').get(row.id) as any
+    expect(JSON.parse(receipt.result).wallId).toBe('keep-wall')
+    if (status==='published') expect((await f.create()).id).toBe(row.id)
+  }
+})
+it.each(['pending','publishing','failed'])('does not delete %s publication requests',async status=>{
+  const f=fixture(), row=await f.create()
+  f.sqlite.prepare('UPDATE lab_publish_requests SET status=? WHERE id=?').run(status,row.id)
+  const response=await handleLab(new Request(`https://example.test/api/v1/segmentation-lab/publish-requests/${row.id}`,{method:'DELETE',headers:{Origin:'https://example.test'}}),f.env,f.admin)
+  expect(response.status).toBe(409)
+  expect((await (await f.call('/publish-requests')).json() as any).items).toHaveLength(1)
+})

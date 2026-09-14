@@ -338,7 +338,7 @@
     <div id="confirm" class="confirm" role="dialog" aria-modal="true">
       <div class="confirm-card">
         <h2>删除此记录？</h2>
-        <p>删除后无法恢复。相关结果与文件将一并移除。</p>
+        <p id="deleteDescription">删除后无法恢复。相关结果与文件将一并移除。</p>
         <div class="confirm-actions"><button onclick="closeConfirm()">取消</button><button id="confirmDelete" class="confirm-delete">确认删除</button></div>
       </div>
     </div>
@@ -392,7 +392,13 @@
         }
         return '<span class="status pending" title="等待任务开始">等待中</span>';
       }
-      function del(url) { pendingDelete = url; $("#confirm").classList.add("open"); }
+      function del(url) {
+        pendingDelete = url;
+        $("#deleteDescription").textContent = url.startsWith("/publish-requests/")
+          ? "删除后，管理员和申请者的列表都将移除此申请。已发布的墙面不受影响。"
+          : "删除后无法恢复。相关结果与文件将一并移除。";
+        $("#confirm").classList.add("open");
+      }
       function closeConfirm() { pendingDelete = undefined; $("#confirm").classList.remove("open"); }
       // Publish request interactions start
       const publishTargetLabels = { web: "本地 Web", cloudbase: "小程序", cloudflare: "云端 Web" };
@@ -486,16 +492,26 @@
         const detail = item.reason || (typeof item.error === "string" ? item.error : item.error?.message) || "";
         const stateClass = item.status === "published" ? "succeeded" : ["failed", "rejected"].includes(item.status) ? "failed" : item.status === "publishing" ? "running" : "pending";
         const result = item.result || {};
-        const link = safeWallUrl(result.browseUrl) ? `<a href="${escapeText(result.browseUrl)}" target="_blank" rel="noopener">打开已发布墙面</a>` : result.wallId ? `<small class="request-detail">墙面编号：${escapeText(result.wallId)}</small>` : "";
+        const link = safeWallUrl(result.browseUrl) ? `<a href="${escapeText(result.browseUrl)}" target="_blank" rel="noopener">打开已发布墙面</a>` : "";
+        const statusTitle = item.status === "published" && result.wallId ? ` title="墙面编号：${escapeText(result.wallId)}"` : "";
+        const deletion = ["published", "rejected"].includes(item.status)
+          ? `<button class="danger" data-delete-request-id="${id}" ${busy ? "disabled" : ""}>删除</button>` : "";
         const actions = isAdmin && (item.status === "pending" || item.retryable === true)
           ? `<button class="publish" data-review-id="${id}" data-review-action="approve" ${busy ? "disabled" : ""}>${item.status === "pending" ? "通过并发布" : "重试发布"}</button>${item.status === "pending" ? `<button class="danger" data-review-id="${id}" data-review-action="reject" ${busy ? "disabled" : ""}>拒绝</button>` : ""}` : "";
-        return `<tr><td>${escapeText(item.wallName)}</td>${isAdmin ? `<td>${escapeText(item.applicantName || "用户")}</td>` : ""}<td>${escapeText(publishTargetLabels[item.target] || item.target)}</td><td>${time(item.createdAt)}</td><td><span class="status ${stateClass}">${state}</span>${detail ? `<small class="request-detail">${escapeText(detail)}</small>` : ""}${link}</td><td><div class="request-actions"><a href="${escapeText(Lab.api(`/publish-requests/${encodeURIComponent(item.id)}/preview`))}" target="_blank" rel="noopener">查看墙面</a>${actions}</div></td></tr>`;
+        return `<tr><td>${escapeText(item.wallName)}</td>${isAdmin ? `<td>${escapeText(item.applicantName || "用户")}</td>` : ""}<td>${escapeText(publishTargetLabels[item.target] || item.target)}</td><td>${time(item.createdAt)}</td><td><span class="status ${stateClass}"${statusTitle}>${state}</span>${detail ? `<small class="request-detail">${escapeText(detail)}</small>` : ""}${link}</td><td><div class="request-actions"><a href="${escapeText(Lab.api(`/publish-requests/${encodeURIComponent(item.id)}/preview`))}" target="_blank" rel="noopener">查看墙面</a>${actions}${deletion}</div></td></tr>`;
+      }
+      const renderedLists = new Map();
+      function renderList(selector, html) {
+        if (renderedLists.get(selector) === html) return;
+        $(selector).innerHTML = html;
+        renderedLists.set(selector, html);
       }
       function renderPublishRequests() {
-        $("#publishRequestsHead").innerHTML = `<th>墙面</th>${reviewIsAdmin ? "<th>申请人</th>" : ""}<th>目标平台</th><th>申请时间</th><th>状态</th><th>操作</th>`;
-        $("#publishRequests").innerHTML = requestItems.map(item => requestRow(item, reviewIsAdmin)).join("") || `<tr><td colspan="${reviewIsAdmin ? 6 : 5}">暂无跨平台发布申请</td></tr>`;
+        renderList("#publishRequestsHead", `<th>墙面</th>${reviewIsAdmin ? "<th>申请人</th>" : ""}<th>目标平台</th><th>申请时间</th><th>状态</th><th>操作</th>`);
+        renderList("#publishRequests", requestItems.map(item => requestRow(item, reviewIsAdmin)).join("") || `<tr><td colspan="${reviewIsAdmin ? 6 : 5}">暂无跨平台发布申请</td></tr>`);
       }
-      async function loadPublishRequests() {
+      function loadPublishRequests() { return requestsPoll.refresh(); }
+      async function fetchPublishRequests() {
         if (requestsLoading) return;
         requestsLoading = true;
         $("#refreshRequests").disabled = true;
@@ -505,7 +521,9 @@
           reviewIsAdmin = data.isAdmin === true;
           renderPublishRequests();
           $("#publishRequestsMessage").textContent = "";
-        } catch (error) { Lab.report(error, $("#publishRequestsMessage")); }
+          return requestItems.some(item => item.status === "publishing") ? 5000
+            : reviewIsAdmin || requestItems.some(item => item.status === "pending") ? 30000 : 60000;
+        }
         finally { requestsLoading = false; $("#refreshRequests").disabled = false; }
       }
       async function reviewRequest(id, action, reason = "") {
@@ -527,6 +545,11 @@
       }
       $("#refreshRequests").onclick = loadPublishRequests;
       $("#publishRequests").onclick = (event) => {
+        const deleteButton = event.target.closest("button[data-delete-request-id]");
+        if (deleteButton && !deleteButton.disabled) {
+          del(`/publish-requests/${encodeURIComponent(deleteButton.dataset.deleteRequestId)}`);
+          return;
+        }
         const button = event.target.closest("button[data-review-action]");
         if (!button || button.disabled || !reviewIsAdmin) return;
         const id = button.dataset.reviewId;
@@ -549,10 +572,16 @@
       // Publish request interactions end
       $("#confirmDelete").onclick = async () => {
         if (!pendingDelete) return;
-        try { await Lab.request(pendingDelete, { method: "DELETE" }); closeConfirm(); load(); }
+        try {
+          const deletingRequest = pendingDelete.startsWith("/publish-requests/");
+          await Lab.request(pendingDelete, { method: "DELETE" });
+          closeConfirm();
+          if (deletingRequest) await loadPublishRequests();
+          else await load();
+        }
         catch (error) { closeConfirm(); Lab.report(error, $("#previewHint")); }
       };
-      async function load() {
+      async function fetchExperiments() {
         if (loading) return;
         loading = true;
         try {
@@ -565,34 +594,35 @@
         }
         $("#myWallsLink").href = `${Lab.config.loginPath}?panel=my-walls`;
         $("#myWallsLink").hidden = false;
-        $("#images").innerHTML =
-          all
+        renderList("#images", all
             .map(
               (e) =>
                 `<tr><td><a href="${Lab.result(e.id)}?mode=original">${displayName(e.image.name)}</a></td><td>${time(e.createdAt)}</td><td>${e.image.width} × ${e.image.height}</td><td><button class="danger" onclick="del('/experiments/${e.id}')">删除</button></td></tr>`,
             )
-            .join("") || '<tr><td colspan="4">尚无原图</td></tr>';
+            .join("") || '<tr><td colspan="4">尚无原图</td></tr>');
         let runs = all.flatMap((e) =>
           Object.entries(e.runs).map(([id, r]) => ({ e, id, r })),
         ).sort((first, second) => (second.r.updatedAt || 0) - (first.r.updatedAt || 0));
-        $("#runs").innerHTML =
-          runs
+        renderList("#runs", runs
             .map(
               ({ e, id, r }) =>
                 `<tr><td title="${escapeText(id)}">${escapeText(id.slice(0, 8))}</td><td><a href="${Lab.result(e.id)}?mode=original">${displayName(e.image.name)}</a></td><td>${escapeText(modelLabel(r.model || id))}</td><td>${time(r.updatedAt)}</td><td>${runStatus(r)}</td><td>${r.status === "succeeded" ? `<a href="${Lab.result(e.id)}?source=${id}">查看</a>` : (isCloud && (r.status === "failed" || r.status === "timed_out") ? `<button class="publish" onclick='retryRun(${JSON.stringify(e.id)},${JSON.stringify(r.model)},${JSON.stringify(r.parameters || {})})'>重试</button>` : "—")}</td><td><button class="danger" onclick="del('/experiments/${e.id}/runs/${id}')">删除</button></td></tr>`,
             )
-            .join("") || '<tr><td colspan="7">尚无任务</td></tr>';
+            .join("") || '<tr><td colspan="7">尚无任务</td></tr>');
+        return runs.some(({ r }) => !["succeeded", "failed", "timed_out"].includes(r.status)) ? 5000 : 60000;
+        } finally { loading = false; }
+      }
+      async function fetchCalibrations() {
         let c = await (await Lab.request("/calibrations")).json();
-        if (pendingPublish || pendingDelete) return;
+        if (pendingPublish || pendingDelete) return 1000;
         let calibrations = c.items.sort((first, second) => (second.updatedAt || 0) - (first.updatedAt || 0));
-        $("#calibrations").innerHTML =
-          calibrations
+        renderList("#calibrations", calibrations
             .map((x) => {
               const source = x.sourceTaskId ? escapeText(x.sourceTaskId.slice(0, 8)) : "已删除任务";
               return `<tr><td>${source}</td><td>${time(x.updatedAt)}</td><td>${x.candidateCount}</td><td><a href="${Lab.calibration(`experiment=${encodeURIComponent(x.experimentId)}&calibration=${encodeURIComponent(x.id)}`)}">校准</a></td><td><a href="${Lab.api(`/experiments/${x.experimentId}/calibrations/${x.id}/export.svg`)}">SVG</a></td><td><button class="publish" onclick="publishCalibration('${x.experimentId}','${x.id}',this)">发布</button></td><td><button class="danger" onclick="del('/experiments/${x.experimentId}/calibrations/${x.id}')">删除</button></td></tr>`;
             })
-            .join("") || '<tr><td colspan="6">尚无校准结果</td></tr>';
-        } catch (error) { Lab.report(error, $("#previewHint")); } finally { loading = false; }
+            .join("") || '<tr><td colspan="6">尚无校准结果</td></tr>');
+        return 60000;
       }
       function modelLabel(name) { return ({sam2: "SAM 2.1", sam2_tiled: "SAM 2.1（分块）", sam3: "SAM 3"})[name] || name; }
       async function models() {
@@ -721,15 +751,15 @@
       $("#calibrationLink").href = Lab.calibration();
       if (!isCloud) { $("#publishTarget").innerHTML = '<option value="web">本地 Web</option>'; }
       if (isCloud) { $("#publishTarget").innerHTML = '<option value="cloudflare">Cloudflare 云端 Web</option>'; }
+      const pollingPaused = () => pendingPublish || pendingDelete || pendingRejection || $("#runModal").classList.contains("open");
+      const listError = error => Lab.report(error, $("#previewHint"));
+      const experimentsPoll = Lab.createPoller(fetchExperiments, listError, pollingPaused);
+      const calibrationsPoll = Lab.createPoller(fetchCalibrations, listError, pollingPaused);
+      const requestsPoll = Lab.createPoller(fetchPublishRequests, error => Lab.report(error, $("#publishRequestsMessage")), pollingPaused);
+      function load() { return Promise.all([experimentsPoll.refresh(), calibrationsPoll.refresh()]); }
       load();
       models();
       loadPublishRequests();
-      setInterval(() => {
-        if (!pendingPublish && !pendingDelete && !pendingRejection && !$("#runModal").classList.contains("open")) {
-          if (isCloud) load();
-          loadPublishRequests();
-        }
-      }, 5000);
     </script>
   </body>
 </html>

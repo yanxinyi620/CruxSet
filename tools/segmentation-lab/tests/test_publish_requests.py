@@ -183,3 +183,36 @@ def test_crashed_publishing_list_advertises_safe_retry(tmp_path):
     from segmentation_lab.publish_requests import PublishRequests
     with PublishRequests(tmp_path / 'publish-requests').lock(item['id']):
         assert admin.get('/api/publish-requests').json()['items'][0]['retryable'] is False
+
+
+@pytest.mark.parametrize('status', ['published', 'rejected'])
+@pytest.mark.parametrize('actor', ['member', 'admin'])
+def test_delete_completed_request_removes_it_for_both_parties(tmp_path, status, actor):
+    settings, member, admin, eid, cid, url = setup(tmp_path)
+    item = submit(member, url)
+    path = '/api/publish-requests/' + item['id']
+    record = tmp_path / 'publish-requests' / item['id'] / 'request.json'
+    data = json.loads(record.read_text())
+    data.update(status=status, result={'wallId': 'keep-wall'})
+    record.write_text(json.dumps(data))
+    other = TestClient(member.app, user_id='other', is_admin=False)
+    assert other.delete(path).status_code == 404
+    assert (member if actor == 'member' else admin).delete(path).status_code == 204
+    for client in [member, admin, TestClient(create_app(settings))]:
+        assert client.get('/api/publish-requests').json()['items'] == []
+        assert client.get(path + '/preview').status_code == 404
+        assert client.get(path + '/image').status_code == 404
+    assert admin.post(path + '/approve').status_code == 404
+    assert json.loads(record.read_text())['result']['wallId'] == 'keep-wall'
+    if status == 'published':
+        assert submit(member, url)['id'] == item['id']
+
+
+@pytest.mark.parametrize('status', ['pending', 'publishing', 'failed'])
+def test_cannot_delete_unfinished_request(tmp_path, status):
+    _, member, admin, _, _, url = setup(tmp_path)
+    item = submit(member, url)
+    record = tmp_path / 'publish-requests' / item['id'] / 'request.json'
+    data = json.loads(record.read_text()); data['status'] = status; record.write_text(json.dumps(data))
+    assert admin.delete('/api/publish-requests/' + item['id']).status_code == 409
+    assert len(member.get('/api/publish-requests').json()['items']) == 1

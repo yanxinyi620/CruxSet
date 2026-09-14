@@ -14,6 +14,7 @@ function page() {
     escapeText:(v:unknown)=>String(v ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!)),time:()=> '日期'})
   const script = html().split('// Publish request interactions start')[1]?.split('// Publish request interactions end')[0]
   expect(script).toBeTruthy()
+  context.requestsPoll = {refresh: () => vm.runInContext("fetchPublishRequests()", context)}
   vm.runInContext(script!,context)
   return {$,request,run:(s:string)=>vm.runInContext(s,context)}
 }
@@ -80,4 +81,42 @@ describe('lab cross-platform publication interactions', () => {
     await p.run('reviewRequest("r","reject","岩点需要调整")')
     expect(p.request).toHaveBeenCalledWith('/publish-requests/r/reject',expect.objectContaining({body:JSON.stringify({reason:'岩点需要调整'})}))
   })
+})
+
+it('offers matching danger delete buttons only for completed requests and hides wall IDs in status tooltips', () => {
+  const p=page()
+  for (const admin of [true,false]) {
+    for (const status of ['published','rejected','pending','publishing','failed']) {
+      const row=p.run(`requestRow(${JSON.stringify({id:'r',status,result:{wallId:'wall-123'}})},${admin})`)
+      expect(row.includes('data-delete-request-id="r"')).toBe(['published','rejected'].includes(status))
+      if (['published','rejected'].includes(status)) expect(row).toContain('class="danger"')
+      if (status==='published') {
+        expect(row).toContain('title="墙面编号：wall-123"')
+        expect(row.replace(/<[^>]*>/g,'')).not.toContain('wall-123')
+      }
+    }
+  }
+})
+
+it('uses confirmation for applicant deletion and refreshes only the request list afterward', async () => {
+  const nodes=new Map<string,any>()
+  const $=(key:string)=>{
+    if(!nodes.has(key)) nodes.set(key,{textContent:'',disabled:false,classList:{add:vi.fn(),remove:vi.fn()}})
+    return nodes.get(key)
+  }
+  const request=vi.fn().mockResolvedValue({}), refresh=vi.fn(), load=vi.fn()
+  const context=vm.createContext({$,Lab:{request,report:vi.fn()},load,loadPublishRequests:refresh})
+  const confirmFunctions=html().slice(html().indexOf('      function del(url)'),html().indexOf('      // Publish request interactions start'))
+  vm.runInContext('let pendingDelete;'+confirmFunctions,context)
+  vm.runInContext('del("/publish-requests/r")',context)
+  expect(request).not.toHaveBeenCalled()
+  expect($('#deleteDescription').textContent).toContain('已发布的墙面不受影响')
+  const deleteHandler=html().slice(html().indexOf('      $("#confirmDelete").onclick'),html().indexOf('      async function fetchExperiments'))
+  vm.runInContext(deleteHandler,context)
+  await $('#confirmDelete').onclick()
+  expect(request).toHaveBeenCalledWith('/publish-requests/r',{method:'DELETE'})
+  expect(refresh).toHaveBeenCalledOnce()
+  expect(load).not.toHaveBeenCalled()
+  vm.runInContext('del("/experiments/e")',context)
+  expect($('#deleteDescription').textContent).toContain('相关结果与文件将一并移除')
 })

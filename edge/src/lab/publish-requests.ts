@@ -119,12 +119,13 @@ export async function approvePublishRequest(
 ) {
   await reconcilePublishRequests(env, id)
   const prior = await env.DB.prepare('SELECT * FROM lab_publish_requests WHERE id=?').bind(id).first<Row>()
+  if (prior?.deleted_at != null) fail('NOT_FOUND', '发布申请不存在。', 404)
   if (prior?.status === 'published') return prior
   if (String(prior?.error || '').includes('目标墙面已删除')) fail('WALL_DELETED','目标墙面已删除，原申请不能重新发布。',409)
   const token = crypto.randomUUID(),
     now = Date.now()
   const row = await env.DB.prepare(
-    "UPDATE lab_publish_requests SET status='publishing',lease_token=?,lease_until=?,error=NULL,reviewer_id=?,reviewed_at=? WHERE id=? AND (status IN ('pending','failed') OR (status='publishing' AND lease_until<=?)) RETURNING *",
+    "UPDATE lab_publish_requests SET status='publishing',lease_token=?,lease_until=?,error=NULL,reviewer_id=?,reviewed_at=? WHERE id=? AND deleted_at IS NULL AND (status IN ('pending','failed') OR (status='publishing' AND lease_until<=?)) RETURNING *",
   )
     .bind(token, now + 600000, reviewerId, now, id, now)
     .first<Row>()
@@ -182,23 +183,30 @@ export async function publishRequestRoutes(
       FROM lab_publish_requests r
       LEFT JOIN users u ON u.id=r.applicant_id
       LEFT JOIN admins a ON a.user_id=r.applicant_id
-      WHERE r.requires_review=1${admin ? '' : ' AND r.applicant_id=?'}
+      WHERE r.requires_review=1 AND r.deleted_at IS NULL${admin ? '' : ' AND r.applicant_id=?'}
       ORDER BY r.created_at DESC`
     const statement = env.DB.prepare(query)
     const rows = await (admin ? statement : statement.bind(user.id)).all<Row>()
     return json({ items: rows.results.map(requestView), isAdmin: admin })
   }
   const m = path.match(
-    /^\/publish-requests\/([\w-]+)\/(preview|image|approve|reject)$/,
+    /^\/publish-requests\/([\w-]+)(?:\/(preview|image|approve|reject))?$/,
   )
   if (!m) return null
   const r = await env.DB.prepare(
-    'SELECT * FROM lab_publish_requests WHERE id=? AND requires_review=1',
+    'SELECT * FROM lab_publish_requests WHERE id=? AND requires_review=1 AND deleted_at IS NULL',
   )
     .bind(m[1])
     .first<Row>()
   if (!r || (!admin && r.applicant_id !== user.id))
     fail('NOT_FOUND', '发布申请不存在。', 404)
+  if (request.method === 'DELETE' && !m[2]) {
+    const deleted = await env.DB.prepare(
+      "UPDATE lab_publish_requests SET deleted_at=? WHERE id=? AND deleted_at IS NULL AND status IN ('published','rejected') RETURNING id",
+    ).bind(Date.now(), r.id).first<Row>()
+    if (!deleted) fail('CONFLICT', '仅已发布或已拒绝的申请可以删除。', 409)
+    return new Response(null, {status: 204})
+  }
   if (request.method === 'GET' && m[2] === 'image')
     return objectResponse(env, r.snapshot_key + 'display.webp', 'image/webp')
   if (request.method === 'GET' && m[2] === 'preview') {
@@ -238,7 +246,7 @@ export async function publishRequestRoutes(
       reason = String(b.reason ?? '').trim()
     if (reason.length > 300) fail('INVALID_INPUT', '拒绝原因不能超过 300 字。')
     const updated = await env.DB.prepare(
-      "UPDATE lab_publish_requests SET status='rejected',reason=?,reviewer_id=?,reviewed_at=? WHERE id=? AND status='pending' RETURNING *",
+      "UPDATE lab_publish_requests SET status='rejected',reason=?,reviewer_id=?,reviewed_at=? WHERE id=? AND deleted_at IS NULL AND status='pending' RETURNING *",
     )
       .bind(reason, user.id, Date.now(), r.id)
       .first<Row>()

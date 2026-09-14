@@ -9,7 +9,7 @@ import time
 from uuid import uuid4
 
 from fastapi import Body, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, Response
 
 from .cloudbase_sync import build_normalized_holds
 from .ownership import IDENTIFIER
@@ -79,7 +79,7 @@ def install_publish_requests(app, store, settings, publish):
     def accessible(request, request_id):
         item = requests.read(request_id)
         actor = request.state.actor
-        if not actor['isAdmin'] and item['applicantId'] != actor['userId']:
+        if item.get('deletedAt') is not None or (not actor['isAdmin'] and item['applicantId'] != actor['userId']):
             raise HTTPException(404, 'Publish request not found.')
         return item
 
@@ -90,7 +90,7 @@ def install_publish_requests(app, store, settings, publish):
     @app.get('/api/publish-requests')
     def list_requests(request: Request):
         actor = request.state.actor
-        return {'items': [public(item) for item in requests.items() if actor['isAdmin'] or item['applicantId'] == actor['userId']], 'isAdmin': actor['isAdmin']}
+        return {'items': [public(item) for item in requests.items() if item.get('deletedAt') is None and (actor['isAdmin'] or item['applicantId'] == actor['userId'])], 'isAdmin': actor['isAdmin']}
 
     @app.post('/api/experiments/{experiment_id}/calibrations/{calibration_id}/publish-requests', status_code=201)
     def create_request(experiment_id: str, calibration_id: str, request: Request, payload: dict = Body(...)):
@@ -122,6 +122,18 @@ def install_publish_requests(app, store, settings, publish):
             requests.write(item)
             return public(item)
 
+    @app.delete('/api/publish-requests/{request_id}', status_code=204)
+    def delete_request(request_id: str, request: Request):
+        accessible(request, request_id)
+        with requests.lock(request_id):
+            item = accessible(request, request_id)
+            if item['status'] not in {'published', 'rejected'}:
+                raise HTTPException(409, 'Only published or rejected requests can be deleted.')
+            # Keep the receipt to prevent submitting the same calibration twice.
+            item['deletedAt'] = time.time()
+            requests.write(item)
+        return Response(status_code=204)
+
     @app.get('/api/publish-requests/{request_id}/image')
     def image(request_id: str, request: Request):
         item = accessible(request, request_id)
@@ -140,7 +152,7 @@ def install_publish_requests(app, store, settings, publish):
         admin_only(request)
         accessible(request, request_id)
         with requests.lock(request_id):
-            item = requests.read(request_id)
+            item = accessible(request, request_id)
             if item['status'] == 'published':
                 return public(item)
             if item['status'] == 'rejected':
@@ -166,7 +178,7 @@ def install_publish_requests(app, store, settings, publish):
             raise HTTPException(422, 'Reason must be at most 300 characters without control characters.')
         reason = reason.strip()
         with requests.lock(request_id):
-            item = requests.read(request_id)
+            item = accessible(request, request_id)
             if item['status'] in {'publishing', 'published', 'failed'}:
                 # A failed remote attempt can have committed before a timeout.
                 raise HTTPException(409, 'A started publication must be recovered through approval.')
