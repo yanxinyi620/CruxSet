@@ -25,6 +25,38 @@
             "source.experimentId",
             "source.calibrationId"
           ]
+        },
+        {
+          "fields": [
+            "updatedAt",
+            "id"
+          ],
+          "order": "desc"
+        },
+        {
+          "fields": [
+            "visibility",
+            "updatedAt",
+            "id"
+          ],
+          "order": "desc"
+        },
+        {
+          "fields": [
+            "ownerId",
+            "updatedAt",
+            "id"
+          ],
+          "order": "desc"
+        },
+        {
+          "fields": [
+            "ownerId",
+            "visibility",
+            "updatedAt",
+            "id"
+          ],
+          "order": "desc"
         }
       ]
     },
@@ -48,6 +80,13 @@
           "fields": [
             "createdBy"
           ]
+        },
+        {
+          "fields": [
+            "createdBy",
+            "number"
+          ],
+          "order": "asc"
         }
       ]
     },

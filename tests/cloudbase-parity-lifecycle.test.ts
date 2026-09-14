@@ -8,8 +8,8 @@ function runtime(name: string, initial: Record<string, any[]> = {}) {
  const rows: Record<string, any[]> = {users:[{id:'u',openid:'secret',displayName:'Admin'}],admins:[{userId:'u'}],walls:[],problems:[],...initial}
  function collection(name: string) {
   rows[name] ||= []
-  let filter:any={}, offset=0, size=20
-  const q:any={async count(){return {total:rows[name].filter(x=>Object.entries(filter).every(([k,v])=>x[k]===v)).length}},where(f:any){filter=f;return q},orderBy(){return q},skip(n:number){offset=n;return q},limit(n:number){size=n;return q},async get(){return {data:rows[name].filter(x=>Object.entries(filter).every(([k,v])=>x[k]===v)).slice(offset,offset+size).map(x=>({...x}))}},doc(id:string){return {async get(){return {data:rows[name].find(x=>(x.id||x._id)===id)}},async set({data}:any){rows[name]=rows[name].filter(x=>(x.id||x._id)!==id);rows[name].push({...data,_id:id})},async update({data}:any){Object.assign(rows[name].find(x=>(x.id||x._id)===id),data)},async remove(){rows[name]=rows[name].filter(x=>(x.id||x._id)!==id)}}},async update({data}:any){for(const r of rows[name].filter(x=>Object.entries(filter).every(([k,v])=>x[k]===v)))Object.assign(r,data)}};return q
+  let filter:any={}, offset=0, size=20; const ordering:Array<[string,string]>=[]
+  const q:any={async count(){return {total:rows[name].filter(x=>Object.entries(filter).every(([k,v])=>x[k]===v)).length}},where(f:any){filter=f;return q},orderBy(key:string,direction:string){ordering.push([key,direction]);return q},skip(n:number){offset=n;return q},limit(n:number){size=n;return q},async get(){return {data:rows[name].filter(x=>Object.entries(filter).every(([k,v])=>x[k]===v)).sort((a,b)=>{for(const [key,direction] of ordering){if(a[key]===undefined||b[key]===undefined)continue;const n=a[key]<b[key]?-1:a[key]>b[key]?1:0;if(n)return direction==='desc'?-n:n}return 0}).slice(offset,offset+size).map(x=>({...x}))}},doc(id:string){return {async get(){return {data:rows[name].find(x=>(x.id||x._id)===id)}},async set({data}:any){rows[name]=rows[name].filter(x=>(x.id||x._id)!==id);rows[name].push({...data,_id:id})},async update({data}:any){Object.assign(rows[name].find(x=>(x.id||x._id)===id),data)},async remove(){rows[name]=rows[name].filter(x=>(x.id||x._id)!==id)}}},async update({data}:any){for(const r of rows[name].filter(x=>Object.entries(filter).every(([k,v])=>x[k]===v)))Object.assign(r,data)}};return q
  }
  const transactionOperations:number[]=[]
  const makeTransaction=()=>{
@@ -207,4 +207,14 @@ it.each([-5,3,75,NaN,'20',null])('rejects invalid angle %s on create and edit', 
  await expect(r.main({wallId:'w',draft})).rejects.toThrow('INVALID_ROUTE_METADATA')
  const update=runtime('updateProblem',{walls:[wall],problems:[{id:'p',wallId:'w',createdBy:'u'}]})
  await expect(update.main({id:'p',draft})).rejects.toThrow('INVALID_ROUTE_METADATA')
+})
+
+it.each(['listBrowseWalls','listMyWalls','listAdminWalls'])('orders walls by update time for %s',async action=>{
+ const walls=[{id:'a',updatedAt:20},{id:'z',updatedAt:10},{id:'b',updatedAt:20}].map(w=>({...w,ownerId:'u',visibility:'public',name:w.id,holds:[{},{}]}))
+ const r=runtime('wallManager',{walls})
+ expect((await r.main({action})).map((w:{id:string})=>w.id)).toEqual(['b','a','z'])
+})
+it('orders my routes by number regardless of creation time',async()=>{
+ const r=runtime('wallManager',{problems:[{id:'p2',number:'002',createdAt:20,createdBy:'u'},{id:'p1',number:'001',createdAt:10,createdBy:'u'}]})
+ expect((await r.main({action:'listMyProblems'})).map((p:{number:string})=>p.number)).toEqual(['001','002'])
 })

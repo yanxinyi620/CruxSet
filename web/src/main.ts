@@ -718,8 +718,8 @@ const render = async () => {
         : route.name === "me"
           ? "me"
           : "browse",
-    publicWalls = (await store.session.listWalls()).sort((a, b) => b.updatedAt - a.updatedAt || b.createdAt - a.createdAt),
-    mine = (await store.session.listMyWalls()).sort((a, b) => b.updatedAt - a.updatedAt || b.createdAt - a.createdAt),
+    publicWalls = (await store.session.listWalls()).sort((a, b) => b.updatedAt - a.updatedAt || b.id.localeCompare(a.id)),
+    mine = (await store.session.listMyWalls()).sort((a, b) => b.updatedAt - a.updatedAt || b.id.localeCompare(a.id)),
     problems = await store.session.listProblems(),
     myProblems = problems.filter((problem) => problem.createdBy === profileUserId),
     drafts = mine.filter((wall) => wall.visibility === "private"),
@@ -781,7 +781,7 @@ const render = async () => {
     ? `${back}<h1>管理中心</h1><p class="admin-empty">没有管理权限。</p>`
     : (() => {
         const usersById = new Map(adminUsers.map((user) => [user.id, adminUserCard(user)]));
-        const walls = [...adminWalls].sort((a, b) => b.createdAt - a.createdAt || b.updatedAt - a.updatedAt);
+        const walls = [...adminWalls].sort((a, b) => b.updatedAt - a.updatedAt || b.id.localeCompare(a.id));
         const wallCards = walls.map((wall) => {
           const owner = usersById.get(wall.ownerId);
           const number = (wall as Wall & { wallNumber?: number }).wallNumber;

@@ -76,7 +76,7 @@ exports.main = async event => {
   if (!actor) fail('LOGIN_REQUIRED')
   if (!(await db.collection('admins').where({ userId: actor.id }).limit(1).get()).data.length) fail('FORBIDDEN')
   const { action, data = {} } = event || {}
-  if (action === 'listDrafts') return (await all(db.collection('walls').where({ ownerId: actor.id, visibility: 'private' }).orderBy('updatedAt', 'desc'))).filter(w => !w.deleting && !w.published)
+  if (action === 'listDrafts') return (await all(db.collection('walls').where({ ownerId: actor.id, visibility: 'private' }).orderBy('updatedAt', 'desc').orderBy('id', 'desc'))).filter(w => !w.deleting && !w.published)
   if (action === 'uploadImage') {
     const id = requestKey(actor.id, data.requestId)
     const info = imageInfo(data)

@@ -67,7 +67,7 @@ exports.main = async event => {
     return makeSafeSession({ ...actor.user, displayName }, actor.isAdmin)
   }
   if (action === 'listBrowseWalls') {
-    const walls = (await all(db.collection('walls').where({ visibility: 'public' }).orderBy('name', 'asc'))).filter(wall => !wall.deleting && Array.isArray(wall.holds) && wall.holds.length >= 2)
+    const walls = (await all(db.collection('walls').where({ visibility: 'public' }).orderBy('updatedAt', 'desc').orderBy('id', 'desc'))).filter(wall => !wall.deleting && Array.isArray(wall.holds) && wall.holds.length >= 2)
     // Count in the database so pagination never truncates the displayed total.
     for (let offset = 0; offset < walls.length; offset += 10) {
       await Promise.all(walls.slice(offset, offset + 10).map(async wall => {
@@ -81,10 +81,10 @@ exports.main = async event => {
       problemCount: wall.problemCount,
     }))
   }
-  if (action === 'listMyWalls') return (await all(db.collection('walls').where({ ownerId: actor.user.id }).orderBy('updatedAt', 'desc'))).map(managementWallSummary)
+  if (action === 'listMyWalls') return (await all(db.collection('walls').where({ ownerId: actor.user.id }).orderBy('updatedAt', 'desc').orderBy('id', 'desc'))).map(managementWallSummary)
   if (action === 'listAdminWalls') {
     if (!actor.isAdmin) throw new Error('FORBIDDEN')
-    return (await all(db.collection('walls').orderBy('updatedAt', 'desc'))).map(managementWallSummary)
+    return (await all(db.collection('walls').orderBy('updatedAt', 'desc').orderBy('id', 'desc'))).map(managementWallSummary)
   }
   if (action === 'getWall') return wallAccess(db, data.id, actor)
   if (action === 'listProblems') {
@@ -95,7 +95,7 @@ exports.main = async event => {
     return Promise.all(problems.map(async problem => withSafeSetterName(problem, await findUser(db, problem.createdBy))))
   }
   if (action === 'listMyProblems') {
-    const problems = await all(db.collection('problems').where({ createdBy: actor.user.id }).orderBy('createdAt', 'desc'))
+    const problems = await all(db.collection('problems').where({ createdBy: actor.user.id }).orderBy('number', 'asc'))
     return problems.map(problem => withSafeSetterName(problem, actor.user))
   }
   if (action === 'listUsers') {

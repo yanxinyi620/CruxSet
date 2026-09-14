@@ -10,7 +10,7 @@ export async function publishCalibration(
 ) {
   if (c.publish) {
     const receipt = JSON.parse(c.publish)
-    const wall = await env.DB.prepare("UPDATE walls SET published=1,visibility='public',updated_at=? WHERE id=? AND owner_id=? RETURNING id")
+    const wall = await env.DB.prepare("UPDATE walls SET published=1,visibility='public',updated_at=CASE WHEN published=1 AND visibility='public' THEN updated_at ELSE ? END WHERE id=? AND owner_id=? RETURNING id")
       .bind(Date.now(),receipt.wallId,owner).first()
     if (!wall) fail('NOT_FOUND','已发布墙面已删除，请保存新的校准后发布。',404)
     return json(receipt)
