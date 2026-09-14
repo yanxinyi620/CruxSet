@@ -34,3 +34,25 @@ web/dist-local/
 
 # Local UI audit screenshots and comparison gallery
 output/playwright/
+
+# Experiment output: keep only reviewed report artifacts in Git.
+/output/*
+!/output/sam21-baseline-2026-09-13/
+/output/sam21-baseline-2026-09-13/*
+!/output/sam21-baseline-2026-09-13/SAM21-report.md
+!/output/sam21-baseline-2026-09-13/README-report.md
+!/output/sam21-baseline-2026-09-13/recommended-baseline.json
+!/output/sam21-baseline-2026-09-13/summary.csv
+!/output/sam21-baseline-2026-09-13/summary.json
+!/output/sam21-baseline-2026-09-13/design.md
+!/output/sam21-baseline-2026-09-13/evaluate.py
+!/output/sam21-baseline-2026-09-13/requirements-evaluation.txt
+!/output/sam21-baseline-2026-09-13/repeat-consistency.json
+!/output/sam21-baseline-2026-09-13/comparison.png
+!/output/sam21-baseline-2026-09-13/A01-default/
+/output/sam21-baseline-2026-09-13/A01-default/*
+!/output/sam21-baseline-2026-09-13/A01-default/overlay.png
+!/output/sam21-baseline-2026-09-13/C03-whole64-balanced/
+/output/sam21-baseline-2026-09-13/C03-whole64-balanced/*
+!/output/sam21-baseline-2026-09-13/C03-whole64-balanced/overlay.png
+!/output/sam21-baseline-2026-09-13/C03-whole64-balanced/error-details.png

@@ -1,0 +1,28 @@
+{
+  "model": "sam2",
+  "model_id": "facebook/sam2.1-hiera-large",
+  "revision": "665f8e2ad61cf5f53d65644ff27c8ee525124610",
+  "parameters": {
+    "points_per_side": 64,
+    "points_per_batch": 8,
+    "pred_iou_thresh": 0.83,
+    "stability_score_thresh": 0.92,
+    "crop_n_layers": 0
+  },
+  "reference_wall_id": "wall_9_PJELYaPR6p",
+  "source_experiment_id": "748997f6-aa29-47bd-bad4-b56a888a534a",
+  "task_id": "1e071469-21d0-4e99-8548-267086b10c5b",
+  "github_run_url": "https://github.com/yanxinyi620/CruxSet/actions/runs/34748674339",
+  "metrics": {
+    "candidates": 354,
+    "tp": 335,
+    "fp": 19,
+    "fn": 34,
+    "precision": 0.9463276836158192,
+    "recall": 0.907859078590786,
+    "f1": 0.9266943291839558,
+    "f1_strict": 0.9183955739972337,
+    "mean_iou": 0.9603047916561385,
+    "pq": 0.8899090047159236
+  }
+}

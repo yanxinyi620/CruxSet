@@ -1,0 +1,19 @@
+{
+  "base": "C03-whole64-balanced",
+  "comparisons": {
+    "R01-repeat": {
+      "base_count": 354,
+      "repeat_count": 354,
+      "matching_polygons_at_iou99": 354,
+      "matched_mean_iou": 1.0,
+      "all_rasterized_polygons_identical": true
+    },
+    "R02-batch4": {
+      "base_count": 354,
+      "repeat_count": 354,
+      "matching_polygons_at_iou99": 354,
+      "matched_mean_iou": 1.0,
+      "all_rasterized_polygons_identical": true
+    }
+  }
+}
