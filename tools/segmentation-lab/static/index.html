@@ -360,7 +360,7 @@
         <div class="confirm-actions"><button id="rejectCancel">取消</button><button id="rejectSubmit" class="confirm-delete">确认拒绝</button></div>
       </div>
     </div>
-    <div id="runModal" class="run-modal" role="dialog" aria-modal="true"><div class="run-card"><h2 id="runTitle">配置分割任务</h2><label>墙图<select id="runImage"></select></label><div class="row"><button onclick="preset('base')">基线</button><button onclick="preset('recall')">少漏检</button><button onclick="preset('dense')">密集墙</button></div><div id="runFields"><label>点密度<input id="runPoints" value="48" type="number"></label><label>批量<input id="runBatch" value="8" type="number"></label><label>IoU<input id="runIou" value="0.85" step=".01" type="number"></label><label>稳定度<input id="runStable" value="0.90" step=".01" type="number"></label><label>裁剪层<input id="runCrop" value="0" type="number"></label></div><p id="runCropNote" class="note"></p><div class="confirm-actions"><button onclick="closeRun()">取消</button><button id="runConfirm" class="primary">确认并运行</button></div></div></div>
+    <div id="runModal" class="run-modal" role="dialog" aria-modal="true"><div class="run-card"><h2 id="runTitle">配置分割任务</h2><label>墙图<select id="runImage"></select></label><div class="row"><button onclick="preset('base')">基线（推荐）</button><button onclick="preset('recall')">少漏检</button><button onclick="preset('precision')">少误检</button></div><div id="runFields"><label>点密度<input id="runPoints" value="64" type="number"></label><label>批量<input id="runBatch" value="8" type="number"></label><label>IoU<input id="runIou" value="0.83" step=".01" type="number"></label><label>稳定度<input id="runStable" value="0.92" step=".01" type="number"></label><label>裁剪层<input id="runCrop" value="0" type="number"></label></div><p id="runCropNote" class="note"></p><div class="confirm-actions"><button onclick="closeRun()">取消</button><button id="runConfirm" class="primary">确认并运行</button></div></div></div>
     <script src="/runtime-config.js"></script>
     <script src="/runtime.js"></script>
     <script>
@@ -370,7 +370,7 @@
       let pendingDelete;
       let selectedModel;
       let loading = false;
-      const presets={base:[48,8,.85,.90,1],recall:[64,4,.78,.85,1],dense:[64,4,.78,.82,2]};
+      const presets={base:[64,8,.83,.92,0],recall:[64,8,.75,.90,0],precision:[64,8,.85,.95,0]};
       function time(v) {
         return v ? new Date(v * 1000).toLocaleString() : "—";
       }
@@ -603,7 +603,10 @@
           publishCapabilitiesReady = true;
           if (pendingPublish) updatePublishIntent();
         }
-        if (isCloud) d.items = d.items.filter((x) => ["sam2", "sam2_tiled"].includes(x.name));
+        d.items = [
+          ...d.items.filter((x) => x.name === "sam2"),
+          {name: "sam3", available: false},
+        ];
         $("#modelsCount").textContent =
           `可用 ${d.items.filter((x) => x.available).length} 个模型`;
         $("#models").innerHTML = d.items

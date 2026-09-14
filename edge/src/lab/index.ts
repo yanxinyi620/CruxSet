@@ -92,10 +92,10 @@ export async function handleLab(
         isAdmin: user.role === 'admin',
         publishTargets: ['cloudflare', 'cloudbase'],
         requestTargets: user.role === 'admin' ? [] : ['cloudbase'],
-        items: ['sam2', 'sam2_tiled'].map((name) => ({
+        items: ['sam2', 'sam3'].map((name) => ({
           name,
-          available: configured(env),
-          reason: configured(env) ? null : 'actions_not_configured',
+          available: name === 'sam2' && configured(env),
+          reason: name === 'sam3' ? 'not_supported' : configured(env) ? null : 'actions_not_configured',
           device: 'cpu',
         })),
       })
