@@ -8,7 +8,7 @@
 - [x] Add edge/migrations/0010_lab_access.sql: `ALTER TABLE admins ADD COLUMN lab_enabled INTEGER NOT NULL DEFAULT 0 CHECK (lab_enabled IN (0,1));`. Create focused edge/src/lab-access.ts helpers and administrator endpoint. Read lab_enabled in session/auth projections; replace lab administrator gate with effective grant, expose capabilities and no-store responses.
 - [x] Parameterize the existing complete runner/calibration/publication test for administrator and authorized member. Assert public wall ownership and denial after revocation; retain all runner and ownership checks.
 - [x] Extend tests/admin-management.test.ts, tests/web-api-client.test.ts and tests/segmentation-lab-web.test.ts for permission actions, same-origin requests and 401/403 distinctions. Observe failures, then implement typed API action, member role labels, management controls, capability-only lab entry and accurate permission errors.
-- [x] Update docs/segmentation-cloud.md and docs/testing.md with granting, revocation, migration and same-origin session behavior. Check all changed code for unintended privilege expansion.
+- [x] Update docs/guides/segmentation-cloud.md and docs/testing.md with granting, revocation, migration and same-origin session behavior. Check all changed code for unintended privilege expansion.
 - [x] Run `npm test`, `npm run build`, `npx tsc -p web/tsconfig.json`, `npm run edge:typecheck`, `npm run web:build`, `npm run edge:build`, and `npm run verify:phase1`. Inspect diff and report migration/deployment requirements without deploying production.
 
 ## Verification record

@@ -12,9 +12,9 @@ Cloudflare Web：web/dist       → Workers           → D1 + R2（MEDIA 绑定
 
 | 形态 | 主要能力 | 使用与部署 |
 | --- | --- | --- |
-| 微信小程序 | 浏览与全屏预览线路，管理自己的线路和墙面；管理员上传、标注、发布墙面及管理全站内容 | [小程序 CloudBase](docs/miniprogram-cloudbase.md) |
-| 本地 Web | 管理员墙面创作、标注和发布；线路管理；共享本地账户的分割实验台 | [本地 Web](docs/local-web.md) |
-| Cloudflare Web | 注册登录、资料与线路管理；管理员墙面创作；创作者使用云端实验台并管理自己的公开墙面 | [Cloudflare 部署](docs/cloudflare-edge-deployment.md) |
+| 微信小程序 | 浏览与全屏预览线路，管理自己的线路和墙面；管理员上传、标注、发布墙面及管理全站内容 | [小程序 CloudBase](docs/guides/miniprogram-cloudbase.md) |
+| 本地 Web | 管理员墙面创作、标注和发布；线路管理；共享本地账户的分割实验台 | [本地 Web](docs/guides/local-web.md) |
+| Cloudflare Web | 注册登录、资料与线路管理；管理员墙面创作；创作者使用云端实验台并管理自己的公开墙面 | [Cloudflare 部署](docs/guides/cloudflare-edge-deployment.md) |
 
 三套账户、授权与数据各自独立，不会自动同步。分割实验台可按权限显式发布到指定目标；发布不等于同步。
 
@@ -26,7 +26,7 @@ Cloudflare Web：web/dist       → Workers           → D1 + R2（MEDIA 绑定
 | --- | --- | --- |
 | 计算位置 | 独立本机 Python 进程（8765），经 FastAPI 鉴权访问 | GitHub Actions；Worker 管理任务、权限与文件 |
 | 数据 | 本地实验目录 | D1 元数据与私有 R2 实验对象 |
-| 模型 | SAM2、SAM2 tiled；SAM3 需配置 | SAM2、SAM2 tiled |
+| 模型入口 | SAM 2.1 可选；SAM 3 显示但禁用 | SAM 2.1 可选；SAM 3 显示但禁用 |
 | 发布目标 | 创作者发布到本地 Web；管理员可额外选择配置好的 CloudBase、Cloudflare | 当前 Cloudflare 站点 |
 | 数量额度 | 不应用云端数量额度 | 创作者保留图片 10 张、任务 20 个、每日任务 20 次、公开墙面 10 面；所有账户同时排队或运行最多 2 个任务 |
 
@@ -34,7 +34,9 @@ Cloudflare Web：web/dist       → Workers           → D1 + R2（MEDIA 绑定
 
 实验台 **04 人工校准**的校准按钮右侧提供“管理我的墙面”，跳转到对应 Web 的“我的墙面”。本地与云端创作者均可在此删除自己的墙面、关联线路与发布图片；来源实验和校准单独保留。
 
-操作与模型配置见[实验台说明](tools/segmentation-lab/README.md)，Actions 配置与额度细则见[云端实验台](docs/segmentation-cloud.md)。
+SAM 2.1 提供“基线（推荐）”“少漏检”“少误检”三组预设；分块模型不再出现在新建任务入口。
+
+操作与模型配置见[实验台说明](tools/segmentation-lab/README.md)，Actions 配置与额度细则见[云端实验台](docs/guides/segmentation-cloud.md)。
 
 ## 本地快速开始
 
@@ -46,7 +48,7 @@ npm install
 ./scripts/cruxset-dev status
 ```
 
-打开 <http://localhost:5173>。首次创建本地管理员、模型依赖安装与环境参数见[本地 Web](docs/local-web.md)。当前统一使用 `cruxset-dev` 管理本地三个进程，旧 `cruxset-web` / Quick Tunnel 启动方式已移除，正式公网使用 Cloudflare 部署。
+打开 <http://localhost:5173>。首次创建本地管理员、模型依赖安装与环境参数见[本地 Web](docs/guides/local-web.md)。当前统一使用 `cruxset-dev` 管理本地三个进程，旧 `cruxset-web` / Quick Tunnel 启动方式已移除，正式公网使用 Cloudflare 部署。
 
 ## 文档与验证
 
@@ -59,4 +61,4 @@ npm run edge:typecheck
 npm run verify:phase1
 ```
 
-本地 Python 服务和实验台还需运行各自测试。发布 Cloudflare 前先构建 `web/dist`、应用全部 D1 迁移（含 `0010_lab_access.sql` 与 `0011_lab_quotas.sql`），再部署 Worker；完整命令见[部署指南](docs/cloudflare-edge-deployment.md)。
+本地 Python 服务和实验台还需运行各自测试。发布 Cloudflare 前先构建 `web/dist`、应用全部 D1 迁移（含 `0010_lab_access.sql` 与 `0011_lab_quotas.sql`），再部署 Worker；完整命令见[部署指南](docs/guides/cloudflare-edge-deployment.md)。

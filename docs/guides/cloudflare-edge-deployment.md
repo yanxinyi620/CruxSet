@@ -13,7 +13,7 @@ Cloudflare Web 是 CruxSet 的三种运行形态之一：它由 Workers 提供 A
 | 本地实验台向本部署发布 | 独立的机器发布入口，使用 `SEGMENTATION_PUBLISH_KEY` 验签；与云端用户会话发布不同 |
 | 浏览器内运行 SAM、YOLO 或其他 AI 任务 | 否 |
 
-管理员和获授权的创作者可以使用共享 Web 账户的[云端分割实验台](./segmentation-cloud.md)。Worker 只负责私有任务、D1/R2 元数据和发布；模型运行在 GitHub Actions 中，不改变本地实验台的启动方式。云端链路的 GitHub 配置、任务时限和私有对象规则见该文档。
+管理员和获授权的创作者可以使用共享 Web 账户的[云端分割实验台](segmentation-cloud.md)。Worker 只负责私有任务、D1/R2 元数据和发布；模型运行在 GitHub Actions 中，不改变本地实验台的启动方式。云端链路的 GitHub 配置、任务时限和私有对象规则见该文档。
 
 `DB` 是 Worker 的必需 D1 绑定。未绑定时，`/api/v1/bootstrap` 会返回 `503 SERVICE_UNAVAILABLE`，应用不能作为可用的 Cloudflare Web 站点运行。`edge/wrangler.jsonc` 同时将 R2 桶 `cruxset-media` 绑定为 `MEDIA`；没有该绑定时，管理员图片上传不可用，受签名的分割发布也不能完成。
 

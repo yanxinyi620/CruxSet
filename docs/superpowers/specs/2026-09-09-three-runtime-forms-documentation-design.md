@@ -6,7 +6,7 @@
 
 ## 范围与信息结构
 
-README 作为入口，新增三种形态的简明对照：入口、运行时、数据归属、可以执行的主要操作，以及与其他形态的数据关系。`docs/reference.md` 用同一模型说明数据边界和分割实验台的三个发布目标；`docs/cloudflare-edge-deployment.md` 则只记录 Workers 的实际能力、D1/R2 的依赖和部署限制。`docs/testing.md` 按运行形态列出可验证的行为。
+README 作为入口，新增三种形态的简明对照：入口、运行时、数据归属、可以执行的主要操作，以及与其他形态的数据关系。`docs/reference.md` 用同一模型说明数据边界和分割实验台的三个发布目标；`docs/guides/cloudflare-edge-deployment.md` 则只记录 Workers 的实际能力、D1/R2 的依赖和部署限制。`docs/testing.md` 按运行形态列出可验证的行为。
 
 小程序的 `mock` 是 CloudBase 客户端的离线演示设置，不是一种部署形态。
 

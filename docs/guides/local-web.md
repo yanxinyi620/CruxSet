@@ -20,7 +20,7 @@ npm install
 ./scripts/cruxset-dev status
 ```
 
-首次需要运行本机模型时，可先在 `tools/segmentation-lab` 执行 `uv sync --extra models --extra test` 安装依赖，具体模型配置见[实验台说明](../tools/segmentation-lab/README.md)。
+首次需要运行本机模型时，可先在 `tools/segmentation-lab` 执行 `uv sync --extra models --extra test` 安装依赖，具体模型配置见[实验台说明](../../tools/segmentation-lab/README.md)。
 
 脚本启动 FastAPI（8000）、Web（5173）与分割实验台（8765）。打开 `http://localhost:5173`，管理员或已获实验台授权的用户在“我的”点击“分割实验台”，会在新标签页打开 `http://localhost:5173/segmentation-lab/`。访问实验台数据需要主站登录和实验台授权；管理员默认可用，普通用户由管理员在“我的 → 管理中心 → 用户”开通。日志和 PID 位于 `.runtime/cruxset-dev`。首次创建管理员：
 
@@ -99,8 +99,8 @@ MAX_UPLOAD_BYTES=20971520 ./scripts/cruxset-dev restart
 | --- | --- | --- |
 | `ADMIN_BOOTSTRAP_PASSWORD` | 无；未设置或为空时交互询问 | 创建或重置本地管理员密码 |
 
-实验台通过 HTTP 发布到 CloudBase/Cloudflare 的参数见 [分割实验台配置](../tools/segmentation-lab/README.md)。
+实验台通过 HTTP 发布到 CloudBase/Cloudflare 的参数见 [分割实验台配置](../../tools/segmentation-lab/README.md)。
 
 ## 发布与验收
 
-实验台选择 `web` 时创建归当前用户所有的本机公开 Wall，不再将所有新墙面归到固定管理员。CloudBase 和 Cloudflare 需要分别选择对应目标发布。完整流程见 [分割实验台](../tools/segmentation-lab/README.md)，验收见 [测试与验收](testing.md)。
+实验台选择 `web` 时创建归当前用户所有的本机公开 Wall，不再将所有新墙面归到固定管理员。CloudBase 和 Cloudflare 需要分别选择对应目标发布。完整流程见 [分割实验台](../../tools/segmentation-lab/README.md)，验收见 [测试与验收](../testing.md)。

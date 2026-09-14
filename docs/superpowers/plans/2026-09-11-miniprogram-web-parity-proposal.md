@@ -116,7 +116,7 @@
 
 ### P5：回归、文档与交付
 
-涉及：`tests/miniprogram-*.test.ts`、CloudBase 契约测试、`docs/miniprogram-cloudbase.md`、`docs/testing.md`、部署集合/规则说明。
+涉及：`tests/miniprogram-*.test.ts`、CloudBase 契约测试、`docs/guides/miniprogram-cloudbase.md`、`docs/testing.md`、部署集合/规则说明。
 
 - [x] 将旧“禁止小程序墙面创作”断言更新为角色与发布锁定断言，保留私有数据及公开浏览边界测试。
 - [x] 执行相关功能测试和 TypeScript 检查，再运行 `npm test`、`npm run build`、`npm run verify:phase1`。

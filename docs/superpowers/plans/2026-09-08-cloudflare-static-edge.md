@@ -39,7 +39,7 @@
 | `web/src/api.ts`、`web/src/data/api-session.ts`、`web/src/main.ts` | 修改：分页、按需详情、云端能力与认证入口 |
 | `web/vite.config.ts` | 修改：通过构建模式选择隔离的公开资源目录；本地默认配置保持可用 |
 | `package.json`、`.gitignore` | 修改：边缘构建/验证入口，忽略凭据、快照与导出产物 |
-| `docs/testing.md`、`docs/cloudflare-edge-deployment.md`、`README.md` | 修改/新建：验收、发布操作、回滚和文档导航 |
+| `docs/testing.md`、`docs/guides/cloudflare-edge-deployment.md`、`README.md` | 修改/新建：验收、发布操作、回滚和文档导航 |
 
 生成文件放 `.runtime/edge/`（私有快照、manifest、发布日志）与 `.runtime/edge-public/`（仅公开资源），都加入忽略规则。不能把数据库或整个 `server/data`、实验台 data 复制到 `web/public`。不要修改小程序身份体系。
 
@@ -178,7 +178,7 @@ type StaticWallPublish = {
 
 ### 任务 9：限流、监测与恢复操作
 
-文件：`edge/src/limits.ts`、`edge/tests/limits.test.ts`、`docs/cloudflare-edge-deployment.md`。
+文件：`edge/src/limits.ts`、`edge/tests/limits.test.ts`、`docs/guides/cloudflare-edge-deployment.md`。
 
 - [ ] 配置设计中的查询/登录/写入/发布起始速率；限制发生在昂贵操作前。测试 429、Retry-After、用户和机器键隔离，不把近似位置计数描述为全局硬限额。
 - [ ] 测试维护模式禁写；D1 故障返回可理解错误。前端有上限退避，不对每次失败写 D1 日志。
@@ -190,7 +190,7 @@ type StaticWallPublish = {
 
 ### 任务 10：生产切换与回滚演练
 
-文件：`docs/cloudflare-edge-deployment.md`、`docs/testing.md`、`README.md`。
+文件：`docs/guides/cloudflare-edge-deployment.md`、`docs/testing.md`、`README.md`。
 
 - [ ] 执行一次完整验证：`npm test`、`npm run build`、`npm run web:build`、`npm run edge:typecheck`、`npm run edge:test`、`npm run edge:build`，server 测试与实验台相关发布测试；按现有要求执行小程序 `npm run verify:phase1`。记录版本、命令结果与预发布人工验收。
 - [ ] 明确切换窗口：冻结当前线上 Web 写入 → 一致快照 → 首次导入 → 部署图片/前端 → 核对记录与图 → 开放云端写入。CloudBase 不切换，私有草稿仍留本地。

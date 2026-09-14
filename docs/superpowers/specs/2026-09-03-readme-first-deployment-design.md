@@ -21,7 +21,7 @@
 
 - 默认小程序模式保持 `cloudbase`，但保留 `mock` 离线演示说明。
 - 不改动 Web、云函数、实验台或小程序行为。
-- 不复制 `docs/local-web.md` 的本地启动步骤。
+- 不复制 `docs/guides/local-web.md` 的本地启动步骤。
 - 不复制 `docs/testing.md` 的完整验收清单。
 
 ## 验证

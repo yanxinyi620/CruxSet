@@ -35,7 +35,7 @@
 
 验证：334 项测试、TypeScript 检查与微信预览编译通过，包大小 130.2 KB。未发布正式版。
 
-截图画廊：../output/playwright/ui-comparison.html。
+截图画廊：../../output/playwright/ui-comparison.html。
 
 ## 统一源码管理
 

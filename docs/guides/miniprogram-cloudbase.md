@@ -32,7 +32,7 @@ Cloudflare 的实验台授权和数量额度不适用于小程序账户。小程
 
 ## 验收
 
-按 [测试与验收](testing.md) 的“小程序：CloudBase”与“分割实验台发布验收”执行真机检查。
+按 [测试与验收](../testing.md) 的“小程序：CloudBase”与“分割实验台发布验收”执行真机检查。
 
 ## 新建、标注与管理
 
@@ -44,3 +44,16 @@ Cloudflare 的实验台授权和数量额度不适用于小程序账户。小程
 - 小程序通过 `getWallImageUrl` 获取授权短期地址，再下载到临时文件以供跨页面缓存。发布环境须把返回图片域名配置为微信下载合法域名；缓存按用户/文件隔离，过期或本地文件失效会重新获取。
 
 更新云函数与集合配置后再发布小程序，防止新页面调用旧的停用接口。数据库事务遵循 CloudBase 的[单文档操作与数量限制](https://docs.cloudbase.net/database/transaction)，历史编号以分批方式补齐，新写入使用持久计数器。
+
+
+## 从原项目调试
+
+在 Windows 微信开发者工具中导入原项目的 `wechat` 目录，而非 `wechat/miniprogram`。WSL 环境可使用对应发行版的共享路径，例如：
+
+```text
+\\wsl$\Ubuntu-24.04\home\yanxi\code\project\CruxSet\wechat
+```
+
+修改源码后在开发者工具中重新编译，无需维护 Windows 源码副本；路径中的发行版与用户名按本机环境替换。项目启用了 TypeScript 编译。命令行工具对 UNC 路径的支持可能与手动导入不同，历史验收范围见[手机 UI 调试记录](../records/2026-09-12-miniprogram-mobile-ui-audit.md)。
+
+专项机制见[浏览缓存](../topics/miniprogram-cache.md)；跨端管理员操作见[线路双向补齐](../topics/admin-route-sync.md)。

@@ -1,10 +1,10 @@
 # Spraywall Segmentation Lab
 
-云端授权工作台、GitHub Actions runner 配置和任务限制见[云端分割实验台](../../docs/segmentation-cloud.md)。本地和云端共享页面及分割核心，本地现通过 FastAPI 账户授权访问；数据目录保持不变。
+云端授权工作台、GitHub Actions runner 配置和任务限制见[云端分割实验台](../../docs/guides/segmentation-cloud.md)。本地和云端共享页面及分割核心，本地现通过 FastAPI 账户授权访问；数据目录保持不变。
 
 本地运行的攀岩训练墙岩点分割实验台。它面向一面固定 Spraywall：上传并裁剪墙图，使用 SAM 2.1 自动产生岩点候选，再在浏览器中以 SVG polygon 进行人工校准并导出结果。
 
-它使用独立计算进程和实验数据；用户身份由 CruxSet 本地 FastAPI 验证，也可以通过显式发布，将已校准结果创建为本机 FastAPI、CloudBase 或 Cloudflare Web 中的一面新公开 Wall。有关本机启动方式，见[本地 Web 工作台](../../docs/local-web.md)。
+它使用独立计算进程和实验数据；用户身份由 CruxSet 本地 FastAPI 验证，也可以通过显式发布，将已校准结果创建为本机 FastAPI、CloudBase 或 Cloudflare Web 中的一面新公开 Wall。有关本机启动方式，见[本地 Web 工作台](../../docs/guides/local-web.md)。
 
 当前版本优先支持无 NVIDIA 显卡的 CPU 环境；推理可能需要数分钟。
 
@@ -30,9 +30,9 @@ SEG_LAB_DATA_DIR=./data uv run uvicorn segmentation_lab.api:app --host 127.0.0.1
 
 ## 发布到本机 CruxSet
 
-创作者选择小程序或云端 Web 时，发布弹窗会确认提交管理员审核。申请列表位于首页底部、实验台说明上方；创作者只看自己的申请，管理员可查看墙面快照、通过并发布、拒绝或重试失败发布。快照独立保存在 `data/publish-requests`，删除原实验不影响申请，本地服务重启后仍可处理。跨平台墙面归目标平台管理员，不占申请人的公开墙面额度；直接发布本地 Web 仍归当前登录用户。详细规则见[跨平台发布申请](../../docs/segmentation-cloud.md#跨平台发布申请)。
+创作者选择小程序或云端 Web 时，发布弹窗会确认提交管理员审核。申请列表位于首页底部、实验台说明上方；创作者只看自己的申请，管理员可查看墙面快照、通过并发布、拒绝或重试失败发布。快照独立保存在 `data/publish-requests`，删除原实验不影响申请，本地服务重启后仍可处理。跨平台墙面归目标平台管理员，不占申请人的公开墙面额度；直接发布本地 Web 仍归当前登录用户。详细规则见[跨平台发布申请](../../docs/guides/segmentation-cloud.md#跨平台发布申请)。
 
-完整的本机启动方式见[本地 Web 工作台](../../docs/local-web.md)。CruxSet API 与实验台必须配置同一个本机密钥；密钥不会发送到浏览器，也不要提交到版本库：
+完整的本机启动方式见[本地 Web 工作台](../../docs/guides/local-web.md)。CruxSet API 与实验台必须配置同一个本机密钥；密钥不会发送到浏览器，也不要提交到版本库：
 
 ```bash
 export CRUXSET_BASE_URL='http://127.0.0.1:8000'
@@ -95,7 +95,7 @@ export CRUXSET_EDGE_SEGMENTATION_PUBLISH_KEY='与 Cloudflare 发布端相同的�
 
 一次 300–500 个候选的分割结果，mask 通常约 5–8 MB，候选 JSON 通常约 0.3–0.5 MB。删除分割任务会删除其候选与 mask；已经保存的校准结果只保留 polygon，因此仍然存在，但会失去来源任务的关联。
 
-本地实验台已接入登录、授权和数据隔离，但没有云端的图片、保留任务、每日任务和公开墙面数量额度。云端额度见[云端实验台](../../docs/segmentation-cloud.md#创作者额度)。
+本地实验台已接入登录、授权和数据隔离，但没有云端的图片、保留任务、每日任务和公开墙面数量额度。云端额度见[云端实验台](../../docs/guides/segmentation-cloud.md#创作者额度)。
 
 ## 当前限制
 
@@ -147,4 +147,4 @@ SAM 2.1 将输入缩放到正方形；自动采样点必须覆盖这个完整的
 
 ## 云端使用
 
-云端采用同一套页面，由 GitHub Actions 运行模型；账户、授权、数据和发布目标与本地独立。创作者数量额度、每日计数、删除释放和墙面管理规则统一见[云端实验台](../../docs/segmentation-cloud.md)，数据库迁移与上线命令见[Cloudflare 部署](../../docs/cloudflare-edge-deployment.md)。
+云端采用同一套页面，由 GitHub Actions 运行模型；账户、授权、数据和发布目标与本地独立。创作者数量额度、每日计数、删除释放和墙面管理规则统一见[云端实验台](../../docs/guides/segmentation-cloud.md)，数据库迁移与上线命令见[Cloudflare 部署](../../docs/guides/cloudflare-edge-deployment.md)。

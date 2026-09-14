@@ -82,7 +82,7 @@ git commit -m "docs: clarify runtime data boundaries"
 ### Task 3: 以 Worker 实际能力重写 Cloudflare 部署说明
 
 **Files:**
-- Modify: `docs/cloudflare-edge-deployment.md:1-21`
+- Modify: `docs/guides/cloudflare-edge-deployment.md:1-21`
 - Test: `edge/src/index.ts:113-141` 与文档的能力对照
 
 - [ ] **Step 1: 修正前置条件和能力表**
@@ -99,14 +99,14 @@ git commit -m "docs: clarify runtime data boundaries"
 
 - [ ] **Step 4: 验证过时断言已移除**
 
-Run: `rg -n '仅.*只读|认证.*未|不要求开通 R2|新建墙.*否' docs/cloudflare-edge-deployment.md`
+Run: `rg -n '仅.*只读|认证.*未|不要求开通 R2|新建墙.*否' docs/guides/cloudflare-edge-deployment.md`
 
 Expected: 无匹配；如存在匹配，只能是在历史背景而非当前能力陈述。
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add docs/cloudflare-edge-deployment.md
+git add docs/guides/cloudflare-edge-deployment.md
 git commit -m "docs: align edge deployment with worker capabilities"
 ```
 
@@ -130,7 +130,7 @@ git commit -m "docs: align edge deployment with worker capabilities"
 
 - [ ] **Step 4: 运行文档一致性检查**
 
-Run: `rg -n '仅.*只读|认证.*未|不要求开通 R2|新建墙.*否' README.md docs/reference.md docs/testing.md docs/cloudflare-edge-deployment.md tools/segmentation-lab/README.md; rg -n '^#|^##|^###' README.md docs/reference.md docs/testing.md docs/cloudflare-edge-deployment.md tools/segmentation-lab/README.md`
+Run: `rg -n '仅.*只读|认证.*未|不要求开通 R2|新建墙.*否' README.md docs/reference.md docs/testing.md docs/guides/cloudflare-edge-deployment.md tools/segmentation-lab/README.md; rg -n '^#|^##|^###' README.md docs/reference.md docs/testing.md docs/guides/cloudflare-edge-deployment.md tools/segmentation-lab/README.md`
 
 Expected: 第一条命令没有当前能力的过时陈述；第二条命令列出各文件层次清晰的标题。
 
