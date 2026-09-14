@@ -4,7 +4,7 @@
   <block wx:if="{{!loading && !error}}">
     <view class="editor-head"><view class="eyebrow">{{wall.name}}</view><view class="title">{{editing?'编辑线路':'新建线路'}}</view><view wx:if="{{editing}}" class="muted">线路编号：{{problemNumber}}</view></view>
     <view class="route-options"><picker range="{{angles}}" value="{{angleIndex}}" bindchange="selectAngle"><view class="route-option"><view class="option-label">角度</view><view class="option-value">{{angle}}°</view></view></picker><picker range="{{grades}}" value="{{gradeIndex}}" bindchange="selectGrade"><view class="route-option"><view class="option-label">难度</view><view class="option-value">{{grade}}</view></view></picker><picker range="{{footRules}}" value="{{footRuleIndex}}" bindchange="selectFootRule"><view class="route-option"><view class="option-label">脚点规则</view><view class="option-value">{{footRuleLabel}}</view></view></picker></view>
-    <view wx:if="{{!saveDialogVisible}}" class="canvas-wrap"><wall-canvas fit="cover" class="wall-surface" wall="{{wall}}" active-holds="{{selected}}" bind:holdtap="onHoldTap"/></view>
+    <view wx:if="{{!saveDialogVisible}}" class="canvas-wrap"><wall-canvas dim-image="{{true}}" fit="cover" class="wall-surface" wall="{{wall}}" active-holds="{{selected}}" bind:holdtap="onHoldTap"/></view>
     <view class="role-toolbar"><view wx:for="{{roles}}" wx:key="id" class="role {{selectedRole===item.id?'role-active':''}}" style="--role-color:{{item.color}}" data-role="{{item.id}}" bindtap="selectRole"><view class="role-dot" style="background:{{item.color}}"></view>{{item.label}}</view></view>
     <view class="actions"><button size="mini" bindtap="undo">撤销</button><button size="mini" bindtap="clear">清空</button><button class="save" disabled="{{loadError || saving || !selected.start.length || !selected.finish.length}}" loading="{{saving}}" bindtap="save">{{editing?'更新线路':'保存线路'}}</button></view>
     <view class="muted rule-hint">当前规则：{{footRuleHint}}</view>
@@ -12,7 +12,7 @@
   <view wx:if="{{saveDialogVisible}}" class="save-dialog-mask">
     <scroll-view class="save-dialog" scroll-y="{{true}}" catchtap="noop"><view class="save-dialog-content">
       <view class="save-dialog-title">保存线路</view><view class="preview-label">保存预览</view>
-      <view class="save-preview"><wall-canvas class="wall-surface" wall="{{wall}}" active-holds="{{selected}}"/></view>
+      <view class="save-preview"><wall-canvas dim-image="{{true}}" class="wall-surface" wall="{{wall}}" active-holds="{{selected}}"/></view>
       <view class="field-label">线路名称（选填）</view><input class="field" placeholder="可不填写" value="{{dialogName}}" bindinput="setDialogName" maxlength="80"/>
       <view class="field-label">线路说明（选填）</view><textarea class="field description" placeholder="可不填写" value="{{dialogDescription}}" bindinput="setDialogDescription" maxlength="500"/>
       <button class="dialog-confirm" loading="{{saving}}" bindtap="confirmSave">确认保存</button><button bindtap="closeSaveDialog">返回修改</button>

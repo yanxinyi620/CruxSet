@@ -1,3 +1,4 @@
+import { dimOutsideHolds } from '../../wechat/miniprogram/domain/canvas-mask.js'
 import type { Hold, HoldRole, Point, ViewTransform } from "../../wechat/miniprogram/domain/types.js"
 import { fitImageTransform, clampTransform, screenToImage, zoomAroundAnchor } from "../../wechat/miniprogram/domain/transform.js"
 import { circleHitTest, nearestHold, polygonHitTest } from "../../wechat/miniprogram/domain/geometry.js"
@@ -243,10 +244,7 @@ export class WallCanvasView {
 
     if (this.image) {
       ctx.drawImage(this.image, this.offsetX, this.offsetY, this.scale, this.scale * this.aspect)
-      if (this.opts.dimImage) {
-        ctx.fillStyle = "rgba(8,12,24,.10)"
-        ctx.fillRect(this.offsetX, this.offsetY, this.scale, this.scale * this.aspect)
-      }
+
     } else if (this.imageError) {
       ctx.fillStyle = "#e6e3f5"
       ctx.font = "14px sans-serif"
@@ -259,6 +257,9 @@ export class WallCanvasView {
       ctx.fillText("加载墙图中…", w / 2, h / 2)
     }
 
+    if (this.opts.dimImage) {
+      dimOutsideHolds(ctx, w, h, this.opts.holds.filter(hold => this.roleOf(hold.id)).map(hold => () => this.appendHoldPath(hold)))
+    }
     for (const hold of this.opts.holds) {
       const role = this.roleOf(hold.id)
       ctx.beginPath()

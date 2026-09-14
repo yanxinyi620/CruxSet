@@ -400,7 +400,7 @@ const renderProblemEditor = () => {
     saveDialog.showModal();
     const preview = root.querySelector("#problem-preview-canvas") as HTMLElement;
     preview.replaceChildren();
-    new WallCanvasView(preview, { imageUrl: wallImage(c.wall), imageWidth: c.wall.imageWidth, imageHeight: c.wall.imageHeight, polygonCoordinates: "normalized", viewportHeight: 220, fitContain: true, holds: c.wall.holds, getAssignments: () => c.editor.value().holds, getSelectedRole: () => null, onTapHold: () => {} });
+    new WallCanvasView(preview, { imageUrl: wallImage(c.wall), imageWidth: c.wall.imageWidth, imageHeight: c.wall.imageHeight, polygonCoordinates: "normalized", viewportHeight: 220, fitContain: true, dimImage: true, holds: c.wall.holds, getAssignments: () => c.editor.value().holds, getSelectedRole: () => null, onTapHold: () => {} });
     saveDialog.focus();
   });
   root.querySelector("[data-confirm-problem-save]")!.addEventListener("click", async () => {
@@ -852,6 +852,7 @@ const render = async () => {
       imageHeight: selected.imageHeight,
       polygonCoordinates: "normalized",
       viewportHeight: 320,
+      dimImage: true,
       fitCover: true,
       holds: selected.holds,
       getAssignments: () => selectedRoute.holds,
@@ -866,6 +867,7 @@ const render = async () => {
         imageHeight: selected.imageHeight,
         polygonCoordinates: "normalized",
         viewportHeight: window.innerHeight,
+        dimImage: true,
         fitCover: true,
         holds: selected.holds,
         getAssignments: () => selectedRoute.holds,
