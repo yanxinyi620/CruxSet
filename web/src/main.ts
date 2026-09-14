@@ -1,3 +1,4 @@
+import { resolveDetailTarget, detailReturnTarget } from './route-detail-navigation.js';
 import { openRouteSync } from './route-sync.js';
 import "./styles/tokens.css";
 import "./styles/base.css";
@@ -137,10 +138,15 @@ if (initialQuery.has('panel')) panel = initialQuery.get('panel') as typeof panel
 routeFilterAngle = initialQuery.has('angle') ? Number(initialQuery.get('angle')) : undefined;
 routeFilterGrade = (initialQuery.get('grade') || undefined) as Grade | undefined;
 selectedRouteId = initialQuery.get('problem') || '';
+let detailOrigin = initialQuery.get('from') === 'my-problems' ? 'my-problems' : '';
+let detailReturnWall = initialQuery.get('returnWall') || '';
+expandedWall = initialQuery.get('expanded') || '';
 const syncUiUrl = (replace = false) => {
   const route = store.state.route;
   const query: Record<string, string | number | undefined> = {};
   if ((route.name === 'create' || route.name === 'me') && panel !== 'home') query.panel = panel;
+  if (route.name === 'me' && panel === 'my-problems') query.expanded = expandedWall;
+  if (route.name === 'problem-detail' || route.name === 'route-browser') { query.from = detailOrigin; query.returnWall = detailReturnWall; }
   if (route.name === 'route-browser') { query.angle = routeFilterAngle; query.grade = routeFilterGrade; query.problem = selectedRouteId; }
   if (typeof window !== 'undefined') window.history[replace ? 'replaceState' : 'pushState']({}, '', toPreviewUrl(route, query));
 };
@@ -201,7 +207,9 @@ if (typeof window !== 'undefined') window.addEventListener('popstate', () => {
   selectedRouteId = query.get('problem') || '';
   if (route.name !== 'wall-editor') wallCtx = null;
   if (route.name !== 'problem-editor') problemCtx = null;
-  if (route.name !== 'problem-detail') detailCtx = null;
+  detailOrigin = query.get('from') === 'my-problems' ? 'my-problems' : '';
+  detailReturnWall = query.get('returnWall') || '';
+  expandedWall = query.get('expanded') || '';
   store.navigate(route, { silentHistory: true });
 });
 const restoredShellClasses = "hero-card action-card hub-card wall-card";
@@ -255,10 +263,8 @@ type WallCtx = {
   manualCalibration: boolean;
   viewportTransform?: DraftTransform;
 };
-type DetailCtx = { problem: Problem; wall: Wall; canvas?: WallCanvasView };
 let problemCtx: ProblemCtx | null = null,
   wallCtx: WallCtx | null = null,
-  detailCtx: DetailCtx | null = null,
   wallPreview: WallCanvasView | null = null,
   fullscreenRoutePreview: WallCanvasView | null = null;
 let routeFullscreen = false;
@@ -641,34 +647,20 @@ const renderWallEditor = () => {
   );
 };
 
-const openDetail = async (problemId: string) => {
-  const problem = (await store.session.listProblems()).find(
-    (x) => x.id === problemId,
-  );
-  if (!problem) return;
-  detailCtx = { problem, wall: await store.session.getWall(problem.wallId) };
-  store.navigate({ name: "problem-detail", problemId });
-};
-const renderDetail = () => {
-  const c = detailCtx!;
-  root.innerHTML = `<div class="device secondary-page"><main><button class="back-button" data-exit aria-label="返回">‹</button><h1>${h(c.problem.name || c.problem.number)}</h1><p>${h(c.wall.name)} · ${c.problem.angle}° · ${c.problem.grade}</p><div id="detail-canvas"></div><div class="legend">${roles.map((x) => `<span><i style="background:${ROLE_COLORS[x]}"></i>${roleLabels[x]}</span>`).join("")}</div></main></div>`;
-  root.querySelector("[data-exit]")!.addEventListener("click", () => {
-    c.canvas?.destroy();
-    detailCtx = null;
-    store.navigate({ name: "wall", wallId: c.problem.wallId });
-  });
-  c.canvas = new WallCanvasView(
-    root.querySelector("#detail-canvas") as HTMLElement,
-    {
-      imageUrl: wallImage(c.wall),
-      imageWidth: c.wall.imageWidth,
-      imageHeight: c.wall.imageHeight,
-      holds: c.wall.holds,
-      getAssignments: () => c.problem.holds,
-      getSelectedRole: () => null,
-      onTapHold: () => {},
-    },
-  );
+const returnFromDetail = (wallId: string) => {
+  const target = detailReturnTarget(new URLSearchParams({from: detailOrigin, returnWall: detailReturnWall}), wallId);
+  selectedRouteId = "";
+  routeFullscreen = false;
+  if (target.route.name === "me") {
+    panel = "my-problems";
+    expandedWall = target.query.expanded;
+    detailOrigin = "";
+    detailReturnWall = "";
+    store.navigate(target.route, {replace: true});
+  } else {
+    syncUiUrl(true);
+    void render();
+  }
 };
 
 const imageDimensions = (file: File) =>
@@ -700,8 +692,19 @@ const render = async () => {
     return;
   }
   if (route.name === "problem-detail") {
-    if (!detailCtx) await openDetail(route.problemId);
-    if (detailCtx) renderDetail();
+    const target = resolveDetailTarget(route.problemId, await store.session.listProblems());
+    if (target) {
+      selectedRouteId = route.problemId;
+      routeFilterAngle = undefined;
+      routeFilterGrade = undefined;
+      store.navigate(target, {replace: true});
+    } else {
+      root.innerHTML = `<div class="device secondary-page"><main><h1>线路不存在或不可访问</h1><button data-detail-missing-back>返回</button></main></div>`;
+      root.querySelector('[data-detail-missing-back]')!.addEventListener('click', () => {
+        if (detailOrigin === 'my-problems') returnFromDetail(detailReturnWall);
+        else store.navigate({name:'browse'}, {replace:true});
+      });
+    }
     return;
   }
   wallPreview?.destroy();
@@ -768,7 +771,7 @@ const render = async () => {
       .map((w) => {
         const ps = myProblems.filter((p) => p.wallId === w.id).sort((a, b) => a.number.localeCompare(b.number)),
           open = expandedWall === w.id;
-        return `<article class="problem-group"><button class="group-head" data-expand="${h(w.id)}"><span><b>${h(w.name)}</b><em>${ps.length} 条线路</em></span><strong>${open ? "⌃" : "›"}</strong></button>${open ? `<div class="problem-list">${ps.map((p) => `<div class="problem-row"><span><b>${h(p.number)}</b><em>${h(p.name || "未命名线路")}</em></span><button class="edit-button" data-edit-problem="${h(p.id)}">编辑</button><button class="delete-button" data-delete-problem="${h(p.id)}">删除</button></div>`).join("")}</div>` : ""}</article>`;
+        return `<article class="problem-group"><button class="group-head" data-expand="${h(w.id)}"><span><b>${h(w.name)}</b><em>${ps.length} 条线路</em></span><strong>${open ? "⌃" : "›"}</strong></button>${open ? `<div class="problem-list">${ps.map((p) => `<div class="problem-row"><button class="my-problem-detail" data-my-problem="${h(p.id)}"><b>${h(p.number)}</b><em>${h(p.name || "未命名线路")}</em></button><button class="edit-button" data-edit-problem="${h(p.id)}">编辑</button><button class="delete-button" data-delete-problem="${h(p.id)}">删除</button></div>`).join("")}</div>` : ""}</article>`;
       })
       .join("");
   if (panel === "admin-management" && isAdmin && !adminLoaded && !adminLoading) {
@@ -964,9 +967,7 @@ const render = async () => {
         }
         panel = "home";
         if (route.name === "route-browser" && selectedRouteId) {
-          selectedRouteId = "";
-          syncUiUrl(true);
-          void render();
+          returnFromDetail(selected!.id);
         } else if (route.name === "route-browser" && selected)
           store.navigate({ name: "wall", wallId: selected.id }, { replace: true });
         else store.navigate({ name: tab }, { replace: true });
@@ -980,6 +981,8 @@ const render = async () => {
           store.navigate({ name: "wall", wallId: b.dataset.wall! })),
     );
   root.querySelector<HTMLButtonElement>("[data-open-route-browser]")?.addEventListener("click", () => {
+    detailOrigin = "";
+    detailReturnWall = "";
     routeFilterAngle = undefined;
     routeFilterGrade = undefined;
     selectedRouteId = "";
@@ -1020,9 +1023,7 @@ const render = async () => {
     };
   });
   root.querySelector<HTMLButtonElement>("[data-route-back-list]")?.addEventListener("click", () => {
-    selectedRouteId = "";
-    syncUiUrl(true);
-    void render();
+    returnFromDetail(selected!.id);
   });
   root.querySelector<HTMLButtonElement>("[data-route-previous]")?.addEventListener("click", () => {
     if (selectedRouteIndex > 0) selectedRouteId = filteredRouteProblems[selectedRouteIndex - 1].id;
@@ -1039,9 +1040,13 @@ const render = async () => {
     .forEach(
       (b) => (b.onclick = () => void openProblemEditor(b.dataset.newProblem!)),
     );
-  root
-    .querySelectorAll<HTMLButtonElement>("[data-problem]")
-    .forEach((b) => (b.onclick = () => void openDetail(b.dataset.problem!)));
+  root.querySelectorAll<HTMLButtonElement>("[data-my-problem]").forEach((button) => {
+    button.onclick = () => {
+      detailOrigin = "my-problems";
+      detailReturnWall = expandedWall;
+      store.navigate({name: "problem-detail", problemId: button.dataset.myProblem!});
+    };
+  });
   root
     .querySelectorAll<HTMLButtonElement>("[data-edit-wall]")
     .forEach(
@@ -1052,6 +1057,7 @@ const render = async () => {
       (b.onclick = () => {
         expandedWall =
           expandedWall === b.dataset.expand ? "" : b.dataset.expand!;
+        syncUiUrl(true);
         void render();
       }),
   );

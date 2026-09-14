@@ -60,3 +60,5 @@ h1 { letter-spacing: 2px; }
 .profile-contact-panel button { min-height:44px; padding:10px 16px; border:1px solid #d8d2f4; border-radius:12px; background:#f0edff; color:#5240bb; }
 .profile-contact-panel [role="status"] { margin:12px 0 0; color:#6f7187; font-size:13px; }
 .profile-contact-panel [role="status"]:empty { display:none; }
+.my-problem-detail { display:grid; gap:2px; flex:1; min-width:0; padding:0; border:0; background:transparent; text-align:left; cursor:pointer; }
+.my-problem-detail:focus-visible { outline:2px solid #6046d6; outline-offset:4px; }
