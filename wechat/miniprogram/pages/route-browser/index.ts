@@ -3,21 +3,27 @@ import { browsePage } from '../../services/browse-page.js'
 import { browseProblems, routeContextQuery } from '../../domain/browse.js'
 import { listProblems } from '../../services/browse-data.js'
 import { getWall } from '../../services/browse-data.js'
+import { beginPageRead, pageReadError } from '../../services/page-read-state.js'
+import { isReadRevoked } from '../../services/read-cache.js'
 const grades = ['全部', ...Array.from({ length: 17 }, (_, i) => `V${i}`)]
 import { routeAngles } from '../../domain/angles.js'
 Page(browsePage({
-  data: { wallId:'', wallName:'', angles:[null,...routeAngles], angleLabels:['全部',...routeAngles.map(angle=>`${angle}°`)], angleIndex:0, gradeIndex:0, grades, angle:null, grade:'全部', problems:[], loading:true, error:'' },
-  async onLoad(options) {
-    const wallId=options.wallId||'', request=this._browseRequest=(this._browseRequest||0)+1
+  data: { wallId:'', wallName:'', angles:[null,...routeAngles], angleLabels:['全部',...routeAngles.map(angle=>`${angle}°`)], angleIndex:0, gradeIndex:0, grades, angle:null, grade:'全部', problems:[], loading:true, refreshing:false, error:'', notice:'' },
+  cacheMatches(key){if(key==='*')return true;const [,action,args]=JSON.parse(key),data=Object.fromEntries(args);return action==='getWall'&&data.id===this.data.wallId||action==='listProblems'&&data.wallId===this.data.wallId},
+  onCacheError(key,error){if(isReadRevoked(error))this.remoteProblems=[];pageReadError(this,error,{problems:[],wallName:''},true)},
+  async onLoad(options, readOptions={}) {
+    const wallId=options.wallId||''
     this.setData({wallId})
+    const read=beginPageRead(this,{problems:[],wallName:''})
+    if(!this._hasRead)this.remoteProblems=[]
     try {
-      const [wall,problems]=await Promise.all([getWall(wallId),listProblems({wallId})])
-      if(request!==this._browseRequest)return
+      const [wall,problems]=await Promise.all([getWall(wallId,readOptions),listProblems({wallId},readOptions)])
+      if(!read.current())return
       this.remoteProblems=problems
-      this.setData({wallName:wall.name,error:''})
+      read.success({wallName:wall.name})
       this.refresh()
-    } catch(error) { if(request===this._browseRequest)this.setData({problems:[],error:error.message||'线路加载失败，请稍后重试'}) }
-    finally { if(request===this._browseRequest)this.setData({loading:false}) }
+    } catch(error) { if(read.current()&&isReadRevoked(error))this.remoteProblems=[];read.failure(error) }
+    finally { read.finish() }
   },
   refresh(){
     const filter={wallId:this.data.wallId}

@@ -2,7 +2,7 @@
   <view class="preview-top"><view>CRUXSET</view><view class="preview-avatar"></view></view>
   <view class="page-title">线路</view><view class="page-lead">选择一面公开墙面。</view>
   <view wx:if="{{loading && !walls.length}}" class="quiet-empty">正在加载公开墙面…</view>
-  <view wx:if="{{error}}" class="error-card">{{error}}</view>
+<view wx:if="{{refreshing}}" class="page-lead">正在更新…</view><view wx:if="{{notice}}" class="page-lead">{{notice}} <text bindtap="onPullDownRefresh">重试</text></view>  <view wx:if="{{error}}" class="error-card">{{error}} <text bindtap="onPullDownRefresh">重试</text></view>
   <view wx:for="{{walls}}" wx:key="id" class="line-wall-card" data-id="{{item.id}}" bindtap="openWall" hover-class="card-pressed">
     <view class="wall-visual"></view><view class="wall-copy"><view class="wall-name">{{item.name}}</view><view class="wall-meta">{{item.holdCount}} 个岩点 · {{item.problemCount == null ? '—' : item.problemCount}} 条线路</view></view><view class="wall-arrow">›</view>
   </view>

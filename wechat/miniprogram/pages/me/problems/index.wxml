@@ -2,6 +2,7 @@
   <view class="page-title">我的线路</view><view class="page-lead">按墙面管理你创建的线路。</view>
   <view wx:if="{{loading}}" class="empty">正在加载…</view>
   <view wx:if="{{error}}" class="error-card">{{error}}<button size="mini" bindtap="reload">重试</button></view>
+  <view wx:if="{{notice}}" class="page-lead">{{notice}}<text bindtap="reload">重试</text></view>
   <view wx:for="{{groups}}" wx:key="id" class="problem-group">
     <view class="group-head" data-id="{{item.id}}" bindtap="toggle"><view class="group-copy"><view class="group-wall">{{item.wallName}}</view><view class="group-meta">{{item.problems.length}} 条线路</view></view><view class="arrow">{{item.expanded?'⌃':'›'}}</view></view>
     <view wx:if="{{item.expanded}}" class="problem-list"><view wx:for="{{item.problems}}" wx:for-item="problem" wx:key="id" class="problem"><view class="problem-copy" data-id="{{problem.id}}" bindtap="open"><view class="problem-number">{{problem.number}}</view><view class="problem-name">{{problem.name||'未命名线路'}}</view><view class="problem-meta">{{problem.angle}}° · {{problem.grade}}</view></view><button size="mini" class="edit" data-id="{{problem.id}}" bindtap="edit">编辑</button><button size="mini" class="delete" data-id="{{problem.id}}" bindtap="remove">删除</button></view></view>

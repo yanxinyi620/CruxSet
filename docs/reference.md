@@ -11,9 +11,9 @@ Cloudflare Web：web/dist         → Workers           → D1 + R2（MEDIA 配�
 
 三种运行形态各自保存独立数据：CloudBase 使用独立数据库和私有 Storage，本地 Web 使用 FastAPI、SQLite 与本地媒体，Cloudflare Web 使用 Workers、D1 与配置为 `MEDIA` 的 R2。它们只共享 Wall、Hold、Problem 的字段语义，数据不会自动同步。小程序独立运行，绝不依赖 FastAPI；Cloudflare Web 的浏览器端不运行 AI。Cloudflare 的管理员在具备 `MEDIA` 配置时可上传、创作、标注和发布墙面。
 
-小程序页面和组件通过 `wechat/miniprogram/services/` 访问数据；页面不得直接依赖 CloudBase。小程序的坐标、命中、手势、线路校验、筛选、随机与编辑状态位于 `wechat/miniprogram/domain/`，可由 Vitest 独立验证；Web 的对应页面、编辑器和业务实现位于 `web/src/`。两端使用相同字段语义；轻量岩点识别纯算法位于小程序 domain，由 Web 重导出复用，不依赖根目录共享领域层。
+小程序页面和组件通过 `wechat/miniprogram/services/` 访问数据；页面不得直接依赖 CloudBase。小程序的坐标、命中、手势、线路校验、筛选与编辑状态位于 `wechat/miniprogram/domain/`，可由 Vitest 独立验证；Web 的对应页面、编辑器和业务实现位于 `web/src/`。两端使用相同字段语义；轻量岩点识别纯算法位于小程序 domain，由 Web 重导出复用，不依赖根目录共享领域层。
 
-分割实验台使用 SAM 模型生成候选 polygon 并支持人工校准。可分别发布到本地 Web、CloudBase 或 Cloudflare Web。选择 CloudBase 时，它先向 `storageUpload` 获取经过 HMAC 验证的短期上传凭证，原图和完整签名校准 JSON 均直传私有 Storage；随后仅将 JSON 的 `fileID` 交给 `segmentationPublish` 下载、验签并创建墙面。所有发布只新建目标中的公开 Wall，不读取、修改或删除该目标的既有数据。
+分割实验台使用 SAM 模型生成候选 polygon 并支持人工校准。可分别发布到本地 Web、CloudBase 或 Cloudflare Web。选择 CloudBase 时，它先向 `storageUpload` 获取经过 HMAC 验证的短期上传凭证，原图和完整签名校准 JSON 均直传私有 Storage；随后仅将 JSON 的 `fileID` 交给 `segmentationPublish` 下载、验签并创建墙面。发布在指定目标创建公开 Wall，同一发布请求通过回执保持幂等。
 
 ## 数据模型
 
@@ -25,14 +25,12 @@ Cloudflare Web：web/dist         → Workers           → D1 + R2（MEDIA 配�
 - `admins` 保存 `userId` 与角色；Web 还保存独立的实验台授权。云端 `lab_experiments`、`lab_tasks`、`lab_calibrations` 保存实验元数据，`lab_daily_usage` 独立保存每日任务次数。
 - CloudBase 的 `counters/wall_number` 与每墙 `routes_<wallId>` 计数器由服务端事务分配稳定编号；线路格式为 `CS-` + 至少两位墙号 + 四位线路序号，删除不复用编号。
 
-Phase 1 不创建评论、点赞、关注或训练记录等集合。
-
 ## 业务规则
 
 - 新线路默认脚点规则为 `feet_follow`：Start、Hand、Assist、Finish 可手抓或脚踩，黄色 Foot 只能脚踩。
 - `specified` 只允许踩线路指定的 Foot，且至少需要一个；`all` 允许使用当前墙面全部可踩岩点，通常不填写 `foot[]`。
 - 线路至少包含一个 Start 和一个 Finish；每个 Hold 最多一个显式线路角色。难度为 V0–V16，描述最多 500 字。
-- 搜索、排序与随机仅作用于当前 Wall、Angle、Grade 的过滤结果；单个随机会话一轮内不重复，耗尽后重新洗牌。
+- 线路浏览按墙面、角度和难度筛选，列表及上一条/下一条按线路编号升序。角度为 0°–70°、每 5° 一档，共 15 项。
 - 小程序普通用户浏览公开 Wall、创建和管理自己的线路及墙面；管理员可上传墙图、创建私有草稿、手动/轻量自动标注及公开发布，并管理全站墙面和用户。
 - 分割实验台发布的 Wall 直接为公开状态，且至少有两个 Hold 才可用于创建线路。小程序删除墙面时需确认清理所有关联线路。
 - 已发布 Wall 的岩点几何锁定；需要修改时新建私有 Wall。墙面删除是否级联取决于运行形态，见下表。
@@ -50,6 +48,10 @@ Web 的普通用户、创作者和管理员使用同一账户体系。创作者�
 云端创作者数量额度仅在 D1 实施：10 张保留实验图片、20 个保留任务、20 次每日新任务、10 面公开墙面。管理员免于这四项额度；云端所有账户仍限 2 个排队或运行任务。每日按北京时间计数，删除不退回每日次数。本地已具备鉴权和数据隔离，但不应用这组数量额度。
 
 实验、校准和公开墙面生命周期分离：删除云端任务保留已保存校准副本，删除实验不删除已公开墙面，删除墙面不删除来源实验。墙面管理统一在主站“我的墙面”，实验台 04 区域提供跳转入口。详细规则见[云端实验台](guides/segmentation-cloud.md)。
+
+## 线路显示与导航
+
+三端的查看、创建和编辑入口、画布尺寸、缩放及轮廓规范见[线路浏览与创作](guides/routes.md)。两个 Web 共用完整详情和编辑器，当前开发分支为 `cloudflare`，主分支为 `main`。
 
 ## 安全边界
 

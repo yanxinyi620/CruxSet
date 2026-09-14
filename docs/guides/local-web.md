@@ -29,7 +29,7 @@ cd server
 PYTHONPATH=. uv run python scripts/create_local_admin.py admin@example.com
 ```
 
-当前仓库仅保留 `scripts/cruxset-dev`；旧 `cruxset-web`、Caddy 与 Quick Tunnel 管理方式已移除。日常命令为 `start`、`restart`、`stop`、`status`。本地使用无需配置 CloudBase；仅在选择 CloudBase 发布目标时，才需要在 `/etc/cruxset.env` 配置相应 URL、签名密钥和管理员 OpenID。
+`scripts/cruxset-dev` 的日常命令为 `start`、`restart`、`stop`、`status`。本地使用无需配置 CloudBase；仅在选择 CloudBase 发布目标时，才需要在 `/etc/cruxset.env` 配置相应 URL、签名密钥和管理员 OpenID。
 
 ## 页面与请求路径
 
@@ -40,7 +40,7 @@ PYTHONPATH=. uv run python scripts/create_local_admin.py admin@example.com
          /api/v1/                 → FastAPI 8000
 ```
 
-页面源码仍在 `tools/segmentation-lab/static`，分割核心与独立计算进程保持不变。FastAPI 使用现有会话，每次重新检查实验台授权，并签名转发内部请求。8765 的 API 不再接受浏览器直连；使用同域集成入口完成登录、查看和操作。普通获授权用户可发布本地 Web；管理员还可使用配置好的 CloudBase、Cloudflare 目标，跨平台身份仍由目标配置决定。
+页面源码仍在 `tools/segmentation-lab/static`，分割核心与独立计算进程保持不变。FastAPI 使用现有会话，每次重新检查实验台授权，并签名转发内部请求。8765 的 API 接受 FastAPI 签名请求；浏览器通过同域集成入口完成登录、查看和操作。普通获授权用户可发布本地 Web；管理员还可使用配置好的 CloudBase、Cloudflare 目标，跨平台身份仍由目标配置决定。
 
 数据仍位于原 `SEG_LAB_DATA_DIR`，与云端独立。每个实验的 `owner.json` 记录所有者，任务和校准继承该实验归属；所有用户（包括管理员）只能访问自己的实验。无归属旧实验幂等分配给有效的配置管理员，否则选择最早创建的管理员；已有归属不覆盖，原图、候选及校准文件不改写。没有管理员时实验台 API 返回配置错误，先创建管理员即可。撤销授权后下一次请求即拒绝，历史实验和已发布墙面保留。已经启动的计算可以完成，不会自动发布。
 
@@ -65,7 +65,7 @@ Secure 属性控制浏览器会话传输，不控制模型计算或后台发布�
 
 服务端直接读取进程环境变量，不自动加载 `server/.env`。本节仅列出 `/etc/cruxset.env` 现有配置之外的可选参数及默认值。
 
-- `cruxset-dev`：API 继承启动终端的环境变量。脚本从终端或 `/etc/cruxset.env` 读取会话、内部请求与发布密钥；缺失时在 `.runtime/cruxset-dev` 生成三份独立的持久随机密钥（权限 600），旧公开示例密钥自动替换。首次切换会话密钥后需要重新登录。脚本不会将整个环境文件加载到 API。需要覆盖 API 默认值时，在启动命令中传入或提前导出相应变量。
+- `cruxset-dev`：API 继承启动终端的环境变量。脚本从终端或 `/etc/cruxset.env` 读取会话、内部请求与发布密钥；缺失时在 `.runtime/cruxset-dev` 生成三份独立的持久随机密钥（权限 600）。首次切换会话密钥后需要重新登录。脚本不会将整个环境文件加载到 API。需要覆盖 API 默认值时，在启动命令中传入或提前导出相应变量。
 - 手动运行管理员脚本：同样需要在当前终端显式传入或导出变量，不会自动读取 `/etc/cruxset.env`。使用自定义数据库路径时，创建管理员与 API 必须设置相同的 `CRUXSET_DATABASE_URL`。
 
 ### 本地 Web API
@@ -103,4 +103,4 @@ MAX_UPLOAD_BYTES=20971520 ./scripts/cruxset-dev restart
 
 ## 发布与验收
 
-实验台选择 `web` 时创建归当前用户所有的本机公开 Wall，不再将所有新墙面归到固定管理员。CloudBase 和 Cloudflare 需要分别选择对应目标发布。完整流程见 [分割实验台](../../tools/segmentation-lab/README.md)，验收见 [测试与验收](../testing.md)。
+实验台选择 `web` 时创建归当前用户所有的本机公开 Wall。CloudBase 和 Cloudflare 需要分别选择对应目标发布。完整流程见 [分割实验台](../../tools/segmentation-lab/README.md)，验收见 [测试与验收](../testing.md)。

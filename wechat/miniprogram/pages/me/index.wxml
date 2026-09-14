@@ -6,4 +6,6 @@
   <view class="hub-card problems" bindtap="openProblems"><view class="hub-icon">◇</view><view class="hub-copy"><view class="hub-title">我的线路</view><view class="hub-meta">{{loading?'正在加载线路数量…':error?'查看我创建的线路':'共 '+problemCount+' 条线路'}}</view></view><view class="hub-arrow">›</view></view>
   <view wx:if="{{isAdmin}}" class="hub-card admin-management" bindtap="openManagement"><view class="hub-icon">▦</view><view class="hub-copy"><view class="hub-title">管理中心</view><view class="hub-meta">墙面与用户管理</view></view><view class="hub-arrow">›</view></view>
   <view wx:if="{{error}}" class="error-card">{{error}}<button size="mini" bindtap="reload">重试</button></view>
+  <view wx:if="{{notice}}" class="page-lead">{{notice}}，当前显示上次加载的内容。<text bindtap="reload">重试</text></view>
+  <view wx:if="{{permissionError}}" class="page-lead">管理权限暂未确认：{{permissionError}}<text bindtap="reload">重试</text></view>
 </view>

@@ -5,7 +5,7 @@
     <picker mode="selector" range="{{angleLabels}}" value="{{angleIndex}}" bindchange="selectAngle"><view class="filter-select"><text>角度：{{angle === null ? '全部' : angle + '°'}}</text><text>⌄</text></view></picker>
     <picker mode="selector" range="{{grades}}" value="{{gradeIndex}}" bindchange="selectGrade"><view class="filter-select"><text>难度：{{grade}}</text><text>⌄</text></view></picker>
   </view>
-  <view wx:if="{{error}}" class="empty">{{error}}</view>
+<view wx:if="{{refreshing}}" class="page-lead">正在更新…</view><view wx:if="{{notice}}" class="page-lead">{{notice}} <text bindtap="onPullDownRefresh">重试</text></view>  <view wx:if="{{error}}" class="empty">{{error}}</view>
   <view wx:if="{{problems.length}}" class="problem-list">
     <view wx:for="{{problems}}" wx:key="id" class="problem" data-id="{{item.id}}" bindtap="openProblem">
       <view class="problem-number">{{item.number}}</view>

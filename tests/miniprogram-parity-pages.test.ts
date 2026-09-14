@@ -12,7 +12,7 @@ beforeEach(() => { vi.resetModules(); listProblems.mockClear(); storage=new Map(
 it('detail uses the list context and full-wall defaults for share links', async () => {
  await import('../wechat/miniprogram/pages/problem/detail/index.js')
  await page.onLoad({id:'p'})
- expect(listProblems).toHaveBeenCalledWith({wallId:'w'})
+ expect(listProblems.mock.calls[0][0]).toEqual({wallId:'w'})
  expect(page.data.next.id).toBe('p2')
  expect(page.openFullscreen).toBeTypeOf('function')
  page.openFullscreen(); expect(page.data.fullscreen).toBe(true)

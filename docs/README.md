@@ -1,6 +1,6 @@
 # 文档导航
 
-从[项目 README](../README.md)了解产品与快速启动，再按任务选择下列文档。使用指南描述当前行为；历史记录中的测试数量、部署状态与旧方案仅对应记录当时。
+从[项目 README](../README.md)了解产品与快速启动，再按任务选择下列文档。以下指南介绍当前功能、配置和验收方法。
 
 ## 使用与部署
 
@@ -16,17 +16,11 @@
 
 | 文档 | 内容 |
 | --- | --- |
+| [线路浏览与创作](guides/routes.md) | 三端入口、编辑流程、墙图适配、轮廓及压暗规则 |
 | [设计参考](reference.md) | 数据模型、账户与权限边界、生命周期 |
 | [测试与验收](testing.md) | 自动化检查与各端人工验收 |
 | [小程序浏览缓存](topics/miniprogram-cache.md) | 数据和图片缓存、失效与验证 |
 | [管理员线路双向补齐](topics/admin-route-sync.md) | 显式同步规则、部署依赖与一致性 |
-
-## 实测与历史记录
-
-- [SAM 2.1 参数测试报告](../output/sam21-baseline-2026-09-13/SAM21-report.md)：369岩点墙面的参数比较与推荐基线；[材料说明](../output/sam21-baseline-2026-09-13/README-report.md)区分仓库材料与本地完整数据。
-- [性能与运行记录](benchmarks/)：特定版本、输入与环境下的测量，不作为后续版本的性能保证。
-- [小程序手机 UI 验收记录](records/2026-09-12-miniprogram-mobile-ui-audit.md)：历史截图对照、验收范围与调试记录。
-- [设计方案](superpowers/specs/)、[实施计划](superpowers/plans/)与[设计历史](superpowers/history/)：保留决策过程；日常使用以当前指南与代码为准。
 
 ## 文档放置规则
 

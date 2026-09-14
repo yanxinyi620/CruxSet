@@ -2,15 +2,19 @@
 import { browsePage } from '../../services/browse-page.js'
 import { listWalls } from '../../services/browse-data.js'
 import { syncTabBar } from '../../services/tab-bar.js'
+import { peekBrowse } from '../../services/cloud.js'
+import { beginPageRead, pageReadError } from '../../services/page-read-state.js'
 Page(browsePage({
-  data:{walls:[],loading:true,error:''},
-  async onShow(){
+  data:{walls:[],loading:true,refreshing:false,error:'',notice:''},
+  cacheMatches(key){return key==='*'||JSON.parse(key)[1]==='listBrowseWalls'},
+  onCacheError(key,error){pageReadError(this,error,{walls:[]},true)},
+  async onShow(options={}){
     syncTabBar(this, 0)
-    const request=this._browseRequest=(this._browseRequest||0)+1
-    this.setData({loading:!this.data.walls.length,error:''})
-    try { const walls=await listWalls(); if(request===this._browseRequest)this.setData({walls,error:''}) }
-    catch(error){if(request===this._browseRequest)this.setData({walls:[],error:error.message||'加载失败，请稍后重试'})}
-    finally{if(request===this._browseRequest)this.setData({loading:false})}
+    const cached=peekBrowse('listBrowseWalls')
+    const read=beginPageRead(this,{walls:[]},cached ? {walls:cached}:undefined)
+    try { read.success({walls:await listWalls(options)}) }
+    catch(error){read.failure(error)}
+    finally{read.finish()}
   },
   openWall(e){wx.navigateTo({url:`/pages/wall/index?wallId=${e.currentTarget.dataset.id}`})}
 }))

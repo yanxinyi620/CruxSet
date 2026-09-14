@@ -1,22 +1,57 @@
 // @ts-nocheck
-import { ReadCache } from './read-cache.js'
+import { ReadCache, type ReadOptions, type CacheDiagnostic } from './read-cache.js'
 import { cloudErrorMessage } from './errors.js'
 const reads = new ReadCache()
+const cacheDiagnostics: CacheDiagnostic[] = []
+export const getCacheDiagnostics = () => cacheDiagnostics.map(event => ({ ...event }))
 const browseReads = new ReadCache(30_000, 100, {
   staleTtl: 24 * 60 * 60 * 1000,
-  maxBytes: 2 * 1024 * 1024,
+  maxBytes: 900 * 1024,
+  onDiagnostic: event => {
+    cacheDiagnostics.push(event)
+    if (cacheDiagnostics.length > 20) cacheDiagnostics.shift()
+    if (event.status.endsWith('failed')) console.warn('[CruxSet cache]', event)
+  },
   storage: {
     read: () => wx.getStorageSync('cruxset:browse-cache:v2'),
     write: rows => wx.setStorageSync('cruxset:browse-cache:v2', rows),
+    remove: () => wx.removeStorageSync('cruxset:browse-cache:v2'),
   },
 })
 export const subscribeBrowseCache = listener => browseReads.subscribe(listener)
+export const subscribeBrowseCacheErrors = listener => browseReads.subscribeErrors(listener)
 const clearReads = (notify = false) => { reads.clear(); browseReads.clear(notify) }
 const readActions = new Set(['listBrowseWalls', 'listMyWalls', 'listAdminWalls', 'getWall', 'listProblems', 'listMyProblems', 'getProblem', 'getSession', 'listUsers'])
 const cacheKey = (user, action, data = {}) => JSON.stringify([user, action, Object.keys(data).sort().map(key => [key, data[key]])])
 export const invalidateReadCache = () => clearReads(true)
 let session: Promise<string> | undefined
 let initializedUser: string | undefined
+export const confirmedUserId = () => initializedUser
+export const peekBrowse = <T>(action: string, data = {}): T | undefined => initializedUser ? browseReads.peek<T>(cacheKey(initializedUser, action, data)) : undefined
+const problemWall = (id: unknown) => {
+  if (!id) return undefined
+  const select = (key, value) => {
+    try {
+      const [user, action] = JSON.parse(key)
+      if (user !== initializedUser) return undefined
+      if (action === 'getProblem' && value?.id === id) return value.wallId
+      if (['listProblems', 'listMyProblems'].includes(action) && Array.isArray(value)) return value.find(problem => problem.id === id)?.wallId
+    } catch { /* Ignore malformed optional entries. */ }
+  }
+  return reads.findValue(select) || browseReads.findValue(select)
+}
+const invalidateProblems = (id: unknown, wallId: unknown, notify = false) => {
+  const matches = (key: string) => {
+    try {
+      const [, action, args] = JSON.parse(key)
+      const data = Object.fromEntries(args)
+      return ['listMyProblems', 'listBrowseWalls', 'listMyWalls', 'listAdminWalls'].includes(action)
+        || action === 'listProblems' && (!wallId || !data.wallId || data.wallId === wallId)
+        || action === 'getProblem' && data.id === id
+    } catch { return true } // Damaged optional cache must not block writes.
+  }
+  reads.invalidate(matches); browseReads.invalidate(matches, notify)
+}
 export function normalizeCloudError(error: unknown): Error {
   const normalized = new Error(cloudErrorMessage(error))
   Object.assign(normalized, { cause: error, code: error?.errCode || error?.code, rawMessage: error?.errMsg || error?.message })
@@ -62,10 +97,10 @@ async function authenticatedCall<T>(name: string, data: Record<string, unknown> 
   }
 }
 
-export async function call<T>(name: string, data: Record<string, unknown> = {}, browse = false): Promise<T> {
+export async function call<T>(name: string, data: Record<string, unknown> = {}, browse = false, options: ReadOptions = {}): Promise<T> {
   const user = await initializeUser()
   if (name === 'wallManager' && readActions.has(data.action as string)) {
-    const cache = browse && ['listBrowseWalls','getWall','listProblems','getProblem'].includes(data.action as string) ? browseReads : reads
+    const cache = browse && ['listBrowseWalls','getWall','listProblems','getProblem','listMyProblems'].includes(data.action as string) ? browseReads : reads
     const action = data.action as string, args = data.data || {}, generation = cache.generation
     return cache.read<T>(cacheKey(user, action, args), async () => {
       const result = await authenticatedCall<T>(name, data)
@@ -76,13 +111,21 @@ export async function call<T>(name: string, data: Record<string, unknown> = {}, 
           const ids = new Set(result.map(item => item.id))
           previous.forEach(item => { if (!ids.has(item.id)) cache.forget(cacheKey(user, target, {id:item.id})) })
         }
-        if (target && !['listBrowseWalls','listMyWalls','listAdminWalls'].includes(action)) result.forEach(item => cache.seed(cacheKey(user, target, {id:item.id}), item))
+        // A personal list may contain hundreds of routes. Keep it as one entry,
+        // rather than letting detail seeds evict the list and shared wall data.
+        if (target && !['listBrowseWalls','listMyWalls','listAdminWalls'].includes(action) && !(browse && action === 'listMyProblems')) result.forEach(item => cache.seed(cacheKey(user, target, {id:item.id}), item))
       }
       return result
-    })
+    }, options)
   }
-  const write = ['saveProblem','updateProblem','deleteProblem'].includes(name) || name === 'wallManager' || (name === 'adminWall' && data.action !== 'listDrafts')
-  if (write) clearReads()
+  const write = ['saveProblem','updateProblem','deleteProblem'].includes(name)
+    || name === 'wallManager' && ['deleteProblem', 'deleteWall', 'retryCleanup', 'updateProfile'].includes(data.action)
+    || name === 'adminWall' && ['createWall', 'updateWallHolds', 'publishWall', 'uploadImage', 'reclaimUploads'].includes(data.action)
+  const routeWrite = ['saveProblem','updateProblem','deleteProblem'].includes(name) || name === 'wallManager' && data.action === 'deleteProblem'
+  const id = data.id || data.data?.id
+  const wallId = routeWrite ? data.wallId || problemWall(id) : undefined
+  const invalidate = (notify = false) => routeWrite ? invalidateProblems(id, wallId, notify) : clearReads(notify)
+  if (write) invalidate()
   try { return await authenticatedCall<T>(name, data) }
-  finally { if (write) clearReads(true) }
+  finally { if (write) invalidate(true) }
 }
