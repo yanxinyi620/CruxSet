@@ -34,10 +34,26 @@ export async function startTask(
     id = crypto.randomUUID(),
     attempt = crypto.randomUUID(),
     now = Date.now()
+  const submissionId = payload.submissionId ?? null
+  if (submissionId !== null && (typeof submissionId !== 'string' || !/^[\w-]{1,128}$/.test(submissionId)))
+    fail('INVALID_INPUT', '任务提交标识无效。')
+  const replay = async () => {
+    if (!submissionId) return null
+    const prior = await env.DB.prepare('SELECT * FROM lab_tasks WHERE owner_id=? AND submission_id=?')
+      .bind(owner, submissionId).first<Row>()
+    if (!prior) return null
+    if (prior.experiment_id !== e.id || prior.model !== model || prior.parameters !== JSON.stringify(p))
+      fail('SUBMISSION_CONFLICT', '同一提交标识不能用于不同的任务。', 409)
+    if (prior.deleted_at !== null) fail('TASK_DELETED', '该次提交的任务已删除，请重新发起任务。', 410)
+    return json({taskId: prior.id, status: prior.status, reused: true}, 202)
+  }
+  const prior = await replay()
+  if (prior) return prior
   const row = await env.DB.prepare(
-    `INSERT INTO lab_tasks (id,experiment_id,owner_id,attempt_id,model,parameters,status,output_prefix,created_at,updated_at,deadline)
-    SELECT ?,?,?,?,?,?,'queued',?,?,?,? WHERE (SELECT COUNT(*) FROM lab_tasks WHERE owner_id=? AND deleted_at IS NULL AND status IN ('queued','running'))<2
-    AND EXISTS (SELECT 1 FROM lab_experiments WHERE id=? AND deleted_at IS NULL) RETURNING id`,
+    `INSERT INTO lab_tasks (id,experiment_id,owner_id,attempt_id,model,parameters,status,output_prefix,created_at,updated_at,deadline,submission_id)
+    SELECT ?,?,?,?,?,?,'queued',?,?,?,?,? WHERE (SELECT COUNT(*) FROM lab_tasks WHERE owner_id=? AND deleted_at IS NULL AND status IN ('queued','running'))<2
+    AND EXISTS (SELECT 1 FROM lab_experiments WHERE id=? AND deleted_at IS NULL)
+    AND (? IS NULL OR NOT EXISTS(SELECT 1 FROM lab_tasks WHERE owner_id=? AND submission_id=?)) RETURNING id`,
   )
     .bind(
       id,
@@ -50,11 +66,19 @@ export async function startTask(
       now,
       now,
       now + 30 * 60000,
+      submissionId,
       owner,
       e.id,
+      submissionId,
+      owner,
+      submissionId,
     )
     .first()
-  if (!row) fail('TASK_LIMIT', '最多同时保留两个未完成任务。', 429)
+  if (!row) {
+    const prior = await replay()
+    if (prior) return prior
+    fail('TASK_LIMIT', '最多同时保留两个未完成任务。', 429)
+  }
   try {
     if (!/^[\w.-]+\/[\w.-]+$/.test(env.LAB_GITHUB_REPOSITORY!))
       throw new Error('invalid repository')

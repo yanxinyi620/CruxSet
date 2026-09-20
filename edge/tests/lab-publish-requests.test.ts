@@ -261,9 +261,13 @@ it('validates CloudBase protocol, persists failures and safely retries one stabl
   expect(grantCount).toBe(count)
 })
 it('concurrent submissions retain one snapshot and failed requests cannot be rejected or replaced', async () => {
-  const f = fixture(),
-    rows = await Promise.all([f.create(), f.create()])
-  expect(rows[0].id).toBe(rows[1].id)
+  const f = fixture(), put = vi.spyOn(f.env.MEDIA, 'put'),
+    results = await Promise.allSettled([f.create(), f.create()])
+  const rows = results.filter(r => r.status === 'fulfilled').map(r => r.value)
+  expect(rows.length).toBeGreaterThan(0)
+  for (const result of results) if (result.status === 'rejected') expect(result.reason.status).toBe(409)
+  expect(put).toHaveBeenCalledTimes(2)
+  expect((await f.create()).id).toBe(rows[0].id)
   expect(
     [...f.objects.keys()].filter((k) => k.startsWith('lab-publish-requests/')),
   ).toHaveLength(2)
@@ -459,4 +463,38 @@ it('rolls back application deletion when the cleanup queue cannot be persisted',
   expect(f.sqlite.prepare('SELECT deleted_at FROM lab_publish_requests WHERE id=?').get(row.id).deleted_at).toBeNull()
   expect(f.objects.has(row.snapshot_key + 'display.webp')).toBe(true)
   expect(f.objects.has(row.snapshot_key + 'snapshot.json')).toBe(true)
+})
+
+it('releases a failed snapshot claim and durably cleans partial writes before retry',async()=>{
+  const f=fixture(), original=f.env.MEDIA.put.bind(f.env.MEDIA)
+  vi.spyOn(f.env.MEDIA,'put').mockImplementationOnce(original).mockRejectedValueOnce(new Error('storage failed'))
+  await expect(f.create()).rejects.toThrow('storage failed')
+  expect(f.sqlite.prepare('SELECT COUNT(*) n FROM lab_publish_snapshot_locks').get().n).toBe(0)
+  expect(f.sqlite.prepare('SELECT COUNT(*) n FROM lab_publish_requests').get().n).toBe(0)
+  expect([...f.objects.keys()].filter(k=>k.startsWith('lab-publish-requests/'))).toHaveLength(0)
+  expect(f.sqlite.prepare('SELECT kind FROM lab_gc').get().kind).toBe('snapshot')
+  expect((await f.create()).status).toBe('pending')
+})
+
+it('does not register a snapshot if its creation lease has been replaced',async()=>{
+  const f=fixture(), original=f.env.MEDIA.put.bind(f.env.MEDIA)
+  vi.spyOn(f.env.MEDIA,'put').mockImplementationOnce(async(key,value,options)=>{
+    const result=await original(key,value,options)
+    f.sqlite.exec("UPDATE lab_publish_snapshot_locks SET token='next-owner'")
+    return result
+  })
+  await expect(f.create()).rejects.toMatchObject({status:409})
+  expect(f.sqlite.prepare('SELECT COUNT(*) n FROM lab_publish_requests').get().n).toBe(0)
+  expect(f.sqlite.prepare('SELECT token FROM lab_publish_snapshot_locks').get().token).toBe('next-owner')
+  expect([...f.objects.keys()].filter(k=>k.startsWith('lab-publish-requests/'))).toHaveLength(0)
+})
+
+it('reclaims an expired snapshot lease but never reads storage under an active competing claim',async()=>{
+  const f=fixture(),get=vi.spyOn(f.env.MEDIA,'get')
+  f.sqlite.prepare('INSERT INTO lab_publish_snapshot_locks VALUES (?,?,?,?)').run('c','cloudbase','other',Date.now()+600000)
+  await expect(f.create()).rejects.toMatchObject({status:409})
+  expect(get).not.toHaveBeenCalled()
+  f.sqlite.exec('UPDATE lab_publish_snapshot_locks SET expires_at=0')
+  expect((await f.create()).status).toBe('pending')
+  expect(get).toHaveBeenCalledTimes(2)
 })

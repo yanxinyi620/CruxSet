@@ -66,53 +66,58 @@ export async function createPublishRequest(
     .bind(c.id, b.target)
     .first<Row>()
   if (prior) return prior
-  const source = await env.MEDIA.get(c.candidates_key),
-    image = await env.MEDIA.get(c.display_key)
-  if (!source || !image) fail('NOT_FOUND', '校准文件不存在。', 404)
-  const holds = candidates(
-    JSON.parse(await source.text()).items,
-    e.width,
-    e.height,
-  )
-  if (!holds.length) fail('INVALID_CANDIDATES', '请至少保存一个岩点。')
-  // Preflight the receiver contract before retaining a non-editable review snapshot.
-  normalizedHolds(holds, e.width, e.height)
-  const id = crypto.randomUUID(),
-    key = `lab-publish-requests/${id}/`
+  const now = Date.now(), token = crypto.randomUUID()
+  const lock = await env.DB.prepare(`INSERT INTO lab_publish_snapshot_locks VALUES (?,?,?,?)
+    ON CONFLICT(calibration_id,target) DO UPDATE SET token=excluded.token,expires_at=excluded.expires_at
+    WHERE lab_publish_snapshot_locks.expires_at<=? RETURNING token`)
+    .bind(c.id, b.target, token, now + 10 * 60000, now).first()
+  if (!lock) fail('SUBMISSION_IN_PROGRESS', '该校准的发布申请正在创建，请稍后重试。', 409)
+  const id = crypto.randomUUID(), key = `lab-publish-requests/${id}/`
+  let startedWriting = false, retained = false
   try {
-    await env.MEDIA.put(
-      key + 'snapshot.json',
-      JSON.stringify({
-        publishRequestId: `cloudflare:${id}`,
-        sourceExperimentId: e.id,
-        sourceCalibrationId: c.id,
-        wallName: name,
-        imageWidth: e.width,
-        imageHeight: e.height,
-        holds,
-      }),
-      { httpMetadata: { contentType: 'application/json' } },
-    )
-    await env.MEDIA.put(key + 'display.webp', image.body, {
-      httpMetadata: { contentType: 'image/webp' },
-    })
-    const row = await env.DB.prepare(
-      "INSERT OR IGNORE INTO lab_publish_requests (id,applicant_id,experiment_id,calibration_id,wall_name,target,status,snapshot_key,created_at,requires_review) VALUES (?,?,?,?,?,?,'pending',?,?,?) RETURNING *",
-    )
-      .bind(id, user.id, e.id, c.id, name, b.target, key, Date.now(), requiresReview ? 1 : 0)
-      .first<Row>()
-    if (row) return row
-    await env.MEDIA.delete([key + 'snapshot.json', key + 'display.webp'])
-    return (await env.DB.prepare(
+    // A request may have completed between our first lookup and acquiring this lease.
+    const existing = await env.DB.prepare(
       "SELECT * FROM lab_publish_requests WHERE calibration_id=? AND target=? AND status<>'rejected'",
-    )
-      .bind(c.id, b.target)
-      .first<Row>())!
-  } catch (error) {
-    await env.MEDIA.delete([key + 'snapshot.json', key + 'display.webp'])
-    throw error
+    ).bind(c.id, b.target).first<Row>()
+    if (existing) return existing
+    const source = await env.MEDIA.get(c.candidates_key), image = await env.MEDIA.get(c.display_key)
+    if (!source || !image) fail('NOT_FOUND', '校准文件不存在。', 404)
+    const holds = candidates(JSON.parse(await source.text()).items, e.width, e.height)
+    if (!holds.length) fail('INVALID_CANDIDATES', '请至少保存一个岩点。')
+    normalizedHolds(holds, e.width, e.height)
+    startedWriting = true
+    await env.MEDIA.put(key + 'snapshot.json', JSON.stringify({
+      publishRequestId: `cloudflare:${id}`, sourceExperimentId: e.id, sourceCalibrationId: c.id,
+      wallName: name, imageWidth: e.width, imageHeight: e.height, holds,
+    }), {httpMetadata: {contentType: 'application/json'}})
+    await env.MEDIA.put(key + 'display.webp', image.body, {httpMetadata: {contentType: 'image/webp'}})
+    const row = await env.DB.prepare(`INSERT OR IGNORE INTO lab_publish_requests
+      (id,applicant_id,experiment_id,calibration_id,wall_name,target,status,snapshot_key,created_at,requires_review)
+      SELECT ?,?,?,?,?,?,'pending',?,?,? WHERE EXISTS(
+        SELECT 1 FROM lab_publish_snapshot_locks WHERE calibration_id=? AND target=? AND token=? AND expires_at>?
+      ) RETURNING *`)
+      .bind(id, user.id, e.id, c.id, name, b.target, key, Date.now(), requiresReview ? 1 : 0,
+        c.id, b.target, token, Date.now()).first<Row>()
+    if (row) { retained = true; return row }
+    const winner = await env.DB.prepare(
+      "SELECT * FROM lab_publish_requests WHERE calibration_id=? AND target=? AND status<>'rejected'",
+    ).bind(c.id, b.target).first<Row>()
+    if (winner) return winner
+    return fail('SUBMISSION_EXPIRED', '申请创建已失效，请重新提交。', 409)
+  } finally {
+    try {
+      // Confirm absence before cleanup: a failed D1 response may still have committed the insert.
+      if (startedWriting && !retained && !(await env.DB.prepare('SELECT id FROM lab_publish_requests WHERE id=?').bind(id).first())) {
+        await cleanupStatement(env.DB, key, {kind: 'snapshot'}).run()
+        await cleanTarget(env, key)
+      }
+    } finally {
+      await env.DB.prepare('DELETE FROM lab_publish_snapshot_locks WHERE calibration_id=? AND target=? AND token=?')
+        .bind(c.id, b.target, token).run()
+    }
   }
 }
+
 export async function approvePublishRequest(
   env: ReadyEnv,
   id: string,

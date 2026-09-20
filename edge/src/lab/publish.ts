@@ -1,3 +1,4 @@
+import { preflightMediaQuota } from './quotas.js'
 import { candidates, fail, json, type ReadyEnv, type Row } from './common.js'
 
 export async function publishCalibration(
@@ -18,6 +19,7 @@ export async function publishCalibration(
   const name = wallName.trim()
   if (!name || name.length > 120)
     fail('INVALID_INPUT', '墙面名称须为 1–120 字。')
+  await preflightMediaQuota(env.DB, owner, 'wall')
   const source = await env.MEDIA.get(c.candidates_key),
     image = await env.MEDIA.get(c.display_key)
   if (!source || !image) fail('NOT_FOUND', '校准文件或展示图不存在。', 404)

@@ -23,3 +23,16 @@ export async function labUsage(env: ReadyEnv, user: Row) {
     .bind(user.id,user.id,user.id,day,user.id).first()
   return { used, limits: user.role === 'admin' ? null : { images:10,tasks:20,dailyTasks:20,publicWalls:10 }, day, timeZone:'Asia/Shanghai' }
 }
+
+/** Reject known-full quotas before storage I/O; D1 triggers remain the race-safe authority. */
+export async function preflightMediaQuota(db: D1Database, owner: string, resource: 'image' | 'wall') {
+  const count = resource === 'image'
+    ? 'SELECT COUNT(*) FROM lab_experiments WHERE owner_id=? AND deleted_at IS NULL'
+    : "SELECT COUNT(*) FROM walls WHERE owner_id=? AND published=1 AND visibility='public'"
+  const row = await db.prepare(`SELECT
+    EXISTS(SELECT 1 FROM admins WHERE user_id=? AND role='admin') AS exempt,
+    (${count}) AS used`).bind(owner, owner).first<{exempt: number; used: number}>()
+  if (row && !row.exempt && row.used >= 10) {
+    throw new Error(resource === 'image' ? 'LAB_IMAGE_QUOTA' : 'LAB_WALL_QUOTA')
+  }
+}

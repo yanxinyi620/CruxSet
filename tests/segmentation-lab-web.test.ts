@@ -43,7 +43,7 @@ describe('shared segmentation lab pages', () => {
     const window:any = {SEGMENTATION_LAB_CONFIG:{mode:'cloud',apiBase:'/api/v1/segmentation-lab'}}
     const saveStatus = {textContent:'',dataset:{},innerHTML:''}
     const saveButton = {disabled:false}
-    const context=vm.createContext({window,fetch:fetcher,Response,Error,String,Object,TextDecoder,eid:'exp-1',tid:'task-1',items:[],msg:()=>{},q:(selector:string)=>selector==='#save'?saveButton:saveStatus})
+    const context=vm.createContext({window,fetch:fetcher,Response,Error,String,Object,TextDecoder,eid:'exp-1',tid:'task-1',items:[],lastSavedSignature:null,savedHasPublication:false,sourceCalibrationId:null,calibrationViewVersion:0,msg:()=>{},q:(selector:string)=>selector==='#save'?saveButton:saveStatus})
     vm.runInContext(source('runtime.js'),context)
     context.Lab=window.Lab
     const save=source('calibration.html').match(/q\('#save'\)\.onclick=(async\(\)=>\{.*?\});stage/s)![1]
@@ -79,4 +79,58 @@ it.each([401,403])('only offers login for an unauthenticated lab response (%s)',
 it('returns from the results viewer to the configured lab path', () => {
   expect(source('results.html')).toContain("document.querySelector('.bar a').href=Lab.config.labPath")
   expect(source('results.html')).toContain("location.pathname.replace(/\\/$/, '')")
+})
+
+function calibrationSaveHarness(fetcher = vi.fn(async () => new Response('{"id":"saved"}',{status:201}))) {
+  const window:any={SEGMENTATION_LAB_CONFIG:{mode:'cloud',apiBase:'/api/v1/segmentation-lab'}}
+  const status={textContent:'',dataset:{},innerHTML:''}, button={disabled:false}
+  const context=vm.createContext({window,fetch:fetcher,Response,Error,String,Object,TextDecoder,
+    eid:'e',tid:'t',items:[{id:'hold'}],lastSavedSignature:null,savedHasPublication:false,sourceCalibrationId:null,calibrationViewVersion:0,
+    msg:()=>{},q:(selector:string)=>selector==='#save'?button:status})
+  vm.runInContext(source('runtime.js'),context);context.Lab=window.Lab
+  const code=source('calibration.html').match(/q\('#save'\)\.onclick=(async\(\)=>\{.*?\});stage/s)![1]
+  return {context,status,button,fetcher,save:()=>vm.runInContext(`(${code})()`,context)}
+}
+
+it('saves once, skips unchanged content and saves again after an edit',async()=>{
+  const f=calibrationSaveHarness()
+  await f.save();await f.save()
+  expect(f.fetcher).toHaveBeenCalledTimes(1)
+  expect(f.status.textContent).toContain('没有新的修改')
+  f.context.items=[{id:'edited'}];await f.save()
+  expect(f.fetcher).toHaveBeenCalledTimes(2)
+  const body=JSON.parse((f.fetcher.mock.calls[1] as any)[1].body)
+  expect(body.sourceCalibrationId).toBe('saved')
+})
+
+it('keeps edits made while saving dirty instead of marking them already saved',async()=>{
+  let finish!:(value:Response)=>void
+  const fetcher=vi.fn(()=>new Promise<Response>(resolve=>{finish=resolve}))
+  const f=calibrationSaveHarness(fetcher)
+  const saving=f.save();f.context.items=[{id:'edited-during-save'}]
+  finish(new Response('{"id":"saved"}',{status:201}));await saving
+  const second=f.save();expect(fetcher).toHaveBeenCalledTimes(2)
+  finish(new Response('{"id":"next"}',{status:201}));await second
+})
+
+it('does not mark a new view saved when a previous view finishes saving',async()=>{
+  let finish!:(value:Response)=>void
+  const f=calibrationSaveHarness(vi.fn(()=>new Promise<Response>(resolve=>{finish=resolve})))
+  const saving=f.save()
+  f.context.calibrationViewVersion=1;f.context.eid='other';f.context.lastSavedSignature=null
+  finish(new Response('{"id":"old"}',{status:201}));await saving
+  expect(f.context.lastSavedSignature).toBeNull()
+  expect(f.context.sourceCalibrationId).toBeNull()
+})
+
+it('lets an unchanged published calibration reach the server to recover a deleted wall',async()=>{
+  const f=calibrationSaveHarness()
+  f.context.sourceCalibrationId='published'
+  f.context.savedHasPublication=true
+  f.context.lastSavedSignature=JSON.stringify([f.context.eid,f.context.tid,f.context.items])
+  await f.save()
+  expect(f.fetcher).toHaveBeenCalledTimes(1)
+  expect(f.context.sourceCalibrationId).toBe('saved')
+  expect(f.context.savedHasPublication).toBe(false)
+  await f.save();expect(f.fetcher).toHaveBeenCalledTimes(1)
 })

@@ -333,7 +333,7 @@ describe('cloud segmentation lab', () => {
           changes: {},
         })
       ).status,
-    ).toBe(201)
+    ).toBe(200)
     expect(
       (await f.call(`/experiments/${e.id}`, { method: 'DELETE' })).status,
     ).toBe(204)
@@ -746,4 +746,187 @@ it('reawakens cleanup when an authenticated upload finishes after its task was d
   const {sweep} = await import('../src/lab/tasks.js')
   await sweep(f.env)
   expect(f.objects.has(task.output_prefix + 'display.webp')).toBe(false)
+})
+
+async function calibrationFixture() {
+  const f = await fixture(), e = await f.upload()
+  const items = [{id:'h1',polygon:[[0,0],[1,0],[1,1]],kind:'hold'}]
+  f.sqlite.prepare("INSERT INTO lab_tasks(id,experiment_id,owner_id,attempt_id,model,parameters,status,output_prefix,created_at,updated_at,deadline) VALUES('source',?,'admin','attempt','sam2','{}','succeeded','lab/source/',1,1,9999999999999)").run(e.id)
+  f.objects.set('lab/source/display.webp',{bytes:new TextEncoder().encode('RIFFxxxxWEBPVP8 x'),type:'image/webp'})
+  const save = (candidates = items, extra = {}) => f.post(`/experiments/${e.id}/calibrations`,{sourceTaskId:'source',candidates,changes:{},...extra})
+  return {...f,e,items,save}
+}
+
+it('reuses unchanged calibration saves without writing another image or JSON', async () => {
+  const f=await calibrationFixture(), put=vi.spyOn(f.env.MEDIA,'put')
+  const first=await f.save(); expect(first.status).toBe(201)
+  const saved:any=await first.json()
+  const second=await f.save(); expect(second.status).toBe(200)
+  expect(await second.json()).toMatchObject({id:saved.id,reused:true})
+  expect(put).toHaveBeenCalledTimes(2)
+  expect(f.sqlite.prepare('SELECT COUNT(*) n FROM lab_calibrations').get().n).toBe(1)
+  const changed=await f.save([{...f.items[0],kind:'volume'}])
+  expect(changed.status).toBe(201)
+  expect(put).toHaveBeenCalledTimes(4)
+})
+
+it('prevents concurrent identical saves from writing duplicate calibration files', async () => {
+  const f=await calibrationFixture(), put=vi.spyOn(f.env.MEDIA,'put')
+  const responses=await Promise.all([f.save(),f.save()])
+  expect(responses.filter(r=>r.status===201)).toHaveLength(1)
+  expect(responses.every(r=>[200,201,409].includes(r.status))).toBe(true)
+  expect(put).toHaveBeenCalledTimes(2)
+  expect((await f.save()).status).toBe(200)
+})
+
+it('rejects a full image quota before attempting an R2 write', async () => {
+  const f=await fixture()
+  f.sqlite.exec("UPDATE admins SET role='user',lab_enabled=1 WHERE user_id='admin'")
+  for(let i=0;i<10;i++)await f.upload()
+  const put=vi.spyOn(f.env.MEDIA,'put')
+  for(let i=0;i<2;i++) {
+    const form=new FormData()
+    form.set('image',new File([f.objects.values().next().value!.bytes],'extra.png',{type:'image/png'}))
+    expect((await f.call('/experiments',{method:'POST',body:form})).status).toBe(429)
+  }
+  expect(put).not.toHaveBeenCalled()
+})
+
+it('rejects a full wall quota before reading or writing calibration media', async () => {
+  const f=await calibrationFixture(), saved:any=await(await f.save()).json()
+  for(let i=0;i<10;i++) f.sqlite.prepare("INSERT INTO walls VALUES(?,?,'Wall','','existing',1,1,'polygon','[20]','admin','public',1,1,1)").run(`wall${i}`,i+1)
+  f.sqlite.exec("UPDATE admins SET role='user',lab_enabled=1 WHERE user_id='admin'")
+  const put=vi.spyOn(f.env.MEDIA,'put'), get=vi.spyOn(f.env.MEDIA,'get')
+  const response=await f.post(`/experiments/${f.e.id}/calibrations/${saved.id}/publish`,{})
+  expect(response.status).toBe(429)
+  expect(await response.json()).toMatchObject({code:'LAB_WALL_QUOTA'})
+  expect(put).not.toHaveBeenCalled(); expect(get).not.toHaveBeenCalled()
+})
+
+it('reuses an explicit calibration after its original task is deleted', async () => {
+  const f=await calibrationFixture(), saved:any=await(await f.save()).json()
+  expect((await f.call(`/experiments/${f.e.id}/runs/source`,{method:'DELETE'})).status).toBe(204)
+  const put=vi.spyOn(f.env.MEDIA,'put')
+  const response=await f.save(f.items,{sourceTaskId:null,sourceCalibrationId:saved.id})
+  expect(response.status).toBe(200)
+  expect(await response.json()).toMatchObject({id:saved.id,sourceTaskId:null})
+  expect(put).not.toHaveBeenCalled()
+  const changed=await f.save([{...f.items[0],kind:'volume'}],{sourceTaskId:null,sourceCalibrationId:saved.id})
+  expect(changed.status).toBe(201)
+  expect(put).toHaveBeenCalledTimes(2)
+})
+
+it('normalizes JSON object key order when identifying identical calibrations',async()=>{
+  const f=await calibrationFixture(), first:any=await(await f.save()).json()
+  const put=vi.spyOn(f.env.MEDIA,'put')
+  const second=await f.save([{polygon:f.items[0].polygon,kind:'hold',id:'h1'}])
+  expect(second.status).toBe(200);expect(await second.json()).toMatchObject({id:first.id})
+  expect(put).not.toHaveBeenCalled()
+})
+
+it('reuses a legacy calibration without rewriting its snapshot',async()=>{
+  const f=await calibrationFixture()
+  f.sqlite.prepare("INSERT INTO lab_calibrations(id,experiment_id,source_task_id,candidates_key,display_key,candidate_count,changes,created_at,image_source_key) VALUES('legacy',?,'source','legacy.json','legacy.webp',1,'{}',1,'lab/source/display.webp')").run(f.e.id)
+  f.objects.set('legacy.json',{bytes:new TextEncoder().encode(JSON.stringify({items:f.items})),type:'application/json'})
+  f.objects.set('legacy.webp',{bytes:new Uint8Array([7]),type:'image/webp'})
+  const put=vi.spyOn(f.env.MEDIA,'put')
+  const response=await f.save(f.items,{sourceCalibrationId:'legacy'})
+  expect(response.status).toBe(200);expect(await response.json()).toMatchObject({id:'legacy',reused:true})
+  expect(put).not.toHaveBeenCalled()
+  expect(f.sqlite.prepare("SELECT content_hash FROM lab_calibrations WHERE id='legacy'").get().content_hash).toMatch(/^[a-f0-9]{64}$/)
+})
+
+it('cleans partial writes and releases the save lease so retry can succeed',async()=>{
+  const f=await calibrationFixture(), original=f.env.MEDIA.put.bind(f.env.MEDIA)
+  const put=vi.spyOn(f.env.MEDIA,'put').mockImplementationOnce(original).mockRejectedValueOnce(new Error('storage unavailable'))
+  const failed=await f.save();expect(failed.status).toBe(500)
+  expect(f.sqlite.prepare('SELECT COUNT(*) n FROM lab_calibration_save_locks').get().n).toBe(0)
+  expect(f.sqlite.prepare('SELECT COUNT(*) n FROM lab_calibrations').get().n).toBe(0)
+  expect(f.sqlite.prepare('SELECT COUNT(*) n FROM lab_gc').get().n).toBe(1)
+  put.mockRestore();expect((await f.save()).status).toBe(201)
+})
+
+it('does not publish a calibration result after its lease is superseded',async()=>{
+  const f=await calibrationFixture(), original=f.env.MEDIA.put.bind(f.env.MEDIA)
+  vi.spyOn(f.env.MEDIA,'put').mockImplementationOnce(async(key,value,options)=>{
+    const result=await original(key,value,options)
+    f.sqlite.exec("UPDATE lab_calibration_save_locks SET token='new-owner'")
+    return result
+  })
+  expect((await f.save()).status).toBe(409)
+  expect(f.sqlite.prepare('SELECT COUNT(*) n FROM lab_calibrations').get().n).toBe(0)
+  expect(f.sqlite.prepare('SELECT token FROM lab_calibration_save_locks').get().token).toBe('new-owner')
+  expect(f.sqlite.prepare('SELECT COUNT(*) n FROM lab_gc').get().n).toBe(1)
+})
+
+it('does not reuse deleted calibrations or snapshots from another experiment',async()=>{
+  const f=await calibrationFixture(), saved:any=await(await f.save()).json()
+  const another=await f.upload()
+  const invalid=await f.post(`/experiments/${another.id}/calibrations`,{sourceCalibrationId:saved.id,candidates:f.items})
+  expect(invalid.status).toBe(404)
+  await f.call(`/experiments/${f.e.id}/calibrations/${saved.id}`,{method:'DELETE'})
+  const next=await f.save();expect(next.status).toBe(201)
+  expect((await next.json() as any).id).not.toBe(saved.id)
+})
+
+it('allows a new unchanged snapshot after its published wall was deleted',async()=>{
+  const f=await calibrationFixture(), saved:any=await(await f.save()).json()
+  const published:any=await(await f.post(`/experiments/${f.e.id}/calibrations/${saved.id}/publish`,{})).json()
+  expect((await f.apiCall(`/walls/${published.wallId}`,'DELETE')).status).toBe(200)
+  const next=await f.save();expect(next.status).toBe(201)
+  expect((await next.json() as any).id).not.toBe(saved.id)
+})
+
+it('recovers expired save leases without rewriting an already completed result',async()=>{
+  const f=await calibrationFixture(), saved:any=await(await f.save()).json()
+  const row=f.sqlite.prepare('SELECT content_hash FROM lab_calibrations WHERE id=?').get(saved.id)
+  f.sqlite.prepare('INSERT INTO lab_calibration_save_locks VALUES (?,?,?,?)').run(f.e.id,row.content_hash,'crashed',1)
+  const put=vi.spyOn(f.env.MEDIA,'put')
+  expect((await f.save()).status).toBe(200)
+  expect(put).not.toHaveBeenCalled()
+  // Deleted result requires a new attempt; the expired lock must be reclaimable.
+  await f.call(`/experiments/${f.e.id}/calibrations/${saved.id}`,{method:'DELETE'})
+  expect((await f.save()).status).toBe(201)
+  expect(put).toHaveBeenCalledTimes(2)
+})
+
+it('replays one submission identity without dispatching or counting another model task',async()=>{
+  const f=await fixture(),e=await f.upload()
+  const payload={model:'sam2',submissionId:'submit-one'}
+  const responses=await Promise.all([f.post(`/experiments/${e.id}/runs`,payload),f.post(`/experiments/${e.id}/runs`,payload)])
+  expect(responses.map(r=>r.status)).toEqual([202,202])
+  const rows=await Promise.all(responses.map(r=>r.json())) as any[]
+  expect(rows[0].taskId).toBe(rows[1].taskId)
+  expect(fetch).toHaveBeenCalledTimes(1)
+  expect(f.sqlite.prepare('SELECT COUNT(*) n FROM lab_tasks').get().n).toBe(1)
+  expect(f.sqlite.prepare('SELECT task_count FROM lab_daily_usage').get().task_count).toBe(1)
+  expect((await f.post(`/experiments/${e.id}/runs`,{...payload,parameters:{points_per_side:32}})).status).toBe(409)
+  expect((await f.post(`/experiments/${e.id}/runs`,{...payload,submissionId:'submit-two'})).status).toBe(202)
+  expect(fetch).toHaveBeenCalledTimes(2)
+})
+
+it('replays submissions at the daily quota and refuses to recreate deleted submission IDs',async()=>{
+  const f=await fixture(),e=await f.upload()
+  f.sqlite.exec("UPDATE admins SET role='user',lab_enabled=1 WHERE user_id='admin'")
+  const day=new Date(Date.now()+8*3600000).toISOString().slice(0,10)
+  f.sqlite.prepare('INSERT INTO lab_daily_usage VALUES(?,?,19)').run('admin',day)
+  const payload={submissionId:'last-slot'}
+  const first=await f.post(`/experiments/${e.id}/runs`,payload), created:any=await first.json()
+  expect(first.status).toBe(202)
+  expect((await f.post(`/experiments/${e.id}/runs`,payload)).status).toBe(202)
+  expect(f.sqlite.prepare('SELECT task_count FROM lab_daily_usage').get().task_count).toBe(20)
+  await f.call(`/experiments/${e.id}/runs/${created.taskId}`,{method:'DELETE'})
+  expect((await f.post(`/experiments/${e.id}/runs`,payload)).status).toBe(410)
+  expect(fetch).toHaveBeenCalledTimes(1)
+})
+
+it('does not dispatch again when a failed dispatch is replayed with the same submission ID',async()=>{
+  const f=await fixture(),e=await f.upload()
+  vi.mocked(fetch).mockResolvedValue(new Response('failure',{status:503}))
+  const payload={submissionId:'failed-dispatch'}
+  const first:any=await(await f.post(`/experiments/${e.id}/runs`,payload)).json()
+  expect(first.status).toBe('failed')
+  const replay:any=await(await f.post(`/experiments/${e.id}/runs`,payload)).json()
+  expect(replay).toMatchObject({taskId:first.taskId,status:'failed',reused:true})
+  expect(fetch).toHaveBeenCalledTimes(1)
 })

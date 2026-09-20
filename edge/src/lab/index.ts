@@ -1,5 +1,6 @@
+import { calibrationView, saveCalibration } from './calibrations.js'
 import { cleanupStatement, cleanTarget } from './gc.js'
-import { labUsage, quotaError } from './quotas.js'
+import { labUsage, quotaError, preflightMediaQuota } from './quotas.js'
 import { canUseLab } from '../lab-access.js'
 import {
   BASE,
@@ -43,17 +44,6 @@ function taskView(t: Row) {
     createdAt: t.created_at / 1000,
   }
 }
-function calibrationView(c: Row) {
-  return {
-    id: c.id,
-    sourceTaskId: c.source_task_id,
-    candidateCount: c.candidate_count,
-    changes: JSON.parse(c.changes),
-    createdAt: c.created_at / 1000,
-    updatedAt: c.created_at / 1000,
-    publish: c.publish ? JSON.parse(c.publish) : undefined,
-  }
-}
 async function calibration(env: ReadyEnv, eid: string, id: string) {
   const c = await env.DB.prepare(
     'SELECT * FROM lab_calibrations WHERE id=? AND experiment_id=? AND deleted_at IS NULL',
@@ -62,9 +52,6 @@ async function calibration(env: ReadyEnv, eid: string, id: string) {
     .first<Row>()
   if (!c) fail('NOT_FOUND', '校准不存在。', 404)
   return c
-}
-async function gc(env: ReadyEnv, prefix: string) {
-  await cleanupStatement(env.DB, prefix).run()
 }
 export async function handleLab(
   request: Request,
@@ -101,6 +88,7 @@ export async function handleLab(
     if (path === '/health' && request.method === 'GET')
       return json({ status: 'ok', device: 'cpu', mode: 'cloud' })
     if (path === '/experiments' && request.method === 'POST') {
+      await preflightMediaQuota(env.DB, user.id, 'image')
       const raw = await bytes(request, 20 * MiB + 64 * 1024),
         form = await new Request(request.url, {
           method: 'POST',
@@ -266,70 +254,8 @@ export async function handleLab(
       return json({ items: cs.results.map(calibrationView) })
     }
     if (tail === '/calibrations' && request.method === 'POST') {
-      const b = await body(request, 10 * MiB),
-        items = candidates(b.candidates, e.width, e.height)
-      // A resumed calibration can outlive its source run; its copied display image remains usable.
-      const t =
-        typeof b.sourceTaskId === 'string'
-          ? await env.DB.prepare(
-              "SELECT * FROM lab_tasks WHERE id=? AND experiment_id=? AND status='succeeded' AND deleted_at IS NULL",
-            )
-              .bind(b.sourceTaskId, e.id)
-              .first<Row>()
-          : null
-      const old = !t
-        ? await env.DB.prepare(
-            'SELECT * FROM lab_calibrations WHERE experiment_id=? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1',
-          )
-            .bind(e.id)
-            .first<Row>()
-        : null
-      if (!t && !old) fail('NOT_FOUND', '成功任务或已保存校准不存在。', 404)
-      const sourceDisplay = t
-          ? t.output_prefix + 'display.webp'
-          : old!.display_key,
-        display = await env.MEDIA.get(sourceDisplay)
-      if (!display) fail('NOT_FOUND', '展示图不存在。', 404)
-      const id = crypto.randomUUID(),
-        key = `lab/${e.id}/calibrations/${id}/`,
-        now = Date.now(),
-        changes =
-          b.changes &&
-          typeof b.changes === 'object' &&
-          !Array.isArray(b.changes)
-            ? b.changes
-            : {}
-      try {
-        await env.MEDIA.put(
-          key + 'candidates.json',
-          JSON.stringify({ items }),
-          { httpMetadata: { contentType: 'application/json' } },
-        )
-        await env.MEDIA.put(key + 'display.webp', display.body, {
-          httpMetadata: { contentType: 'image/webp' },
-        })
-        const saved = await env.DB.prepare(
-          `INSERT INTO lab_calibrations (id,experiment_id,source_task_id,candidates_key,display_key,candidate_count,changes,created_at)
-        SELECT ?,?,?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM lab_experiments WHERE id=? AND deleted_at IS NULL) RETURNING *`,
-        )
-          .bind(
-            id,
-            e.id,
-            t?.id ?? null,
-            key + 'candidates.json',
-            key + 'display.webp',
-            items.length,
-            JSON.stringify(changes),
-            now,
-            e.id,
-          )
-          .first<Row>()
-        if (!saved) fail('NOT_FOUND', '实验已删除。', 404)
-        return json(calibrationView(saved), 201)
-      } catch (error) {
-        await gc(ready, key)
-        throw error
-      }
+      const saved = await saveCalibration(ready, e, await body(request, 10 * MiB))
+      return json({...calibrationView(saved.row), reused: saved.reused}, saved.reused ? 200 : 201)
     }
     const cm = tail.match(
       /^\/calibrations\/([\w-]+)(\/export.svg|\/publish|\/publish-requests)?$/,
