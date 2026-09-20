@@ -1,3 +1,4 @@
+import { cleanupStatement, sweepCleanup } from './gc.js'
 import {
   BASE,
   MiB,
@@ -292,9 +293,7 @@ export async function runner(
       .bind(t.id, Date.now())
       .first()
     if (!live) {
-      await env.DB.prepare('INSERT OR IGNORE INTO lab_gc VALUES (?,?)')
-        .bind(t.output_prefix, Date.now())
-        .run()
+      await cleanupStatement(env.DB, t.output_prefix).run()
       fail('TASK_FINISHED', '任务已失效。', 409)
     }
     return json({ ok: true })
@@ -316,21 +315,5 @@ export async function sweep(env: ReadyEnv) {
       now,
     )
     .run()
-  const rows = await env.DB.prepare(
-    'SELECT prefix,created_at FROM lab_gc ORDER BY created_at LIMIT 30',
-  ).all<Row>()
-  for (const row of rows.results ?? []) {
-    try {
-      const listed = await env.MEDIA.list({ prefix: row.prefix, limit: 500 })
-      if (listed.objects.length)
-        await env.MEDIA.delete(listed.objects.map((o) => o.key))
-      // Keep tombstone cleanup for 24h: an in-flight upload can finish after deletion.
-      if (!listed.truncated && now - row.created_at > 86400000)
-        await env.DB.prepare('DELETE FROM lab_gc WHERE prefix=?')
-          .bind(row.prefix)
-          .run()
-    } catch {
-      /* Keep durable GC entry for the next scheduled sweep. */
-    }
-  }
+  await sweepCleanup(env)
 }

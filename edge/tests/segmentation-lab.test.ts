@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import worker from '../src/index.js'
 import { database } from './helpers/database.js'
 
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks() })
 async function fixture() {
   const { db, sqlite } = database()
   sqlite.exec(
@@ -694,6 +694,12 @@ describe('creator quotas', () => {
     deletion.mockRestore()
     const {sweep}=await import('../src/lab/tasks.js')
     await sweep(f.env)
+    expect(f.objects.has('media_lab_cleanup.webp')).toBe(true)
+    const next = f.sqlite.prepare('SELECT next_attempt_at FROM lab_gc').get().next_attempt_at
+    vi.spyOn(Date, 'now').mockReturnValue(Number(next))
+    const list = vi.spyOn(f.env.MEDIA, 'list')
+    await sweep(f.env)
+    expect(list).not.toHaveBeenCalled()
     expect(f.objects.has('media_lab_cleanup.webp')).toBe(false)
   })
 
@@ -707,4 +713,37 @@ describe('creator quotas', () => {
     expect(f.sqlite.prepare('SELECT COUNT(*) n FROM lab_tasks').get().n).toBe(1)
   })
 
+})
+
+it('deleting an experiment cleans only its target, leaving unrelated due cleanup for the scheduler', async () => {
+  const f = await fixture(), e = await f.upload()
+  f.sqlite.prepare('INSERT INTO lab_gc(prefix,created_at) VALUES (?,?)').run('lab/unrelated/', Date.now())
+  f.objects.set('lab/unrelated/file', {bytes: new Uint8Array([1]), type: 'image/webp'})
+  const list = vi.spyOn(f.env.MEDIA, 'list')
+  expect((await f.call(`/experiments/${e.id}`, {method: 'DELETE'})).status).toBe(204)
+  expect(f.objects.has('lab/unrelated/file')).toBe(true)
+  expect(list).toHaveBeenCalledTimes(1)
+  expect(list).toHaveBeenCalledWith({prefix: `lab/${e.id}/`, limit: 500})
+})
+
+it('reawakens cleanup when an authenticated upload finishes after its task was deleted', async () => {
+  const f = await fixture(), e = await f.upload()
+  const {taskId} = await (await f.post(`/experiments/${e.id}/runs`, {model: 'sam2'})).json() as any
+  const task = f.sqlite.prepare('SELECT * FROM lab_tasks WHERE id=?').get(taskId)
+  const claim = await f.post('/runner/claim', {taskId, attemptId: task.attempt_id, runId: '123:1'}, 'runner-secret')
+  const {token} = await claim.json() as any
+  const put = f.env.MEDIA.put.bind(f.env.MEDIA)
+  vi.spyOn(f.env.MEDIA, 'put').mockImplementationOnce(async (key, value, options) => {
+    expect((await f.call(`/experiments/${e.id}/runs/${taskId}`, {method: 'DELETE'})).status).toBe(204)
+    return put(key, value, options)
+  })
+  const response = await f.call(`/runner/tasks/${taskId}/outputs/display.webp`, {
+    method: 'PUT', body: 'RIFFxxxxWEBPVP8 x',
+  }, token)
+  expect(response.status).toBe(409)
+  expect(f.objects.has(task.output_prefix + 'display.webp')).toBe(true)
+  expect(f.sqlite.prepare('SELECT * FROM lab_gc WHERE prefix=?').get(task.output_prefix)).toMatchObject({version: 2, phase: 0})
+  const {sweep} = await import('../src/lab/tasks.js')
+  await sweep(f.env)
+  expect(f.objects.has(task.output_prefix + 'display.webp')).toBe(false)
 })

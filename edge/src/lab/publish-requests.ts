@@ -1,3 +1,4 @@
+import { cleanupStatement, cleanTarget } from './gc.js'
 import {
   body,
   candidates,
@@ -206,14 +207,16 @@ export async function publishRequestRoutes(
       env.DB.prepare(
         "UPDATE lab_publish_requests SET deleted_at=? WHERE id=? AND deleted_at IS NULL AND status IN ('published','rejected') RETURNING id",
       ).bind(now, r.id),
-      env.DB.prepare(
-        "INSERT OR IGNORE INTO lab_gc(prefix,created_at) SELECT snapshot_key,? FROM lab_publish_requests WHERE id=? AND deleted_at IS NOT NULL AND status IN ('published','rejected')",
-      ).bind(now, r.id),
+      cleanupStatement(env.DB, r.snapshot_key, {
+        now, kind: 'snapshot',
+        guard: {
+          sql: "EXISTS(SELECT 1 FROM lab_publish_requests WHERE id=? AND deleted_at IS NOT NULL AND status IN ('published','rejected'))",
+          values: [r.id],
+        },
+      }),
     ])
     if (!deleted.results.length) fail('CONFLICT', '仅已发布或已拒绝的申请可以删除。', 409)
-    try {
-      await env.MEDIA.delete([r.snapshot_key + 'display.webp', r.snapshot_key + 'snapshot.json'])
-    } catch { /* The durable cleanup entry lets the scheduled sweep retry. */ }
+    await cleanTarget(env, r.snapshot_key)
     return new Response(null, {status: 204})
   }
   if (request.method === 'GET' && m[2] === 'image')

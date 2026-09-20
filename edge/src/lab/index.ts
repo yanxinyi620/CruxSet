@@ -1,3 +1,4 @@
+import { cleanupStatement, cleanTarget } from './gc.js'
 import { labUsage, quotaError } from './quotas.js'
 import { canUseLab } from '../lab-access.js'
 import {
@@ -18,7 +19,7 @@ import {
   type ReadyEnv,
   type Row,
 } from './common.js'
-import { runner, startTask, sweep } from './tasks.js'
+import { runner, startTask } from './tasks.js'
 import {
   createPublishRequest,
   approvePublishRequest,
@@ -63,9 +64,7 @@ async function calibration(env: ReadyEnv, eid: string, id: string) {
   return c
 }
 async function gc(env: ReadyEnv, prefix: string) {
-  await env.DB.prepare('INSERT OR IGNORE INTO lab_gc VALUES (?,?)')
-    .bind(prefix, Date.now())
-    .run()
+  await cleanupStatement(env.DB, prefix).run()
 }
 export async function handleLab(
   request: Request,
@@ -214,12 +213,9 @@ export async function handleLab(
         env.DB.prepare(
           'UPDATE lab_calibrations SET deleted_at=? WHERE experiment_id=?',
         ).bind(now, e.id),
-        env.DB.prepare('INSERT OR IGNORE INTO lab_gc VALUES (?,?)').bind(
-          `lab/${e.id}/`,
-          now,
-        ),
+        cleanupStatement(env.DB, `lab/${e.id}/`, {now}),
       ])
-      await sweep(ready)
+      await cleanTarget(ready, `lab/${e.id}/`)
       return new Response(null, { status: 204 })
     }
     if (tail === '/image' && request.method === 'GET')
@@ -256,9 +252,9 @@ export async function handleLab(
         env.DB.prepare(
           'UPDATE lab_calibrations SET source_task_id=NULL WHERE source_task_id=?',
         ).bind(t.id),
+        cleanupStatement(env.DB, t.output_prefix),
       ])
-      await gc(ready, t.output_prefix)
-      await sweep(ready)
+      await cleanTarget(ready, t.output_prefix)
       return new Response(null, { status: 204 })
     }
     if (tail === '/calibrations' && request.method === 'GET') {
@@ -343,13 +339,12 @@ export async function handleLab(
       if (!cm[2] && request.method === 'GET')
         return objectResponse(ready, c.candidates_key, 'application/json')
       if (!cm[2] && request.method === 'DELETE') {
-        await env.DB.prepare(
-          'UPDATE lab_calibrations SET deleted_at=? WHERE id=?',
-        )
-          .bind(Date.now(), c.id)
-          .run()
-        await gc(ready, `lab/${e.id}/calibrations/${c.id}/`)
-        await sweep(ready)
+        const prefix = `lab/${e.id}/calibrations/${c.id}/`
+        await env.DB.batch([
+          env.DB.prepare('UPDATE lab_calibrations SET deleted_at=? WHERE id=?').bind(Date.now(), c.id),
+          cleanupStatement(env.DB, prefix),
+        ])
+        await cleanTarget(ready, prefix)
         return new Response(null, { status: 204 })
       }
       if (cm[2] === '/publish-requests' && request.method === 'POST') {

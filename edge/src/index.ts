@@ -1,3 +1,4 @@
+import { cleanupStatement, cleanTarget } from './lab/gc.js'
 import { reconcilePublishRequests } from './lab/publish-requests.js'
 import { syncWall, cloudbaseBridge } from './route-sync.js'
 import { quotaError } from './lab/quotas.js'
@@ -34,9 +35,13 @@ async function deleteWall(request: Request, db: D1Database, env: Env, user: Reco
   const wall = await db.prepare('SELECT image_path FROM walls WHERE id=? AND (owner_id=? OR ?=1)').bind(wallId,user.id,user.role === 'admin' ? 1 : 0).first() as Record<string,unknown>|null
   if (!wall) return error(request,'NOT_FOUND','Wall not found',404)
   const media = String(wall.image_path ?? '').split('/').pop()!
-  const cleanup = media.startsWith('media_') ? [db.prepare(
-    "INSERT OR IGNORE INTO lab_gc(prefix,created_at) SELECT ?,? WHERE NOT EXISTS(SELECT 1 FROM walls WHERE image_path IN (?,?))",
-  ).bind(media,Date.now(),media,`/api/v1/media/${media}`)] : []
+  const cleanup = media.startsWith('media_') ? [cleanupStatement(db, media, {
+    kind: 'object',
+    guard: {
+      sql: 'NOT EXISTS(SELECT 1 FROM walls WHERE image_path IN (?,?))',
+      values: [media, `/api/v1/media/${media}`],
+    },
+  })] : []
   await db.batch([
     db.prepare('DELETE FROM problem_holds WHERE wall_id=?').bind(wallId),
     db.prepare('DELETE FROM problems WHERE wall_id=?').bind(wallId),
@@ -46,8 +51,7 @@ async function deleteWall(request: Request, db: D1Database, env: Env, user: Reco
     ...cleanup,
   ])
   if (env.MEDIA && cleanup.length && await db.prepare('SELECT prefix FROM lab_gc WHERE prefix=?').bind(media).first()) {
-    try { await env.MEDIA.delete(media) }
-    catch { /* The scheduled sweep retries this durable cleanup entry. */ }
+    await cleanTarget({...env, DB: db, MEDIA: env.MEDIA}, media)
   }
   return json(request,{ok:true})
 }

@@ -49,7 +49,7 @@ import { canonical } from '../src/lab/cloudbase.js'
 const cloudbase = createRequire(import.meta.url)(
   '../../wechat/cloudfunctions/segmentationPublish/index.js',
 )
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks() })
 function fixture() {
   const { db, sqlite } = database(),
     objects = new Map<string, string | ArrayBuffer>()
@@ -437,6 +437,12 @@ it.each([false, true])('cleans deleted application snapshots with durable retry 
   f.env.MEDIA.delete = originalDelete
   f.env.MEDIA.list = async ({prefix}: any) => ({objects:[...f.objects.keys()].filter(k=>k.startsWith(prefix)).map(key=>({key})),truncated:false}) as any
   await sweep(f.env)
+  expect(f.objects.has(prefix + 'display.webp')).toBe(storageFailure)
+  const next = f.sqlite.prepare('SELECT next_attempt_at FROM lab_gc WHERE prefix=?').get(prefix).next_attempt_at
+  vi.spyOn(Date, 'now').mockReturnValue(Number(next))
+  const list = vi.spyOn(f.env.MEDIA, 'list')
+  await sweep(f.env)
+  expect(list).not.toHaveBeenCalled()
   expect(f.objects.has(prefix + 'display.webp')).toBe(false)
   expect(f.objects.has(prefix + 'snapshot.json')).toBe(false)
   expect(f.objects.has('lab-publish-requests/unrelated/display.webp')).toBe(true)
