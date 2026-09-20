@@ -34,6 +34,8 @@ npx wrangler r2 bucket create cruxset-media
 npx wrangler secret put SEGMENTATION_PUBLISH_KEY --config edge/wrangler.jsonc
 ```
 
+升级旧版本的 R2 清理调度时，`0017_lab_gc_schedule.sql` 有额外前置步骤：旧 Worker 的 `INSERT INTO lab_gc VALUES (?,?)` 需要先改为显式列名 `(prefix,created_at)` 并部署兼容版本，再应用迁移并发布新的调度代码。不能直接在未经兼容修改的旧 Worker 上扩展该表。此生产环境已于 2026-09-20 完成兼容升级，详见[上线记录](../records/2026-09-20-r2-cleanup-release.md)。
+
 构建前端、应用 D1 迁移并部署 Worker：
 
 ```bash

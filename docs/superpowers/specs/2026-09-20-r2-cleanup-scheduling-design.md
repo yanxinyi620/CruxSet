@@ -29,11 +29,11 @@ An ordinary one-page prefix produces three lists across 24 hours, rather than ap
 
 ## Rollout prerequisite
 
-This change has not been deployed. The old Worker contains `INSERT OR IGNORE INTO lab_gc VALUES (?,?)`; adding columns makes that SQL invalid. Do not apply migration 0017 against that unmodified Worker, and do not deploy the new scheduler before its schema exists.
+Deployment completed on 2026-09-20; see `docs/records/2026-09-20-r2-cleanup-release.md`. The pre-migration Worker contained `INSERT OR IGNORE INTO lab_gc VALUES (?,?)`; adding columns makes that SQL invalid. Do not apply migration 0017 against that unmodified Worker, and do not deploy the new scheduler before its schema exists.
 
 Use a compatibility rollout:
 1. From the currently deployed revision, change each two-value cleanup insert to `INSERT OR IGNORE INTO lab_gc(prefix,created_at) VALUES (?,?)`, without deploying any new scheduler queries yet. Test and deploy that compatibility-only Worker first. Allow existing requests from the prior version to drain.
 2. Apply migration 0017. Legacy rows retain their original timestamps and get one due pass; normal scheduling follows. Legacy inserts with explicit columns still work during this interval.
 3. Deploy the new Worker and check due queue progress and `lab_gc_retry` logs. If rollback is needed, roll back to the compatibility-only Worker, not the older positional-insert version. Leave additive schema columns intact.
 
-No production migration, deployment or remote data access is part of this implementation run.
+The initial implementation was local only. Production rollout was subsequently explicitly authorized and completed; the release record captures deployed versions and verification.
